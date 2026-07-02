@@ -1,6 +1,4 @@
 use anyhow::Context;
-#[cfg(feature = "future_snark")]
-use midnight_zk_stdlib::MidnightVK;
 use std::marker::PhantomData;
 #[cfg(feature = "future_snark")]
 use std::sync::Arc;
@@ -18,8 +16,11 @@ use crate::{
 #[cfg(feature = "future_snark")]
 use crate::{
     AggregationError,
-    circuits::halo2_ivc::PREIMAGE_SIZE,
-    proof_system::ivc_halo2_snark::{IvcProverSetup, load_ivc_prover_setup},
+    circuits::{
+        halo2::keys::NonRecursiveCircuitVerifyingKey, halo2_ivc::PREIMAGE_SIZE,
+        key_provider::KeyProvider, trusted_setup::TrustedSetupProvider,
+    },
+    proof_system::ivc_halo2_snark::IvcSnarkProverSetup,
 };
 
 #[cfg(feature = "future_snark")]
@@ -153,8 +154,18 @@ impl<D: MembershipDigest> Clerk<D> {
                     )
                 })?;
 
-                let (ivc_prover_setup, certificate_midnight_verifying_key) =
-                    load_ivc_prover_setup(snark_clerk.parameters, MERKLE_TREE_DEPTH_FOR_SNARK)?;
+                let trusted_setup_provider = TrustedSetupProvider::default();
+                let certificate_provider = KeyProvider::for_non_recursive_circuit(
+                    &snark_clerk.parameters,
+                    MERKLE_TREE_DEPTH_FOR_SNARK,
+                )?;
+                let recursive_key_provider =
+                    KeyProvider::for_recursive_circuit(certificate_provider);
+                let ivc_prover_setup = Arc::new(IvcSnarkProverSetup::load(
+                    &trusted_setup_provider,
+                    &recursive_key_provider,
+                )?);
+                let certificate_verifying_key = ivc_prover_setup.certificate_verifying_key.clone();
 
                 let (ivc_proof, next_ancillary_prover_data, ancillary_verifier_data) =
                     ivc_prover_input_preparation_and_prove(
@@ -163,7 +174,7 @@ impl<D: MembershipDigest> Clerk<D> {
                         snark_clerk,
                         &ancillary_input,
                         ivc_prover_setup,
-                        certificate_midnight_verifying_key,
+                        certificate_verifying_key,
                     )?;
 
                 Ok((
@@ -241,8 +252,8 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     msg: &[u8],
     clerk: &SnarkClerk,
     ancillary_input: &AncillaryProofInput,
-    ivc_prover_setup: Arc<IvcProverSetup>,
-    certificate_midnight_verifying_key: MidnightVK,
+    ivc_prover_setup: Arc<IvcSnarkProverSetup>,
+    certificate_verifying_key: NonRecursiveCircuitVerifyingKey,
 ) -> StmResult<(
     IvcProof<blake2b_simd::State>,
     Option<AncillaryProverData>,
@@ -260,8 +271,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
 
     let genesis_message = genesis_data.genesis_message_preimage().try_into()?;
 
-    let certificate_circuit_verifying_key = certificate_midnight_verifying_key.vk().clone();
-    let ivc_circuit_verifying_key = ivc_prover_setup.ivc_verifying_key.clone();
+    let ivc_verifying_key = ivc_prover_setup.ivc_verifying_key.clone();
 
     let current_rolling_state = ancillary_input
         .prover_data()
@@ -279,8 +289,8 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     let global = Global::new(
         genesis_message,
         genesis_verifying_key,
-        &certificate_circuit_verifying_key,
-        &ivc_circuit_verifying_key,
+        &certificate_verifying_key,
+        &ivc_verifying_key,
     );
 
     let mut prover = IvcProver {
@@ -302,8 +312,8 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
 
     let ancillary_verifier_data = AncillaryVerifierData::IvcSnark(IvcVerifierData::new(
         genesis_message,
-        certificate_midnight_verifying_key,
-        ivc_circuit_verifying_key,
+        certificate_verifying_key,
+        ivc_verifying_key,
     ));
 
     Ok((
@@ -322,17 +332,17 @@ mod tests {
     use midnight_curves::Bls12;
     use midnight_proofs::poly::kzg::params::ParamsKZG;
     use midnight_zk_stdlib as zk;
-    use midnight_zk_stdlib::MidnightVK;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
     use crate::{
         AncillaryGenesisData, AncillaryProofInput, MithrilMembershipDigest, Parameters,
-        SchnorrVerificationKey,
         circuits::halo2::circuit::StmCertificateCircuit,
+        circuits::halo2::keys::NonRecursiveCircuitVerifyingKey,
         circuits::halo2_ivc::PREIMAGE_SIZE,
-        proof_system::{CircuitVerificationKey, SnarkClerk},
-        proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, ivc_halo2_snark::IvcProverSetup},
+        circuits::halo2_ivc::keys::{RecursiveCircuitProvingKey, RecursiveCircuitVerifyingKey},
+        proof_system::SnarkClerk,
+        proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, ivc_halo2_snark::IvcSnarkProverSetup},
         protocol::aggregate_signature::tests::setup_equal_parties,
         {AggregationError, AncillaryProverData, SnarkProof},
     };
@@ -342,7 +352,7 @@ mod tests {
     fn build_fast_dummy_ivc_setup(
         params: Parameters,
         depth: u32,
-    ) -> (Arc<IvcProverSetup>, MidnightVK) {
+    ) -> (Arc<IvcSnarkProverSetup>, NonRecursiveCircuitVerifyingKey) {
         let srs: Arc<ParamsKZG<Bls12>> = Arc::new(ParamsKZG::<Bls12>::unsafe_setup(
             12,
             ChaCha20Rng::from_seed([42u8; 32]),
@@ -359,27 +369,29 @@ mod tests {
         // Not the correct key but we only need a dummy
         let cert_pk = midnight_pk.pk().clone();
 
-        let ivc_setup = Arc::new(IvcProverSetup {
+        let ivc_setup = Arc::new(IvcSnarkProverSetup {
             srs: cert_srs,
-            certificate_verifying_key: cert_vk.clone(),
-            ivc_verifying_key: cert_vk,
-            ivc_proving_key: cert_pk,
+            certificate_verifying_key: NonRecursiveCircuitVerifyingKey::new(midnight_vk.clone()),
+            ivc_verifying_key: RecursiveCircuitVerifyingKey::new(cert_vk),
+            ivc_proving_key: RecursiveCircuitProvingKey::new(cert_pk),
             certificate_fixed_bases: BTreeMap::new(),
             ivc_fixed_bases: BTreeMap::new(),
             combined_fixed_bases: BTreeMap::new(),
         });
 
-        (ivc_setup, midnight_vk)
+        (ivc_setup, NonRecursiveCircuitVerifyingKey::new(midnight_vk))
     }
 
     #[test]
     fn ivc_prover_input_preparation_fails_when_prover_data_carries_no_ivc_rolling_state() {
+        use crate::SchnorrVerificationKey;
+
         let tiny_params = Parameters {
             k: 1,
             m: 10,
             phi_f: 0.9,
         };
-        let (ivc_prover_setup, certificate_midnight_verifying_key) =
+        let (ivc_prover_setup, certificate_verifying_key) =
             build_fast_dummy_ivc_setup(tiny_params, 1);
 
         let ps = setup_equal_parties(tiny_params, 1);
@@ -388,7 +400,7 @@ mod tests {
             vec![],
             tiny_params,
             MERKLE_TREE_DEPTH_FOR_SNARK,
-            CircuitVerificationKey::new(certificate_midnight_verifying_key.clone()),
+            certificate_verifying_key.clone(),
         );
 
         let ancillary_input = AncillaryProofInput::new(
@@ -403,7 +415,7 @@ mod tests {
             &snark_clerk,
             &ancillary_input,
             ivc_prover_setup,
-            certificate_midnight_verifying_key,
+            certificate_verifying_key,
         )
         .expect_err("Should fail without IVC rolling state.");
 
@@ -421,7 +433,7 @@ mod tests {
             m: 10,
             phi_f: 0.9,
         };
-        let (ivc_prover_setup, certificate_midnight_verifying_key) =
+        let (ivc_prover_setup, certificate_verifying_key) =
             build_fast_dummy_ivc_setup(tiny_params, 1);
 
         let ps = setup_equal_parties(tiny_params, 1);
@@ -430,7 +442,7 @@ mod tests {
             vec![],
             tiny_params,
             MERKLE_TREE_DEPTH_FOR_SNARK,
-            CircuitVerificationKey::new(certificate_midnight_verifying_key.clone()),
+            certificate_verifying_key.clone(),
         );
 
         let ancillary_input = AncillaryProofInput::new(
@@ -445,7 +457,7 @@ mod tests {
             &snark_clerk,
             &ancillary_input,
             ivc_prover_setup,
-            certificate_midnight_verifying_key,
+            certificate_verifying_key,
         )
         .expect_err("Should fail without genesis verification key.");
 

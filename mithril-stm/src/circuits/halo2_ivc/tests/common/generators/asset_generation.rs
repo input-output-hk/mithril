@@ -1,7 +1,6 @@
 use std::time::Instant;
 
 use midnight_circuits::types::Instantiable;
-use midnight_proofs::{plonk::ProvingKey, poly::kzg::KZGCommitmentScheme};
 use rand_core::OsRng;
 use sha2::{Digest as Sha2Digest, Sha256};
 
@@ -26,8 +25,9 @@ use crate::circuits::halo2_ivc::tests::common::asset_readers::{
     store_verification_context_asset,
 };
 use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, E, F, PREIMAGE_SIZE, S,
+    Accumulator, AssignedAccumulator, C, PREIMAGE_SIZE, S,
     circuit::IvcCircuitData,
+    keys::RecursiveCircuitProvingKey,
     state::{Global, State, trivial_acc},
     types::{CertificateProofBytes, IvcProofBytes},
 };
@@ -106,7 +106,7 @@ fn build_recursive_chain_snapshot(
     setup: &AssetGenerationSetup,
     context: &super::setup::SharedRecursiveContext,
     global: &Global,
-    recursive_proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
+    recursive_proving_key: &RecursiveCircuitProvingKey,
     recursive_fixed_bases: &std::collections::BTreeMap<String, C>,
     combined_fixed_bases: &std::collections::BTreeMap<String, C>,
     artifacts: CertificateChainArtifacts,
@@ -132,7 +132,7 @@ fn build_recursive_chain_snapshot(
             artifacts.certificate_proofs[i].clone(),
             recursive_proof.clone(),
             current_accumulator.clone(),
-            context.certificate_verifying_key.vk(),
+            &context.certificate_verifying_key,
             &context.recursive_verifying_key,
         )
         .expect("valid IvcCircuitData construction");
@@ -151,8 +151,11 @@ fn build_recursive_chain_snapshot(
             &public_inputs,
             &mut recursive_random_generator,
         );
-        let dual_msm =
-            verify_prepare_poseidon_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
+        let dual_msm = verify_prepare_poseidon_ivc(
+            context.recursive_verifying_key.as_ref(),
+            &proof,
+            &public_inputs,
+        );
         assert!(dual_msm.clone().check(&context.universal_verifier_params));
 
         let mut proof_accumulator: Accumulator<S> = dual_msm.into();
@@ -262,7 +265,7 @@ fn build_next_recursive_step_inputs(
     ]
     .concat();
     let previous_dual_msm = verify_prepare_poseidon_ivc(
-        &context.recursive_verifying_key,
+        context.recursive_verifying_key.as_ref(),
         recursive_chain_state.ivc_proof.as_bytes(),
         &previous_public_inputs,
     );
@@ -297,7 +300,7 @@ fn build_next_recursive_step_inputs(
 fn build_recursive_step_output_proof(
     context: &super::setup::SharedRecursiveContext,
     global: &Global,
-    recursive_proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
+    recursive_proving_key: &RecursiveCircuitProvingKey,
     recursive_chain_state: &RecursiveChainStateAsset,
     next_step_inputs: &NextRecursiveStepInputs,
 ) -> Vec<u8> {
@@ -309,7 +312,7 @@ fn build_recursive_step_output_proof(
         next_step_inputs.certificate_proof.clone(),
         recursive_chain_state.ivc_proof.clone(),
         recursive_chain_state.accumulator.clone(),
-        context.certificate_verifying_key.vk(),
+        &context.certificate_verifying_key,
         &context.recursive_verifying_key,
     )
     .expect("valid IvcCircuitData construction");
@@ -330,7 +333,7 @@ fn build_recursive_step_output_proof(
         &mut recursive_step_output_random_generator,
     );
     let final_dual_msm = verify_prepare_blake2b_ivc(
-        &context.recursive_verifying_key,
+        context.recursive_verifying_key.as_ref(),
         &final_proof,
         &public_inputs,
     );
@@ -539,7 +542,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         CertificateProofBytes::empty(),
         IvcProofBytes::empty(),
         current_accumulator,
-        context.certificate_verifying_key.vk(),
+        &context.certificate_verifying_key,
         &context.recursive_verifying_key,
     )
     .expect("valid IvcCircuitData construction");
@@ -561,8 +564,11 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         &public_inputs,
         &mut rng,
     );
-    let dual_msm =
-        verify_prepare_blake2b_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
+    let dual_msm = verify_prepare_blake2b_ivc(
+        context.recursive_verifying_key.as_ref(),
+        &proof,
+        &public_inputs,
+    );
     assert!(
         dual_msm.check(&context.universal_verifier_params),
         "genesis step proof verification failed"
@@ -650,7 +656,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     ]
     .concat();
     let previous_dual_msm = verify_prepare_poseidon_ivc(
-        &context.recursive_verifying_key,
+        context.recursive_verifying_key.as_ref(),
         chain_state.ivc_proof.as_bytes(),
         &previous_public_inputs,
     );
@@ -683,7 +689,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         certificate_proof.clone(),
         chain_state.ivc_proof.clone(),
         chain_state.accumulator.clone(),
-        context.certificate_verifying_key.vk(),
+        &context.certificate_verifying_key,
         &context.recursive_verifying_key,
     )
     .expect("valid IvcCircuitData construction");
@@ -704,8 +710,11 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         &public_inputs,
         &mut rng,
     );
-    let dual_msm =
-        verify_prepare_blake2b_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
+    let dual_msm = verify_prepare_blake2b_ivc(
+        context.recursive_verifying_key.as_ref(),
+        &proof,
+        &public_inputs,
+    );
     assert!(
         dual_msm.check(&context.universal_verifier_params),
         "same-epoch step proof verification failed"

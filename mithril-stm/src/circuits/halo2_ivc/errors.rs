@@ -8,7 +8,7 @@ pub enum IvcCircuitError {
     #[error("Certificate proof verification rejected: {0}")]
     CertificateProofRejected(String),
 
-    /// IVC verification key degree does not match the IVC circuit degree constant K.
+    /// IVC verification key degree does not match the IVC circuit degree constant RECURSIVE_CIRCUIT_DEGREE.
     #[error(
         "IvcCircuitData::validate_ivc_verification_key_degree failed: expected k={expected}, got k={actual}"
     )]
@@ -46,9 +46,9 @@ pub enum IvcCircuitError {
     StepCounterOverflow { current: u64 },
 
     /// Off-circuit step transition: the certificate proof's embedded verifying key does
-    /// not match the certificate verifying key carried by `IvcProverSetup`.
+    /// not match the certificate verifying key carried by `IvcSnarkProverSetup`.
     #[error(
-        "IvcProverInput::prepare: certificate proof's embedded verifying key does not match the certificate verifying key in IvcProverSetup"
+        "IvcProverInput::prepare: certificate proof's embedded verifying key does not match the certificate verifying key in IvcSnarkProverSetup"
     )]
     CertificateVerifyingKeyMismatch,
 }

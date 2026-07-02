@@ -49,6 +49,21 @@ pub fn from_versioned_bytes<T: DeserializeOwned>(
     }
 }
 
+// Only the SNARK circuit keys implement these traits, so they are gated to that feature.
+/// Serialize a value to a byte vector.
+#[cfg(feature = "future_snark")]
+pub trait TryToBytes {
+    /// Try to convert to a bytes vector.
+    fn to_bytes_vec(&self) -> StmResult<Vec<u8>>;
+}
+
+/// Deserialize a value from a byte slice.
+#[cfg(feature = "future_snark")]
+pub trait TryFromBytes: Sized {
+    /// Try to convert from a bytes slice.
+    fn try_from_bytes(bytes: &[u8]) -> StmResult<Self>;
+}
+
 #[cfg(test)]
 mod tests {
     use serde::Deserialize;

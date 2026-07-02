@@ -10,9 +10,13 @@ use midnight_zk_stdlib::MidnightVK;
 use crate::{
     StmResult,
     circuits::{
-        halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        halo2::{
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            keys::NonRecursiveCircuitVerifyingKey,
+        },
         halo2_ivc::{
-            K, RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::IvcCircuitData,
+            RECURSIVE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            circuit::IvcCircuitData,
         },
         trusted_setup::TrustedSetupProvider,
     },
@@ -22,19 +26,20 @@ use crate::{
 /// non-recursive VK. Used by [`write_recursive_circuit_verification_key_for_production_to_file`]
 /// to regenerate `recursive_circuit_verification_key_for_production.bin` when the circuit changes.
 fn compute_recursive_circuit_verification_key() -> StmResult<Vec<u8>> {
-    let shared_srs_degree = K;
+    let shared_srs_degree = RECURSIVE_CIRCUIT_DEGREE;
     let srs = TrustedSetupProvider::default().get_trusted_setup_parameters()?;
-    // The recursive circuit uses a fixed SRS degree K, smaller than the full production SRS.
+    // The recursive circuit uses a fixed SRS degree RECURSIVE_CIRCUIT_DEGREE, smaller than the full production SRS.
     let mut recursive_commitment_parameters = srs;
     recursive_commitment_parameters.downsize(shared_srs_degree);
 
     let mut non_recursive_verification_key = NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
-    let certificate_verifying_key =
+    let certificate_verifying_key = NonRecursiveCircuitVerifyingKey::new(
         MidnightVK::read(&mut non_recursive_verification_key, SerdeFormat::RawBytes)
-            .with_context(|| "Failed to deserialize the circuit verification key.")?;
+            .with_context(|| "Failed to deserialize the circuit verification key.")?,
+    );
 
-    let default_ivc_circuit = IvcCircuitData::unknown(certificate_verifying_key.vk())
-        .expect("valid IvcCircuitData unknown");
+    let default_ivc_circuit =
+        IvcCircuitData::unknown(&certificate_verifying_key).expect("valid IvcCircuitData unknown");
     let recursive_verification_key: VerifyingKey<
         <BlstrsEmulation as SelfEmulation>::F,
         KZGCommitmentScheme<<BlstrsEmulation as SelfEmulation>::Engine>,

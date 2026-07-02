@@ -14,6 +14,8 @@ use midnight_proofs::{
 use midnight_zk_stdlib::MidnightVK;
 
 use crate::StmResult;
+use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
+use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use crate::circuits::halo2_ivc::{
     Accumulator, C, E, F, KZGCommitmentScheme, PREIMAGE_SIZE, S, VerifyingKey,
     circuit::IvcCircuitData,
@@ -49,7 +51,7 @@ pub(crate) struct VerificationContextAsset {
     /// Shared global public inputs used by the committed assets.
     pub(crate) global_field_elements: Vec<F>,
     /// Stored recursive verifying key.
-    pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
+    pub(crate) recursive_verifying_key: RecursiveCircuitVerifyingKey,
     /// Combined fixed bases needed to check recursive accumulators.
     pub(crate) combined_fixed_bases: BTreeMap<String, C>,
     /// Shared verifier-side KZG parameters.
@@ -57,7 +59,7 @@ pub(crate) struct VerificationContextAsset {
     /// The verifier-side `s_g2` element extracted from the stored params.
     pub(crate) verifier_tau_in_g2: <E as Engine>::G2Affine,
     /// Stored certificate verifying key, enabling MockProver tests to skip SRS generation.
-    pub(crate) certificate_verifying_key: MidnightVK,
+    pub(crate) certificate_verifying_key: NonRecursiveCircuitVerifyingKey,
 }
 
 /// Stored data of the first certificate produced from `build_genesis_base_case_next_state()`.
@@ -400,11 +402,11 @@ fn load_verification_context_asset_from_reader<R: Read>(
 
     Ok(VerificationContextAsset {
         global_field_elements,
-        recursive_verifying_key,
+        recursive_verifying_key: RecursiveCircuitVerifyingKey::new(recursive_verifying_key),
         combined_fixed_bases,
         verifier_params,
         verifier_tau_in_g2,
-        certificate_verifying_key,
+        certificate_verifying_key: NonRecursiveCircuitVerifyingKey::new(certificate_verifying_key),
     })
 }
 
@@ -434,6 +436,7 @@ pub(crate) fn store_verification_context_asset(
     }
     asset
         .recursive_verifying_key
+        .verifying_key()
         .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
     write_named_fixed_bases(&mut writer, &asset.combined_fixed_bases)?;
 
@@ -447,6 +450,7 @@ pub(crate) fn store_verification_context_asset(
     let mut certificate_verification_key_buf = Vec::new();
     asset
         .certificate_verifying_key
+        .midnight_vk()
         .write(&mut certificate_verification_key_buf, SerdeFormat::RawBytes)?;
     write_length_prefixed_proof(&mut writer, &certificate_verification_key_buf)?;
 

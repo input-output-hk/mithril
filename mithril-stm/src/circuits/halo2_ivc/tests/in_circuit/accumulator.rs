@@ -42,7 +42,7 @@ fn assert_step_output_rejects_tampered_next_accumulator<T: StepOutputAsset>(
     let public_inputs = [global, state, accumulator_encoding].concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         step_output.ivc_proof().as_bytes(),
         &public_inputs,
     );
@@ -137,7 +137,7 @@ mod slow {
             certificate_proof,
             recursive_chain_state.ivc_proof.clone(),
             recursive_chain_state.accumulator.clone(),
-            mock_prover_setup.certificate_verifying_key.vk(),
+            &mock_prover_setup.certificate_verifying_key,
             &mock_prover_setup.recursive_verifying_key,
         )
         .expect("valid IvcCircuitData construction");

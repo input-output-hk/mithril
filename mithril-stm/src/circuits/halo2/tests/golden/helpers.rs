@@ -12,12 +12,15 @@ use midnight_proofs::plonk::Error as PlonkError;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_proofs::utils::SerdeFormat;
 use midnight_zk_stdlib as zk;
-use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
+use midnight_zk_stdlib::MidnightCircuit;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
+use crate::circuits::halo2::keys::{
+    NonRecursiveCircuitProvingKey, NonRecursiveCircuitVerifyingKey,
+};
 use crate::circuits::halo2::types::CircuitBase;
 use crate::circuits::halo2::witness::{
     CircuitMerkleTreeLeaf, CircuitWitnessEntry, LotteryTargetValue as CircuitLotteryTargetValue,
@@ -41,7 +44,10 @@ pub(crate) const LOTTERIES_PER_K: u32 = 10;
 const DEFAULT_TEST_MSG: u64 = 42;
 
 /// Verification/proving key pair cached per STM circuit configuration.
-type CircuitVerificationAndProvingKeyPair = (MidnightVK, MidnightPK<StmCertificateCircuit>);
+type CircuitVerificationAndProvingKeyPair = (
+    NonRecursiveCircuitVerifyingKey,
+    NonRecursiveCircuitProvingKey,
+);
 /// Cache map for verification/proving keys keyed by STM circuit configuration.
 type CircuitKeysCache = HashMap<StmCircuitConfig, Arc<CircuitVerificationAndProvingKeyPair>>;
 
@@ -132,10 +138,10 @@ pub(crate) struct StmCircuitEnv {
     relation: StmCertificateCircuit,
 
     /// Verification key corresponding to `relation` and `srs`.
-    vk: MidnightVK,
+    vk: NonRecursiveCircuitVerifyingKey,
 
     /// Proving key corresponding to `relation` and `vk`.
-    pk: MidnightPK<StmCertificateCircuit>,
+    pk: NonRecursiveCircuitProvingKey,
 
     /// Number of signers used to size the Merkle tree in golden tests.
     num_signers: usize,
@@ -602,7 +608,7 @@ pub(crate) fn prove_and_verify_result(
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let proof = zk::prove::<StmCertificateCircuit, PoseidonState<CircuitBase>>(
         &env.srs,
-        &env.pk,
+        env.pk.midnight_pk(),
         &env.relation,
         &instance,
         scenario.witness,
@@ -616,7 +622,7 @@ pub(crate) fn prove_and_verify_result(
     let start = Instant::now();
     let verify_result = zk::verify::<StmCertificateCircuit, PoseidonState<CircuitBase>>(
         &env.srs.verifier_params(),
-        &env.vk,
+        env.vk.midnight_vk(),
         &instance,
         None,
         &proof,
@@ -731,7 +737,10 @@ fn get_or_build_circuit_keys(
     let duration = start.elapsed();
     println!("\nvk pk generation took: {:?}", duration);
 
-    let key_pair = Arc::new((vk, pk));
+    let key_pair = Arc::new((
+        NonRecursiveCircuitVerifyingKey::new(vk),
+        NonRecursiveCircuitProvingKey::new(pk),
+    ));
     STM_CIRCUIT_KEYS_CACHE
         .write()
         .map_err(|_| anyhow!(StmCircuitError::CircuitKeysCacheLockPoisoned { operation: "write" }))?

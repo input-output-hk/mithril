@@ -11,7 +11,7 @@
 //! `accumulator_update`          — full folding pipeline on stored assets; soundness under wrong previous accumulator.
 //! `accumulator_verification`    — `accumulator.check` accepts valid stored accumulators and rejects tampered ones.
 //! `certificate_proof_rejection` — `verify_and_prepare_accumulator` rejects garbage bytes and wrong public inputs.
-//! `circuit_validation`          — `IvcCircuitData::validate_ivc_verification_key_degree` rejects a VK with degree ≠ K.
+//! `circuit_validation`          — `IvcCircuitData::validate_ivc_verification_key_degree` rejects a VK with degree ≠ RECURSIVE_CIRCUIT_DEGREE.
 //! `fixed_base_extraction`       — `extract_fixed_bases` reclassification and encoding effects.
 //! `proof_verification`          — `dual_msm.check` + `accumulator.check` combined for same-epoch and chain-state proofs.
 

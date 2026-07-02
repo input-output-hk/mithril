@@ -3,20 +3,19 @@ use std::{collections::BTreeMap, path::PathBuf};
 use ff::Field;
 use midnight_curves::Bls12;
 use midnight_proofs::{
-    plonk::{ProvingKey, VerifyingKey, keygen_pk, keygen_vk_with_k},
-    poly::kzg::{
-        KZGCommitmentScheme,
-        params::{ParamsKZG, ParamsVerifierKZG},
-    },
+    plonk::{keygen_pk, keygen_vk_with_k},
+    poly::kzg::params::{ParamsKZG, ParamsVerifierKZG},
 };
 use midnight_zk_stdlib as zk_lib;
-use midnight_zk_stdlib::MidnightVK;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use sha2::{Digest as Sha2Digest, Sha256};
 
 use crate::AggregateVerificationKeyForSnark;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
+use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
+use crate::circuits::halo2_ivc::RECURSIVE_CIRCUIT_DEGREE;
+use crate::circuits::halo2_ivc::keys::{RecursiveCircuitProvingKey, RecursiveCircuitVerifyingKey};
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::types::MessageHash;
 use crate::circuits::halo2_ivc::{
@@ -30,7 +29,7 @@ use crate::signature_scheme::{
 use crate::{MembershipDigest, MithrilMembershipDigest, Parameters};
 
 use super::super::field_encoding::jubjub_base_from_raw_le_bytes;
-use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
+use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE};
 use super::transitions::build_genesis_protocol_message;
 
 type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
@@ -122,9 +121,9 @@ pub(crate) struct SharedRecursiveContext {
     /// Recursive-circuit-sized commitment parameters derived from the shared SRS.
     pub(crate) recursive_commitment_parameters: ParamsKZG<Bls12>,
     /// Verifying key for the certificate relation.
-    pub(crate) certificate_verifying_key: MidnightVK,
+    pub(crate) certificate_verifying_key: NonRecursiveCircuitVerifyingKey,
     /// Verifying key for the recursive IVC circuit.
-    pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
+    pub(crate) recursive_verifying_key: RecursiveCircuitVerifyingKey,
 }
 
 /// Builds the deterministic signer keys, leaves, and commitment tree used by the assets.
@@ -203,18 +202,20 @@ pub(crate) fn build_shared_recursive_context(
         RECURSIVE_CIRCUIT_DEGREE,
     );
 
-    let certificate_verifying_key = zk_lib::setup_vk(
+    let certificate_verifying_key = NonRecursiveCircuitVerifyingKey::new(zk_lib::setup_vk(
         &certificate_commitment_parameters,
         &setup.certificate_relation,
+    ));
+    let default_ivc_circuit =
+        IvcCircuitData::unknown(&certificate_verifying_key).expect("valid IvcCircuitData unknown");
+    let recursive_verifying_key = RecursiveCircuitVerifyingKey::new(
+        keygen_vk_with_k(
+            &recursive_commitment_parameters,
+            &default_ivc_circuit,
+            RECURSIVE_CIRCUIT_DEGREE,
+        )
+        .expect("recursive verifying key generation should not fail"),
     );
-    let default_ivc_circuit = IvcCircuitData::unknown(certificate_verifying_key.vk())
-        .expect("valid IvcCircuitData unknown");
-    let recursive_verifying_key = keygen_vk_with_k(
-        &recursive_commitment_parameters,
-        &default_ivc_circuit,
-        RECURSIVE_CIRCUIT_DEGREE,
-    )
-    .expect("recursive verifying key generation should not fail");
 
     SharedRecursiveContext {
         universal_kzg_parameters,
@@ -229,20 +230,22 @@ pub(crate) fn build_shared_recursive_context(
 /// Builds the recursive proving key for the default IVC circuit shape.
 pub(crate) fn build_recursive_proving_key(
     context: &SharedRecursiveContext,
-) -> ProvingKey<F, KZGCommitmentScheme<E>> {
-    let default_ivc_circuit = IvcCircuitData::unknown(context.certificate_verifying_key.vk())
+) -> RecursiveCircuitProvingKey {
+    let default_ivc_circuit = IvcCircuitData::unknown(&context.certificate_verifying_key)
         .expect("valid IvcCircuitData unknown");
-    keygen_pk(
-        context.recursive_verifying_key.clone(),
-        &default_ivc_circuit,
+    RecursiveCircuitProvingKey::new(
+        keygen_pk(
+            context.recursive_verifying_key.verifying_key().clone(),
+            &default_ivc_circuit,
+        )
+        .expect("recursive proving key generation should not fail"),
     )
-    .expect("recursive proving key generation should not fail")
 }
 
 /// Returns the certificate, recursive, and combined fixed-base maps.
 pub(crate) fn build_recursive_fixed_bases(
-    certificate_verifying_key: &MidnightVK,
-    recursive_verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
+    recursive_verifying_key: &RecursiveCircuitVerifyingKey,
 ) -> (
     BTreeMap<String, C>,
     BTreeMap<String, C>,
@@ -250,10 +253,10 @@ pub(crate) fn build_recursive_fixed_bases(
 ) {
     let (certificate_fixed_bases, _) = fixed_bases_and_names(
         CERTIFICATE_VERIFICATION_KEY_NAME,
-        certificate_verifying_key.vk(),
+        certificate_verifying_key.as_ref(),
     );
     let (recursive_fixed_bases, _) =
-        fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, recursive_verifying_key);
+        fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, recursive_verifying_key.as_ref());
     let mut combined_fixed_bases = certificate_fixed_bases.clone();
     combined_fixed_bases.extend(recursive_fixed_bases.clone());
 
@@ -267,13 +270,13 @@ pub(crate) fn build_recursive_fixed_bases(
 /// Builds the shared recursive global inputs from the deterministic setup.
 pub(crate) fn build_recursive_global(
     setup: &AssetGenerationSetup,
-    certificate_verifying_key: &MidnightVK,
-    recursive_verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
+    recursive_verifying_key: &RecursiveCircuitVerifyingKey,
 ) -> Global {
     Global::new(
         setup.genesis_message,
         setup.genesis_verification_key,
-        certificate_verifying_key.vk(),
+        certificate_verifying_key,
         recursive_verifying_key,
     )
 }

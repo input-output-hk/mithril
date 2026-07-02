@@ -11,6 +11,8 @@ use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use sha2::{Digest, Sha256};
 
 use crate::{StmResult, circuits::MITHRIL_CIRCUIT_CACHE_FOLDER};
+#[cfg(test)]
+use {rand_chacha::ChaCha20Rng, rand_core::SeedableRng, std::fs::create_dir_all};
 
 /// Constant storing the hash of the SRS of degree 22 used to create proof in production.
 /// This SRS is coming from the trusted setup done by Midnight and available in the following
@@ -189,31 +191,33 @@ impl Default for TrustedSetupProvider {
     }
 }
 
-/// Builds a `TrustedSetupProvider` backed by a freshly generated unsafe SRS of
-/// degree `k`, written to `base_dir/srs/srs-parameters` with a matching SHA256
-/// hash so the provider's hash check passes. For tests only.
+/// Seed for the deterministic unsafe SRS used by the tests; it pins the SRS's tau. Test key caches
+/// fold in this seed so they stay correct if it ever changes. The IVC setup cache also folds in the
+/// SRS degree; the certificate-key cache omits it, since keygen downsizes the seed-pinned SRS to the
+/// certificate circuit's own degree, so the oversized degree never affects the certificate key.
 #[cfg(test)]
-pub(crate) fn build_provider_with_unsafe_srs(
-    base_dir: &std::path::Path,
-    k: u32,
-) -> TrustedSetupProvider {
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
-    use std::fs::{File, create_dir_all};
+pub(crate) const UNSAFE_SRS_SEED: u64 = 42;
 
-    let srs = ParamsKZG::<Bls12>::unsafe_setup(k, ChaCha20Rng::seed_from_u64(42));
-    let mut srs_bytes = Vec::new();
-    srs.write_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
+#[cfg(test)]
+impl TrustedSetupProvider {
+    /// Builds a `TrustedSetupProvider` backed by a freshly generated unsafe SRS of degree `k`, written
+    /// to `base_dir/srs/srs-parameters` with a matching SHA256 hash so the provider's hash check passes.
+    /// For tests only.
+    pub(crate) fn with_unsafe_srs(base_dir: &std::path::Path, k: u32) -> Self {
+        let srs = ParamsKZG::<Bls12>::unsafe_setup(k, ChaCha20Rng::seed_from_u64(UNSAFE_SRS_SEED));
+        let mut srs_bytes = Vec::new();
+        srs.write_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
 
-    let srs_dir = base_dir.join(MITHRIL_CIRCUIT_SRS_FOLDER);
-    create_dir_all(&srs_dir).unwrap();
-    File::create(srs_dir.join(MITHRIL_CIRCUIT_SRS_FILENAME))
-        .unwrap()
-        .write_all(&srs_bytes)
-        .unwrap();
+        let srs_dir = base_dir.join(MITHRIL_CIRCUIT_SRS_FOLDER);
+        create_dir_all(&srs_dir).unwrap();
+        File::create(srs_dir.join(MITHRIL_CIRCUIT_SRS_FILENAME))
+            .unwrap()
+            .write_all(&srs_bytes)
+            .unwrap();
 
-    let expected_hash = hex::encode(Sha256::digest(&srs_bytes));
-    TrustedSetupProvider::new(base_dir, expected_hash, "", Duration::from_secs(600))
+        let expected_hash = hex::encode(Sha256::digest(&srs_bytes));
+        Self::new(base_dir, expected_hash, "", Duration::from_secs(600))
+    }
 }
 
 #[cfg(test)]

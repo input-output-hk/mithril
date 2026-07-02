@@ -44,7 +44,7 @@ pub(crate) use midnight_circuits::{
 
 pub(crate) use midnight_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
-    plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
+    plonk::{Circuit, ConstraintSystem, Error, ProvingKey, VerifyingKey},
     poly::{EvaluationDomain, kzg::KZGCommitmentScheme},
 };
 
@@ -54,6 +54,10 @@ pub(crate) mod config;
 pub(crate) mod errors;
 pub(crate) mod gadget;
 pub(crate) mod io;
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) mod key_serialization;
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) mod keys;
 #[cfg(test)]
 pub(crate) mod protocol_message;
 pub(crate) mod state;
@@ -65,16 +69,16 @@ pub(crate) mod tests;
 pub(crate) use types::ProtocolMessagePreimage;
 
 type S = BlstrsEmulation;
-type F = <S as SelfEmulation>::F;
+pub(crate) type F = <S as SelfEmulation>::F;
 type C = <S as SelfEmulation>::C;
 
-type E = <S as SelfEmulation>::Engine;
+pub(crate) type E = <S as SelfEmulation>::Engine;
 type CBase = <C as CircuitCurve>::Base;
 
 type NG = NativeGadget<F, P2RDecompositionChip<F>, NativeChip<F>>;
 
 // Degree of the recursive circuit
-pub(crate) const K: u32 = 19;
+pub(crate) const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
 
 pub const PREIMAGE_SIZE: usize = 190;
 /// Byte range of the next Merkle-tree commitment within the protocol message preimage.

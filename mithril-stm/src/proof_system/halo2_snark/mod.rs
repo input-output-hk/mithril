@@ -1,20 +1,16 @@
 mod aggregate_key;
-mod circuit_verification_key;
 mod clerk;
 mod eligibility;
 mod message;
 mod proof;
 mod prover_input;
+mod setup;
 mod signer;
 mod single_signature;
-mod unsafe_helpers;
 
 pub use aggregate_key::AggregateVerificationKeyForSnark;
 #[cfg(test)]
 pub(crate) use aggregate_key::RIGID_SLOT_BYTES;
-#[cfg(test)]
-pub(crate) use circuit_verification_key::CircuitVerificationKey;
-pub(crate) use circuit_verification_key::midnight_certificate_verification_key_serde;
 pub(crate) use clerk::SnarkClerk;
 pub(crate) use eligibility::{
     compute_target_value_for_snark_lottery, compute_winning_lottery_indices,
@@ -22,9 +18,9 @@ pub(crate) use eligibility::{
 pub(crate) use message::build_snark_message;
 pub use proof::SnarkProof;
 pub(crate) use proof::SnarkProver;
+pub(crate) use setup::{SnarkProverSetup, SnarkVerifierSetup};
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
-pub(crate) use unsafe_helpers::{SnarkSetup, SnarkVerifierSetup};
 
 /// Fixed merkle tree depth used of the merkle tree
 /// of signers for the SNARK proof. It is used to compute

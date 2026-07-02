@@ -9,26 +9,24 @@ use std::collections::BTreeMap;
 use anyhow::Context;
 use midnight_curves::{Bls12, G1Projective, G2Affine};
 use midnight_proofs::{poly::kzg::params::ParamsVerifierKZG, utils::SerdeFormat};
-use midnight_zk_stdlib::MidnightVK;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     StmResult,
-    circuits::halo2_ivc::{
-        CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, state::fixed_bases_and_names,
-        types::MessageHash,
+    circuits::{
+        halo2::keys::NonRecursiveCircuitVerifyingKey,
+        halo2_ivc::{
+            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
+            keys::RecursiveCircuitVerifyingKey, state::fixed_bases_and_names, types::MessageHash,
+        },
     },
     codec,
-    proof_system::{
-        KZG_VERIFIER_PARAMS,
-        halo2_snark::midnight_certificate_verification_key_serde,
-        ivc_halo2_snark::{CircuitVerifyingKey, prover_setup::IvcProverSetup},
-    },
+    proof_system::{KZG_VERIFIER_PARAMS, ivc_halo2_snark::prover_setup::IvcSnarkProverSetup},
 };
 
 /// Minimal setup artifacts needed to verify IVC proofs without loading the full SRS.
 ///
-/// Unlike [`IvcProverSetup`], this struct does not hold a `ParamsKZG` (hundreds of MB). The KZG
+/// Unlike [`IvcSnarkProverSetup`], this struct does not hold a `ParamsKZG` (hundreds of MB). The KZG
 /// verifier parameters are embedded as a compile-time constant and deserialized on
 /// construction. The caller must supply the verifying keys because the certificate VK varies
 /// per deployment.
@@ -49,7 +47,7 @@ pub(crate) struct IvcVerifierSetup {
     /// `s_g2` (tau·G2) extracted from the embedded params; passed to the accumulator check.
     tau_g2: G2Affine,
     /// Verifying key of the IVC circuit.
-    ivc_verifying_key: CircuitVerifyingKey,
+    ivc_verifying_key: RecursiveCircuitVerifyingKey,
     /// Combined fixed-base map (certificate ∪ IVC) used by the accumulator check.
     combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
@@ -61,15 +59,17 @@ impl IvcVerifierSetup {
     /// deserialized from `RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION`. No SRS needed.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn try_new(
-        certificate_verifying_key: &CircuitVerifyingKey,
-        ivc_verifying_key: &CircuitVerifyingKey,
+        certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
+        ivc_verifying_key: &RecursiveCircuitVerifyingKey,
     ) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
 
-        let (certificate_fixed_bases, _) =
-            fixed_bases_and_names(CERTIFICATE_VERIFICATION_KEY_NAME, certificate_verifying_key);
+        let (certificate_fixed_bases, _) = fixed_bases_and_names(
+            CERTIFICATE_VERIFICATION_KEY_NAME,
+            certificate_verifying_key.as_ref(),
+        );
         let (ivc_fixed_bases, _) =
-            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key);
+            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key.as_ref());
         let mut combined_fixed_bases = certificate_fixed_bases;
         combined_fixed_bases.extend(ivc_fixed_bases);
 
@@ -81,11 +81,11 @@ impl IvcVerifierSetup {
         })
     }
 
-    /// Derive from an already-built [`IvcProverSetup`], reusing its precomputed fixed bases.
+    /// Derive from an already-built [`IvcSnarkProverSetup`], reusing its precomputed fixed bases.
     ///
     /// Avoids recomputing fixed bases from scratch when a proving session is already running.
     #[allow(dead_code)]
-    pub(crate) fn from_ivc_setup(ivc_setup: &IvcProverSetup) -> StmResult<Self> {
+    pub(crate) fn from_ivc_setup(ivc_setup: &IvcSnarkProverSetup) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
         Ok(Self {
             verifier_params,
@@ -95,12 +95,12 @@ impl IvcVerifierSetup {
         })
     }
 
-    /// Derive from an already-built [`IvcProverSetup`], extracting verifier params directly
+    /// Derive from an already-built [`IvcSnarkProverSetup`], extracting verifier params directly
     /// from its SRS rather than the embedded constant. Only for tests — production code must
     /// not load the full SRS just to verify a proof.
     #[cfg(test)]
     #[allow(dead_code)]
-    pub(crate) fn from_ivc_setup_with_srs(ivc_setup: &IvcProverSetup) -> Self {
+    pub(crate) fn from_ivc_setup_with_srs(ivc_setup: &IvcSnarkProverSetup) -> Self {
         let verifier_params = ivc_setup.srs.verifier_params();
         let tau_g2: G2Affine = verifier_params.s_g2().into();
         Self {
@@ -119,7 +119,7 @@ impl IvcVerifierSetup {
     pub(crate) fn from_parts(
         verifier_params: ParamsVerifierKZG<Bls12>,
         tau_g2: G2Affine,
-        ivc_verifying_key: CircuitVerifyingKey,
+        ivc_verifying_key: RecursiveCircuitVerifyingKey,
         combined_fixed_bases: BTreeMap<String, G1Projective>,
     ) -> Self {
         Self {
@@ -160,7 +160,7 @@ impl IvcVerifierSetup {
     }
 
     /// Returns the IVC circuit verifying key.
-    pub(crate) fn ivc_verifying_key(&self) -> &CircuitVerifyingKey {
+    pub(crate) fn ivc_verifying_key(&self) -> &RecursiveCircuitVerifyingKey {
         &self.ivc_verifying_key
     }
 
@@ -175,22 +175,20 @@ impl IvcVerifierSetup {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IvcVerifierData {
     genesis_message: MessageHash,
-    #[serde(with = "midnight_certificate_verification_key_serde")]
-    certificate_circuit_verification_key: MidnightVK,
-    #[serde(with = "ivc_circuit_verification_key_serde")]
-    ivc_circuit_verification_key: CircuitVerifyingKey,
+    certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
+    ivc_circuit_verification_key: RecursiveCircuitVerifyingKey,
 }
 
 impl IvcVerifierData {
-    /// Build the verifier data from the genesis message and the verifying keys of the recursive
-    ///  and non recursive circuit used to produce the proof.
+    /// Build the verifier data from the genesis message and the certificate and IVC circuit
+    /// verifying keys used to produce the proof.
     ///
-    /// The certificate verifying key is kept as a [MidnightVK] because its serialization carries
-    /// the circuit architecture required to deserialize it against the correct constraint system.
+    /// The verifying keys are the per-circuit newtypes so their serialization preserves the circuit
+    /// architecture needed to deserialize them against the correct constraint system.
     pub(crate) fn new(
         genesis_message: MessageHash,
-        certificate_circuit_verification_key: MidnightVK,
-        ivc_circuit_verification_key: CircuitVerifyingKey,
+        certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
+        ivc_circuit_verification_key: RecursiveCircuitVerifyingKey,
     ) -> Self {
         Self {
             genesis_message,
@@ -221,54 +219,14 @@ impl IvcVerifierData {
         self.genesis_message
     }
 
-    /// Returns a copy of the certificate circuit verification key stored in the IvcVerifierData
-    pub(crate) fn certificate_circuit_verification_key(&self) -> &CircuitVerifyingKey {
-        self.certificate_circuit_verification_key.vk()
+    /// Returns the certificate circuit verifying key stored in the IvcVerifierData
+    pub(crate) fn certificate_circuit_verification_key(&self) -> &NonRecursiveCircuitVerifyingKey {
+        &self.certificate_circuit_verification_key
     }
 
-    /// Returns a copy of the ivc circuit verification key stored in the IvcVerifierData
-    pub(crate) fn ivc_circuit_verification_key(&self) -> &CircuitVerifyingKey {
+    /// Returns the ivc circuit verifying key stored in the IvcVerifierData
+    pub(crate) fn ivc_circuit_verification_key(&self) -> &RecursiveCircuitVerifyingKey {
         &self.ivc_circuit_verification_key
-    }
-}
-
-/// Serialize and deserialize functions for the IVC circuit verifying key.
-///
-/// Deserialization rebuilds the constraint system from the [IvcCircuitData] circuit so the
-/// verifying key round-trips byte-for-byte.
-mod ivc_circuit_verification_key_serde {
-    use midnight_curves::Bls12;
-    use midnight_proofs::utils::SerdeFormat;
-    use midnight_proofs::{plonk::VerifyingKey, poly::kzg::KZGCommitmentScheme};
-    use serde::{Deserializer, Serializer};
-
-    use crate::circuits::halo2::types::CircuitBase;
-    use crate::circuits::halo2_ivc::circuit::IvcCircuitData;
-
-    /// Serialization based on the write function of the VerifyingKey.
-    pub fn serialize<S: Serializer>(
-        verification_key: &VerifyingKey<CircuitBase, KZGCommitmentScheme<Bls12>>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
-        verification_key
-            .write(&mut buf, SerdeFormat::RawBytes)
-            .map_err(serde::ser::Error::custom)?;
-        serializer.serialize_bytes(&buf)
-    }
-
-    /// Deserialization based on the read function of the VerifyingKey, parameterized by the IVC
-    /// circuit so the constraint system is rebuilt correctly.
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<VerifyingKey<CircuitBase, KZGCommitmentScheme<Bls12>>, D::Error> {
-        let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
-        VerifyingKey::<CircuitBase, KZGCommitmentScheme<Bls12>>::read::<_, IvcCircuitData>(
-            &mut bytes.as_slice(),
-            SerdeFormat::RawBytes,
-            (),
-        )
-        .map_err(serde::de::Error::custom)
     }
 }
 
@@ -306,11 +264,9 @@ mod tests {
     fn try_new_merges_certificate_and_ivc_fixed_bases() {
         let ctx = load_embedded_verification_context_asset()
             .expect("verification context asset should load");
-        let setup = IvcVerifierSetup::try_new(
-            ctx.certificate_verifying_key.vk(),
-            &ctx.recursive_verifying_key,
-        )
-        .expect("try_new must succeed with valid verifying keys");
+        let setup =
+            IvcVerifierSetup::try_new(&ctx.certificate_verifying_key, &ctx.recursive_verifying_key)
+                .expect("try_new must succeed with valid verifying keys");
         assert_eq!(
             setup.combined_fixed_bases.keys().collect::<Vec<_>>(),
             ctx.combined_fixed_bases.keys().collect::<Vec<_>>(),

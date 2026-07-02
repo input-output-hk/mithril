@@ -46,7 +46,7 @@ mod slow {
             CertificateProofBytes::garbage(vec![0u8; 64]),
             IvcProofBytes::empty(),
             mock_prover_setup.trivial_accumulator.clone(),
-            mock_prover_setup.certificate_verifying_key.vk(),
+            &mock_prover_setup.certificate_verifying_key,
             &mock_prover_setup.recursive_verifying_key,
         )
         .expect("valid IvcCircuitData construction");
@@ -77,7 +77,7 @@ mod slow {
             CertificateProofBytes::empty(),
             IvcProofBytes::new(vec![0u8; 64]),
             mock_prover_setup.trivial_accumulator.clone(),
-            mock_prover_setup.certificate_verifying_key.vk(),
+            &mock_prover_setup.certificate_verifying_key,
             &mock_prover_setup.recursive_verifying_key,
         )
         .expect("valid IvcCircuitData construction");

@@ -21,6 +21,10 @@ pub mod errors;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod gadgets;
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) mod key_serialization;
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) mod keys;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod types;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod witness;

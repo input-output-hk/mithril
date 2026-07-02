@@ -5,19 +5,20 @@ use group::Group;
 use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
 use midnight_proofs::{
-    plonk::{ProvingKey, VerifyingKey, create_proof, prepare},
+    plonk::{create_proof, prepare},
     poly::commitment::PolynomialCommitmentScheme,
     poly::kzg::{KZGCommitmentScheme, msm::DualMSM, params::ParamsKZG},
     transcript::{CircuitTranscript, Hashable, Sampleable, Transcript, TranscriptHash},
 };
 use rand_core::{CryptoRng, RngCore};
 
-use crate::circuits::halo2_ivc::{C, E, F, circuit::IvcCircuitData};
+use crate::circuits::halo2_ivc::keys::RecursiveCircuitProvingKey;
+use crate::circuits::halo2_ivc::{C, E, F, VerifyingKey, circuit::IvcCircuitData};
 
 /// Generates a recursive proof using the chosen transcript hash.
 fn prove_ivc_with_transcript<H: TranscriptHash>(
     commitment_parameters: &ParamsKZG<Bls12>,
-    proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
+    proving_key: &RecursiveCircuitProvingKey,
     ivc_circuit_data: &IvcCircuitData,
     public_inputs: &[F],
     random_generator: &mut (impl RngCore + CryptoRng),
@@ -30,7 +31,7 @@ where
     let mut transcript = CircuitTranscript::<H>::init();
     create_proof::<F, KZGCommitmentScheme<E>, CircuitTranscript<H>, IvcCircuitData>(
         commitment_parameters,
-        proving_key,
+        proving_key.proving_key(),
         std::slice::from_ref(ivc_circuit_data),
         1,
         &[&[&[], public_inputs]],
@@ -68,7 +69,7 @@ where
 /// Generates a recursive proof using the Poseidon transcript.
 pub(crate) fn prove_poseidon_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
-    proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
+    proving_key: &RecursiveCircuitProvingKey,
     ivc_circuit_data: &IvcCircuitData,
     public_inputs: &[F],
     random_generator: &mut (impl RngCore + CryptoRng),
@@ -101,7 +102,7 @@ pub(crate) fn verify_prepare_poseidon_ivc(
 /// Generates the final recursive proof using the Blake2b transcript.
 pub(crate) fn prove_blake2b_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
-    proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
+    proving_key: &RecursiveCircuitProvingKey,
     ivc_circuit_data: &IvcCircuitData,
     public_inputs: &[F],
     random_generator: &mut (impl RngCore + CryptoRng),

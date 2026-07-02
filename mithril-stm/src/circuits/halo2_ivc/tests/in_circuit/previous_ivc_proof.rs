@@ -42,7 +42,7 @@ fn assert_valid_previous_ivc_proof_is_accepted<T: StepOutputAsset>(
     .concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         step_output.ivc_proof().as_bytes(),
         &public_inputs,
     );
@@ -100,7 +100,7 @@ fn tampered_previous_ivc_proof_produces_invalid_accumulator() {
     // are too malformed to deserialize (forgery caught immediately). Returns
     // Some(dual_msm) if they parse but carry invalid KZG opening terms.
     match try_verify_prepare_poseidon_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         &tampered_ivc_proof,
         &previous_public_inputs,
     ) {

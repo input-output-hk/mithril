@@ -4,6 +4,8 @@ use ff::Field;
 use group::Group;
 use serde::{Deserialize, Serialize};
 
+use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
+use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use crate::signature_scheme::{SchnorrVerificationKey, StandardSchnorrSignature};
 
 use super::{
@@ -124,19 +126,19 @@ impl Global {
     pub(crate) fn new(
         genesis_message: MessageHash,
         genesis_verification_key: SchnorrVerificationKey,
-        certificate_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
-        ivc_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+        certificate_verification_key: &NonRecursiveCircuitVerifyingKey,
+        ivc_verification_key: &RecursiveCircuitVerifyingKey,
     ) -> Self {
         Global {
             genesis_message,
             genesis_verification_key,
             certificate_circuit_verification_key_representation:
                 CertificateCircuitVerificationKeyRepresentation::from_field(
-                    certificate_verification_key.transcript_repr(),
+                    certificate_verification_key.as_ref().transcript_repr(),
                 ),
             ivc_circuit_verification_key_representation:
                 IvcCircuitVerificationKeyRepresentation::from_field(
-                    ivc_verification_key.transcript_repr(),
+                    ivc_verification_key.as_ref().transcript_repr(),
                 ),
         }
     }

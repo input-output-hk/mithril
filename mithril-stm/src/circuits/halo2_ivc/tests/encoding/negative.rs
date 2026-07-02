@@ -116,7 +116,7 @@ fn next_merkle_tree_commitment_tampered_public_input_is_rejected() {
     .concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         recursive_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
@@ -148,7 +148,7 @@ fn next_protocol_parameters_tampered_public_input_is_rejected() {
     .concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         recursive_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
@@ -180,7 +180,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
     .concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         recursive_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );

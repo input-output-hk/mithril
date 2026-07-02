@@ -8,7 +8,8 @@
 pub(crate) mod common;
 pub mod halo2;
 pub mod halo2_ivc;
-pub mod key_cache;
+pub(crate) mod key_generator;
+pub(crate) mod key_provider;
 pub mod trusted_setup;
 
 #[cfg(test)]

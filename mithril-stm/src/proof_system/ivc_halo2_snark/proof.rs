@@ -30,16 +30,16 @@ use crate::{
         halo2_ivc::{
             PREIMAGE_SIZE,
             circuit::IvcCircuitData,
+            keys::RecursiveCircuitProvingKey,
             state::{Global, State},
             types::{CertificateProofBytes, IvcProofBytes, MessageHash, ProtocolMessagePreimage},
         },
     },
     codec,
     proof_system::ivc_halo2_snark::{
-        CircuitProvingKey,
         errors::IvcProofError,
         prover_input::IvcProverInput,
-        prover_setup::IvcProverSetup,
+        prover_setup::IvcSnarkProverSetup,
         rolling_state::{IvcRollingState, midnight_accumulator_serde},
         verifier_setup::IvcVerifierSetup,
     },
@@ -49,7 +49,7 @@ use crate::{
 /// Per-session IVC prover handle.
 pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
     /// Shared, cached setup (SRS, verifying keys, proving key, fixed-base maps).
-    pub(crate) ivc_setup: Arc<IvcProverSetup>,
+    pub(crate) ivc_setup: Arc<IvcSnarkProverSetup>,
     /// Randomness source used during proof generation.
     pub(crate) rng: R,
 }
@@ -178,7 +178,7 @@ where
         let mut transcript = CircuitTranscript::<H>::init_from_bytes(self.proof_bytes.as_bytes());
 
         let dual_msm = prepare::<CircuitBase, KZGCommitmentScheme<Bls12>, CircuitTranscript<H>>(
-            verifier_setup.ivc_verifying_key(),
+            verifier_setup.ivc_verifying_key().verifying_key(),
             &[&[G1Projective::identity()]],
             &[&[&public_inputs]],
             &mut transcript,
@@ -243,7 +243,7 @@ where
     /// bytes on success.
     fn prove_with_transcript(
         srs: &ParamsKZG<Bls12>,
-        proving_key: &CircuitProvingKey,
+        proving_key: &RecursiveCircuitProvingKey,
         circuit_data: &IvcCircuitData,
         public_inputs: &[CircuitBase],
         rng: &mut (impl RngCore + CryptoRng),
@@ -256,7 +256,7 @@ where
             IvcCircuitData,
         >(
             srs,
-            proving_key,
+            proving_key.proving_key(),
             std::slice::from_ref(circuit_data),
             1,
             &[&[&[], public_inputs]],
@@ -860,7 +860,7 @@ mod tests {
 
     // The context guard is the first thing `IvcProver::prove` runs. It is tested directly here
     // rather than through `prove` so the test stays fast: reaching `prove` would require building
-    // an `IvcProverSetup` (full keygen). With `genesis_bootstrap` now always supplied, a genesis
+    // an `IvcSnarkProverSetup` (full keygen). With `genesis_bootstrap` now always supplied, a genesis
     // `rolling_state` is the only remaining invalid context; both-`Some`/both-`None` are
     // unrepresentable.
     #[test]
@@ -920,14 +920,12 @@ mod tests {
         };
         use midnight_proofs::utils::SerdeFormat;
         use rand_core::OsRng;
-        use tempfile::tempdir;
 
         use crate::{
             AggregateVerificationKeyForSnark, MithrilMembershipDigest, Parameters, SnarkProof,
             circuits::{
                 halo2::types::CircuitBase,
                 halo2_ivc::{
-                    K,
                     io::Write as IvcWrite,
                     state::Global,
                     tests::common::{
@@ -947,23 +945,17 @@ mod tests {
                     },
                     types::ProtocolMessagePreimage,
                 },
-                trusted_setup::build_provider_with_unsafe_srs,
             },
-            proof_system::{
-                halo2_snark::CircuitVerificationKey,
-                ivc_halo2_snark::{
-                    prover_setup::IvcProverSetup,
-                    rolling_state::IvcRollingState,
-                    unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
-                    verifier_setup::IvcVerifierSetup,
-                },
+            proof_system::ivc_halo2_snark::{
+                prover_setup::IvcSnarkProverSetup, rolling_state::IvcRollingState,
+                verifier_setup::IvcVerifierSetup,
             },
         };
 
         use super::super::{IvcGenesisBootstrapInput, IvcProof, IvcProver};
 
         struct SlowTestContext {
-            ivc_setup: Arc<IvcProverSetup>,
+            ivc_setup: Arc<IvcSnarkProverSetup>,
             global: Global,
             verifier_setup: IvcVerifierSetup,
             asset_setup: AssetGenerationSetup,
@@ -984,7 +976,7 @@ mod tests {
                 certificate_proof_bytes,
                 parameters,
                 merkle_tree_depth,
-                CircuitVerificationKey::new(verification_context.certificate_verifying_key.clone()),
+                verification_context.certificate_verifying_key.clone(),
             )
         }
 
@@ -1211,28 +1203,15 @@ mod tests {
         #[test]
         fn prove_all_scenarios() {
             let t_setup = Instant::now();
-            let temp_dir = tempdir().expect("temp dir creation should succeed");
-            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
-            let srs = Arc::new(
-                trusted_setup_provider
-                    .get_trusted_setup_parameters()
-                    .expect("unsafe SRS should load"),
-            );
             let parameters = Parameters {
                 k: QUORUM_SIZE as u64,
                 m: (QUORUM_SIZE * 10) as u64,
                 phi_f: 0.2,
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-            let cert_provider =
-                TempCertificateKeyProvider::new(Arc::clone(&srs), parameters, merkle_tree_depth);
-            let cert_vk = cert_provider
-                .get_verifying_key()
-                .expect("certificate verifying key keygen should succeed");
-            let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
             let ivc_setup = Arc::new(
-                IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                    .expect("IvcProverSetup::load should succeed"),
+                IvcSnarkProverSetup::build_for_test(&parameters, merkle_tree_depth)
+                    .expect("IvcSnarkProverSetup::load should succeed"),
             );
 
             let verification_context = load_embedded_verification_context_asset()
@@ -1240,13 +1219,24 @@ mod tests {
             let asset_setup = build_asset_generation_setup();
 
             assert_eq!(
-                verification_context.certificate_verifying_key.vk().transcript_repr(),
-                ivc_setup.certificate_verifying_key.transcript_repr(),
+                verification_context
+                    .certificate_verifying_key
+                    .midnight_vk()
+                    .vk()
+                    .transcript_repr(),
+                ivc_setup
+                    .certificate_verifying_key
+                    .midnight_vk()
+                    .vk()
+                    .transcript_repr(),
                 "stored verification context cert VK must match freshly generated cert VK"
             );
             assert_eq!(
-                verification_context.recursive_verifying_key.transcript_repr(),
-                ivc_setup.ivc_verifying_key.transcript_repr(),
+                verification_context
+                    .recursive_verifying_key
+                    .verifying_key()
+                    .transcript_repr(),
+                ivc_setup.ivc_verifying_key.verifying_key().transcript_repr(),
                 "stored verification context IVC VK must match freshly generated IVC VK"
             );
 
