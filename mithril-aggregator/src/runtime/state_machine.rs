@@ -217,7 +217,10 @@ impl AggregatorRuntime {
             if state.should_run_epoch_initialization_tasks(&last_time_point) {
                 self.execute_epoch_initialization_tasks(&last_time_point).await?;
 
-                if last_genesis_certificate_epoch.is_some() {
+                // We can't precompute epoch data if there's no genesis yet or the genesis was issued in the actual epoch
+                if last_genesis_certificate_epoch
+                    .is_some_and(|genesis_epoch| genesis_epoch < last_time_point.epoch)
+                {
                     self.runner.precompute_epoch_data().await?;
                 }
             }
@@ -253,6 +256,17 @@ impl AggregatorRuntime {
                         Some(error),
                     )),
                 }
+            } else if let Some(genesis_epoch) = last_genesis_certificate_epoch
+                && genesis_epoch == last_time_point.epoch
+            {
+                info!(
+                    self.logger,
+                    "→ Still in the epoch of the genesis certificate, transitioning to Blocked(genesis-epoch)"
+                );
+                Ok(AggregatorState::Blocked(BlockedState {
+                    blocked_since_time_point: last_time_point,
+                    reason: BlockedReason::GenesisEpoch,
+                }))
             } else if last_genesis_certificate_epoch.is_none() {
                 info!(
                     self.logger,
@@ -680,6 +694,72 @@ mod tests {
             runtime.cycle().await.unwrap();
 
             assert_eq!("blocked-no-genesis", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_check_epoch_is_same_as_genesis_certificate() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(10))));
+            runner.expect_precompute_epoch_data().never();
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-genesis-epoch", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_remain_if_genesis_epoch_but_chain_verification_fail() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(10))));
+            runner.expect_precompute_epoch_data().never();
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Err(anyhow!("error")));
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .never();
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            let err = runtime.cycle().await.unwrap_err();
+            assert!(matches!(err, RuntimeError::KeepState { .. }));
+
+            assert_eq!("idle", runtime.state_label());
         }
 
         #[tokio::test]
