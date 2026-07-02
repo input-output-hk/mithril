@@ -205,8 +205,13 @@ impl AggregatorRuntime {
         let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
             || "AggregatorRuntime in the state IDLE can not get current time point from chain",
         )?;
+        let last_genesis_certificate_epoch = self.runner.last_genesis_certificate_epoch().await?;
 
-        info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
+        info!(
+            self.logger,
+            "→ Trying to transition to READY";
+            "last_time_point" => ?last_time_point, "last_genesis_certificate_epoch" => ?last_genesis_certificate_epoch
+        );
 
         if self.can_transition_from_idle_to_ready(&last_time_point).await? {
             if state.should_run_epoch_initialization_tasks(&last_time_point) {
@@ -571,6 +576,10 @@ mod tests {
             configure_get_time_point_from_chain(&mut runner, &time_point);
             configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
             runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(9))));
+            runner
                 .expect_is_certificate_chain_valid()
                 .once()
                 .returning(|_| Err(anyhow!("error")));
@@ -598,6 +607,10 @@ mod tests {
             let time_point = time_point(Epoch(10), 100);
             configure_get_time_point_from_chain(&mut runner, &time_point);
             configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(9))));
             runner.expect_is_certificate_chain_valid().once().returning(|_| {
                 Err(anyhow!(CertifierServiceError::CertificateEpochGap {
                     certificate_epoch: Epoch(999),
@@ -628,6 +641,10 @@ mod tests {
             let time_point = time_point(Epoch(10), 100);
             configure_get_time_point_from_chain(&mut runner, &time_point);
             configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(9))));
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
@@ -988,14 +1005,9 @@ mod tests {
             let time_point = time_point(Epoch(10), 100);
             configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
-                .expect_update_era_checker()
-                .with(predicate::eq(time_point.epoch))
+                .expect_last_genesis_certificate_epoch()
                 .once()
-                .returning(|_| Err(anyhow!("ERROR")));
-            runner
-                .expect_close_signer_registration_round()
-                .once()
-                .returning(|| Ok(()));
+                .returning(|| Err(anyhow!("ERROR")));
             runner
                 .expect_increment_runtime_cycle_total_since_startup_counter()
                 .once()
@@ -1033,6 +1045,10 @@ mod tests {
             };
             configure_get_time_point_from_chain(&mut runner, &new_time_point);
             runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(9))));
+            runner
                 .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
                 .returning(|_| Ok(false));
@@ -1067,6 +1083,10 @@ mod tests {
             };
             configure_get_time_point_from_chain(&mut runner, &new_time_point);
             configure_runner_for_epoch_initialization_tasks(&mut runner, &new_time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(9))));
             runner
                 .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
