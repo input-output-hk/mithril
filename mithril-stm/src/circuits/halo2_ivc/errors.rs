@@ -68,20 +68,10 @@ pub enum EpochTransitionErrorKind {
         last_committed_epoch: u64,
     },
 
-    /// A same-epoch certificate's preimage announces a next-epoch lookahead that
-    /// disagrees with the chain's previous state. All certificates in the same epoch
-    /// must encode the same next-epoch fields.
-    #[error(
-        "same-epoch certificate announces a next-epoch lookahead that does not match the chain state"
-    )]
-    EpochMismatch,
-
-    /// The first certificate after genesis (chain step counter equal to one) must be a
-    /// next-epoch certificate.
-    #[error(
-        "first certificate after genesis must be a next-epoch certificate, got a same-epoch certificate"
-    )]
-    FirstCertificateAfterGenesisMustBeNextEpoch,
+    /// The rolling state parameters (next) merkle tree commitment, protocol parameters or step counter
+    /// do not match the protocol message parameters expected for the given transition type.
+    #[error("rolling state parameters do not match the current protocol message parameters")]
+    RollingStateParametersDoesNotMatchProtocolMessage,
 }
 
 /// Convert an IVC circuit error into a Plonk synthesis error at gadget boundaries.

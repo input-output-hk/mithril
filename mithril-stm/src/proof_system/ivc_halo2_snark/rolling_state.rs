@@ -6,6 +6,8 @@ use midnight_circuits::{
 };
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+use crate::circuits::halo2_ivc::types::EpochNumber;
 use crate::{
     StmResult,
     circuits::{
@@ -14,7 +16,7 @@ use crate::{
             AssignedAccumulator,
             errors::IvcCircuitError,
             state::{Global, State, trivial_acc},
-            types::{EpochNumber, IvcProofBytes, StepCounter},
+            types::{IvcProofBytes, StepCounter},
         },
     },
     signature_scheme::{BaseFieldElement, StandardSchnorrSignature},
@@ -126,6 +128,7 @@ impl IvcRollingState {
 
     /// Returns `true` if the certificate belongs to the epoch immediately following
     /// the chain's current epoch (`certificate_epoch == current_epoch + 1`).
+    #[cfg(test)]
     pub(crate) fn is_next_epoch(&self, certificate_epoch: EpochNumber) -> bool {
         certificate_epoch.as_field()
             == self.state.current_epoch.as_field() + EpochNumber::new(1).as_field()

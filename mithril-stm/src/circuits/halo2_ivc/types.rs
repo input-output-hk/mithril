@@ -148,6 +148,12 @@ impl From<[u8; PREIMAGE_SIZE]> for ProtocolMessagePreimage {
     }
 }
 
+impl EpochNumber {
+    pub(crate) fn add(self, value: u64) -> Self {
+        Self(self.0 + value)
+    }
+}
+
 #[cfg(test)]
 mod protocol_message_preimage_tests {
     use super::*;
