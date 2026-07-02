@@ -190,7 +190,7 @@ pub(crate) fn assert_correct_parameters<D: MembershipDigest>(
                 && next_protocol_parameters_matches
                 && rolling_state.state().step_counter.as_u64() > 1
         }
-        IvcTransitionType::NextEpoch => merkle_tree_commitment_matches,
+        IvcTransitionType::NextEpoch => next_merkle_tree_commitment_matches,
         IvcTransitionType::Genesis => true,
     };
 
