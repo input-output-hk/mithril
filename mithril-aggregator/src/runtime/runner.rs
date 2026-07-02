@@ -51,6 +51,9 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         current_time_point: &TimePoint,
     ) -> StdResult<Option<OpenMessage>>;
 
+    /// Returns the epoch of the last genesis certificate, if any.
+    async fn last_genesis_certificate_epoch(&self) -> StdResult<Option<Epoch>>;
+
     /// Check if a certificate chain is valid.
     async fn is_certificate_chain_valid(&self, time_point: &TimePoint) -> StdResult<()>;
 
@@ -230,6 +233,17 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         }
 
         Ok(None)
+    }
+
+    async fn last_genesis_certificate_epoch(&self) -> StdResult<Option<Epoch>> {
+        debug!(self.logger, ">> last_genesis_certificate_epoch");
+        let epoch = self
+            .dependencies
+            .certificate_repository
+            .get_latest_genesis_certificate::<Certificate>()
+            .await?
+            .map(|c| c.epoch);
+        Ok(epoch)
     }
 
     async fn is_certificate_chain_valid(&self, time_point: &TimePoint) -> StdResult<()> {
