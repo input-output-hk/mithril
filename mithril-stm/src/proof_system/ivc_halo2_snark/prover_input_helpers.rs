@@ -11,7 +11,7 @@ use crate::{
     },
     proof_system::{
         halo2_snark::build_snark_message,
-        ivc_halo2_snark::{prover_setup::IvcProverSetup, rolling_state::IvcRollingState},
+        ivc_halo2_snark::{prover_setup::IvcSnarkProverSetup, rolling_state::IvcRollingState},
     },
 };
 
@@ -71,14 +71,14 @@ pub(crate) fn verify_certificate_proof<D: MembershipDigest>(
     certificate_proof: &SnarkProof<D>,
     certificate_message_bytes: &[u8],
     aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
-    setup: &IvcProverSetup,
+    setup: &IvcSnarkProverSetup,
 ) -> StmResult<DualMSM<Bls12>> {
     if certificate_proof
         .circuit_verification_key()
-        .get_midnight_vk()
+        .midnight_vk()
         .vk()
         .transcript_repr()
-        != setup.certificate_verifying_key.transcript_repr()
+        != setup.certificate_verifying_key.midnight_vk().vk().transcript_repr()
     {
         return Err(IvcCircuitError::CertificateVerifyingKeyMismatch.into());
     }
@@ -144,7 +144,7 @@ pub(crate) fn build_next_state(
 pub(crate) fn build_next_accumulator(
     certificate_dual_msm: DualMSM<Bls12>,
     rolling_state: &IvcRollingState,
-    setup: &IvcProverSetup,
+    setup: &IvcSnarkProverSetup,
     global: &Global,
 ) -> StmResult<Accumulator<BlstrsEmulation>> {
     let certificate_collapsed_accumulator =
