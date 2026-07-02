@@ -316,16 +316,14 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         rolling_state: Option<&IvcRollingState>,
     ) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
         ensure_advanceable_rolling_state(rolling_state)?;
-        let transition_type =
-            IvcTransitionType::try_compute(rolling_state, protocol_message_preimage)?;
 
         // `rolling_state = None` is the first certificate: bootstrap from genesis internally,
         // then continue with the seeded state. Otherwise advance from the supplied state.
-        let effective_rolling_state: &IvcRollingState = match transition_type {
-            IvcTransitionType::Genesis => &self.run_genesis_step(global, genesis_bootstrap)?,
+        let effective_rolling_state: &IvcRollingState = match rolling_state {
+            None => &self.run_genesis_step(global, genesis_bootstrap)?,
             // if the transition is not Genesis it means that rolling_state is Some
             // so the unwrap() is safe
-            _ => rolling_state.unwrap(),
+            Some(rolling_state) => rolling_state,
         };
 
         // Prepare the witness, next state, and folded next accumulator.
@@ -401,12 +399,9 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
     /// Runs the genesis IVC step internally during bootstrap.
     ///
     /// Builds a zero genesis rolling state from `bootstrap.genesis_signature`, calls
-    /// [`IvcProverInput::prepare`] with the genesis preimage, and generates a Poseidon proof
+    /// [`IvcProverInput::prepare_genesis`] with the genesis preimage, and generates a Poseidon proof
     /// to seed the rolling state. The resulting rolling state is returned for immediate use
     /// in the Epoch 1 step.
-    ///
-    /// `snark_proof`, `message`, and `aggregate_verification_key` are passed through to
-    /// `prepare` but are ignored on the genesis path (`step_counter == 0`).
     fn run_genesis_step(
         &mut self,
         global: &Global,

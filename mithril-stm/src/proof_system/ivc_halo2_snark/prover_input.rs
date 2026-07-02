@@ -17,8 +17,8 @@ use crate::{
         halo2_snark::build_snark_message,
         ivc_halo2_snark::{
             prover_input_helpers::{
-                IvcTransitionType, build_next_accumulator, build_next_state,
-                build_snark_message_and_decode_fields, verify_certificate_proof,
+                IvcTransitionType, assert_correct_parameters, build_next_accumulator,
+                build_next_state, build_snark_message_and_decode_fields, verify_certificate_proof,
             },
             prover_setup::IvcSnarkProverSetup,
             rolling_state::IvcRollingState,
@@ -44,12 +44,9 @@ impl IvcProverInput {
     /// Advances the chain state by one step and bundles the in-circuit witness, the
     /// next state, and the next folded accumulator.
     ///
-    /// First classifies the requested step via `IvcTransitionType::try_compute`, which also
-    /// validates the epoch advance against the rolling chain state. At genesis (step
-    /// counter zero) dispatches to `Self::prepare_genesis`: the chain's genesis
-    /// signature is verified, no certificate is processed, and the rolling state's
-    /// accumulator passes through. At non-genesis steps the certificate proof is
-    /// verifier-prepared, then the certificate and previous IVC accumulators are
+    /// First classifies the requested step via [`IvcTransitionType::try_compute_transition_type`], then
+    /// validates the epoch advance against the rolling chain state.
+    /// The certificate proof is verifier-prepared, then the certificate and previous IVC accumulators are
     /// folded into the chain's accumulator.
     pub(crate) fn prepare<D: MembershipDigest>(
         certificate_proof: &SnarkProof<D>,
@@ -60,8 +57,18 @@ impl IvcProverInput {
         rolling_state: &IvcRollingState,
         prover_setup: &IvcSnarkProverSetup,
     ) -> StmResult<Self> {
-        let transition_type =
-            IvcTransitionType::try_compute(Some(rolling_state), protocol_message_preimage)?;
+        let transition_type = IvcTransitionType::try_compute_transition_type(
+            rolling_state,
+            protocol_message_preimage,
+        )?;
+
+        assert_correct_parameters(
+            rolling_state,
+            protocol_message_preimage,
+            aggregate_verification_key_for_snark,
+            message,
+            transition_type,
+        )?;
 
         let certificate_dual_msm = verify_certificate_proof(
             certificate_proof,
