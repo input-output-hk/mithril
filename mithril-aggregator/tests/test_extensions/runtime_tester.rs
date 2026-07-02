@@ -264,14 +264,32 @@ impl RuntimeTester {
         Ok(())
     }
 
-    /// Registers the genesis certificate
+    /// Registers the genesis certificate at the current epoch.
     pub async fn register_genesis_certificate(
         &mut self,
         fixture: &MithrilFixture,
     ) -> StdResult<()> {
-        let time_point = self.observer.current_time_point().await;
-        let genesis_certificate =
-            fixture.create_genesis_certificate(&self.network, time_point.epoch);
+        let epoch = self.observer.current_time_point().await.epoch;
+        self.register_genesis_certificate_for_epoch(fixture, epoch).await
+    }
+
+    /// Registers the genesis certificate at the epoch preceding the current one, matching a real
+    /// network where the genesis epoch precedes the first signing epoch.
+    pub async fn register_genesis_certificate_at_previous_epoch(
+        &mut self,
+        fixture: &MithrilFixture,
+    ) -> StdResult<()> {
+        let epoch = self.observer.current_time_point().await.epoch - 1;
+        self.register_genesis_certificate_for_epoch(fixture, epoch).await
+    }
+
+    /// Registers the genesis certificate at the given epoch.
+    pub async fn register_genesis_certificate_for_epoch(
+        &mut self,
+        fixture: &MithrilFixture,
+        epoch: Epoch,
+    ) -> StdResult<()> {
+        let genesis_certificate = fixture.create_genesis_certificate(&self.network, epoch);
         debug!("genesis_certificate: {:?}", genesis_certificate);
         self.dependencies
             .certificate_repository

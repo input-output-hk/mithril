@@ -123,6 +123,14 @@ impl MithrilInfrastructure {
                 .await?;
 
         Self::register_startup_era(&toolkit, &leader_aggregator, config).await?;
+        toolkit
+            .wait
+            .for_aggregator_at_target_epoch(
+                &leader_aggregator,
+                Epoch(1),
+                "minimal epoch for the aggregator to handle startup discrepancies".to_string(),
+            )
+            .await?;
         leader_aggregator.serve().await?;
 
         let follower_aggregator_endpoints = follower_aggregators
@@ -278,11 +286,13 @@ impl MithrilInfrastructure {
                 m: 105,
                 phi_f: 0.95,
             },
-            AggregateSignatureType::Snark => ProtocolParameters {
-                k: 5,
-                m: 9,
-                phi_f: 0.95,
-            },
+            AggregateSignatureType::Snark | AggregateSignatureType::IvcSnark => {
+                ProtocolParameters {
+                    k: 5,
+                    m: 9,
+                    phi_f: 0.95,
+                }
+            }
         };
         aggregator.set_protocol_parameters(&protocol_parameters_new).await;
 

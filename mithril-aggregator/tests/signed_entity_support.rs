@@ -68,13 +68,16 @@ async fn follower_can_cycle_to_ready_to_signing_with_unknown_and_discontinued_si
     follower_tester.init_state_from_fixture(&fixture).await.unwrap();
 
     comment!("Leader: bootstrap the genesis certificate");
-    leader_tester.register_genesis_certificate(&fixture).await.unwrap();
+    leader_tester
+        .register_genesis_certificate_at_previous_epoch(&fixture)
+        .await
+        .unwrap();
     cycle!(leader_tester, "ready");
 
     assert_last_certificate_eq!(
         leader_tester,
         ExpectedCertificate::new_genesis(
-            Epoch(1),
+            Epoch(0),
             fixture.compute_and_encode_concatenation_aggregate_verification_key()
         )
     );
@@ -86,7 +89,18 @@ async fn follower_can_cycle_to_ready_to_signing_with_unknown_and_discontinued_si
     cycle!(follower_tester, "ready");
     cycle!(follower_tester, "signing");
 
-    comment!("Follower: signers send their single signature");
+    comment!("Follower: signers sign the mandatory MithrilStakeDistribution first");
+    follower_tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            &signers,
+        )
+        .await
+        .unwrap();
+    cycle!(follower_tester, "ready");
+    cycle!(follower_tester, "signing");
+
+    comment!("Follower: signers send their single signature for the CardanoStakeDistribution");
     follower_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::CardanoStakeDistribution,
@@ -101,7 +115,7 @@ async fn follower_can_cycle_to_ready_to_signing_with_unknown_and_discontinued_si
         StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
         fixture.compute_and_encode_concatenation_aggregate_verification_key(),
         SignedEntityType::CardanoStakeDistribution(Epoch(0)),
-        ExpectedCertificate::genesis_identifier(Epoch(1)),
+        ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(1))),
     );
     assert_last_certificate_eq!(follower_tester, expected_certificate);
 }

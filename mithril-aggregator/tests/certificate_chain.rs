@@ -48,12 +48,15 @@ async fn certificate_chain() {
     let mut current_epoch = observer.current_epoch().await;
 
     comment!("Bootstrap the genesis certificate, {:?}", current_epoch);
-    tester.register_genesis_certificate(&initial_fixture).await.unwrap();
+    tester
+        .register_genesis_certificate_at_previous_epoch(&initial_fixture)
+        .await
+        .unwrap();
 
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new_genesis(
-            Epoch(1),
+            Epoch(0),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key()
         )
     );
@@ -83,7 +86,7 @@ async fn certificate_chain() {
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            ExpectedCertificate::genesis_identifier(Epoch(0)),
         )
     );
 
@@ -103,7 +106,7 @@ async fn certificate_chain() {
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(1))),
         )
     );
 
@@ -126,7 +129,7 @@ async fn certificate_chain() {
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 4)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(1))),
         )
     );
 
@@ -190,7 +193,7 @@ async fn certificate_chain() {
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(2)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(1))),
         )
     );
 
