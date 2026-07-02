@@ -216,10 +216,18 @@ impl AggregatorRuntime {
         if self.can_transition_from_idle_to_ready(&last_time_point).await? {
             if state.should_run_epoch_initialization_tasks(&last_time_point) {
                 self.execute_epoch_initialization_tasks(&last_time_point).await?;
+
+                if last_genesis_certificate_epoch.is_some() {
+                    self.runner.precompute_epoch_data().await?;
+                }
             }
 
-            let chain_validity_result =
-                self.runner.is_certificate_chain_valid(&last_time_point).await;
+            // No genesis means no chain to validate
+            let chain_validity_result = if last_genesis_certificate_epoch.is_none() {
+                Ok(())
+            } else {
+                self.runner.is_certificate_chain_valid(&last_time_point).await
+            };
             if self.config.is_follower {
                 let force_sync = chain_validity_result.is_err();
                 self.runner
@@ -245,6 +253,15 @@ impl AggregatorRuntime {
                         Some(error),
                     )),
                 }
+            } else if last_genesis_certificate_epoch.is_none() {
+                info!(
+                    self.logger,
+                    "→ No genesis certificate detected, transitioning to Blocked(no-genesis)"
+                );
+                Ok(AggregatorState::Blocked(BlockedState {
+                    blocked_since_time_point: last_time_point,
+                    reason: BlockedReason::NoGenesis,
+                }))
             } else {
                 Ok(AggregatorState::Ready(ReadyState {
                     current_time_point: last_time_point,
@@ -386,7 +403,6 @@ impl AggregatorRuntime {
                 .synchronize_follower_aggregator_signer_registration()
                 .await?;
         }
-        self.runner.precompute_epoch_data().await?;
 
         Ok(())
     }
@@ -554,7 +570,6 @@ mod tests {
             .with(predicate::eq(time_point.epoch))
             .once()
             .returning(|_| Ok(()));
-        runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
         runner
             .expect_upkeep()
             .with(predicate::eq(time_point.epoch))
@@ -579,6 +594,7 @@ mod tests {
                 .expect_last_genesis_certificate_epoch()
                 .once()
                 .returning(|| Ok(Some(Epoch(9))));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
@@ -611,6 +627,7 @@ mod tests {
                 .expect_last_genesis_certificate_epoch()
                 .once()
                 .returning(|| Ok(Some(Epoch(9))));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner.expect_is_certificate_chain_valid().once().returning(|_| {
                 Err(anyhow!(CertifierServiceError::CertificateEpochGap {
                     certificate_epoch: Epoch(999),
@@ -636,6 +653,36 @@ mod tests {
         }
 
         #[tokio::test]
+        pub async fn idle_check_missing_genesis_certificate() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(None));
+            runner.expect_precompute_epoch_data().never();
+            runner.expect_is_certificate_chain_valid().never();
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-no-genesis", runtime.state_label());
+        }
+
+        #[tokio::test]
         pub async fn idle_check_certificate_chain_is_valid() {
             let mut runner = MockAggregatorRunner::new();
             let time_point = time_point(Epoch(10), 100);
@@ -645,6 +692,7 @@ mod tests {
                 .expect_last_genesis_certificate_epoch()
                 .once()
                 .returning(|| Ok(Some(Epoch(9))));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
@@ -1087,6 +1135,7 @@ mod tests {
                 .expect_last_genesis_certificate_epoch()
                 .once()
                 .returning(|| Ok(Some(Epoch(9))));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
