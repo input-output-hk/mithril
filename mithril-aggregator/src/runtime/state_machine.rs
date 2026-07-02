@@ -479,6 +479,7 @@ mod tests {
     use mockall::predicate;
     use std::time::Duration;
 
+    use mithril_common::entities::ImmutableFileNumber;
     use mithril_common::test::double::{Dummy, fake_data};
 
     use crate::entities::OpenMessage;
@@ -486,6 +487,14 @@ mod tests {
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
+
+    fn time_point(epoch: Epoch, immutable_file_number: ImmutableFileNumber) -> TimePoint {
+        TimePoint {
+            epoch,
+            immutable_file_number,
+            ..Dummy::dummy()
+        }
+    }
 
     async fn init_runtime(
         init_state: Option<AggregatorState>,
@@ -502,53 +511,65 @@ mod tests {
         .unwrap()
     }
 
+    fn configure_get_time_point_from_chain(
+        runner: &mut MockAggregatorRunner,
+        time_point: &TimePoint,
+    ) {
+        let time_point = time_point.clone();
+        runner
+            .expect_get_time_point_from_chain()
+            .once()
+            .returning(move || Ok(time_point.clone()));
+    }
+
+    fn configure_runner_for_epoch_initialization_tasks(
+        runner: &mut MockAggregatorRunner,
+        time_point: &TimePoint,
+    ) {
+        runner
+            .expect_update_stake_distribution()
+            .with(predicate::eq(time_point.clone()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_close_signer_registration_round()
+            .once()
+            .returning(|| Ok(()));
+        runner
+            .expect_open_signer_registration_round()
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_era_checker()
+            .with(predicate::eq(time_point.epoch))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_inform_new_epoch()
+            .with(predicate::eq(time_point.epoch))
+            .once()
+            .returning(|_| Ok(()));
+        runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
+        runner
+            .expect_upkeep()
+            .with(predicate::eq(time_point.epoch))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+    }
+
     mod leader {
         use super::*;
-
-        fn configure_runner_for_idle_invalid_chain(runner: &mut MockAggregatorRunner) {
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
-            runner
-                .expect_update_stake_distribution()
-                .with(predicate::eq(TimePoint::dummy()))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_close_signer_registration_round()
-                .once()
-                .returning(|| Ok(()));
-            runner
-                .expect_open_signer_registration_round()
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_update_era_checker()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_inform_new_epoch()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
-            runner
-                .expect_upkeep()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_increment_runtime_cycle_total_since_startup_counter()
-                .once()
-                .returning(|| ());
-        }
 
         #[tokio::test]
         pub async fn idle_check_certificate_chain_is_not_valid() {
             let mut runner = MockAggregatorRunner::new();
-            configure_runner_for_idle_invalid_chain(&mut runner);
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
@@ -574,7 +595,9 @@ mod tests {
         #[tokio::test]
         pub async fn idle_check_certificate_chain_epoch_gap() {
             let mut runner = MockAggregatorRunner::new();
-            configure_runner_for_idle_invalid_chain(&mut runner);
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
             runner.expect_is_certificate_chain_valid().once().returning(|_| {
                 Err(anyhow!(CertifierServiceError::CertificateEpochGap {
                     certificate_epoch: Epoch(999),
@@ -602,47 +625,13 @@ mod tests {
         #[tokio::test]
         pub async fn idle_check_certificate_chain_is_valid() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
-            runner
-                .expect_update_stake_distribution()
-                .with(predicate::eq(TimePoint::dummy()))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_close_signer_registration_round()
-                .once()
-                .returning(|| Ok(()));
-            runner
-                .expect_open_signer_registration_round()
-                .once()
-                .returning(|_| Ok(()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
                 .returning(|_| Ok(()));
-            runner
-                .expect_update_era_checker()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_inform_new_epoch()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
-            runner
-                .expect_upkeep()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_increment_runtime_cycle_total_since_startup_counter()
-                .once()
-                .returning(|| ());
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -676,10 +665,7 @@ mod tests {
                     epoch: time_point.epoch + 1,
                     ..time_point.clone()
                 };
-                runner
-                    .expect_get_time_point_from_chain()
-                    .once()
-                    .returning(move || Ok(new_time_point.clone()));
+                configure_get_time_point_from_chain(&mut runner, &new_time_point);
                 runner
                     .expect_increment_runtime_cycle_total_since_startup_counter()
                     .once()
@@ -719,10 +705,7 @@ mod tests {
                     immutable_file_number: time_point.immutable_file_number + 1,
                     ..time_point.clone()
                 };
-                runner
-                    .expect_get_time_point_from_chain()
-                    .once()
-                    .returning(move || Ok(new_time_point.clone()));
+                configure_get_time_point_from_chain(&mut runner, &new_time_point);
                 runner
                     .expect_increment_runtime_cycle_total_since_startup_counter()
                     .once()
@@ -759,10 +742,7 @@ mod tests {
                 epoch: time_point.epoch + 1,
                 ..time_point.clone()
             };
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(move || Ok(new_time_point.clone()));
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
             runner
                 .expect_increment_runtime_cycle_total_since_startup_counter()
                 .once()
@@ -787,16 +767,13 @@ mod tests {
         #[tokio::test]
         pub async fn ready_open_message_not_exist() {
             let mut runner = MockAggregatorRunner::new();
-            let time_point = TimePoint::dummy();
+            let time_point = time_point(Epoch(10), 100);
             let next_time_point = TimePoint {
                 immutable_file_number: time_point.immutable_file_number + 1,
                 ..time_point.clone()
             };
             let expected_time_point = next_time_point.clone();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(move || Ok(next_time_point.clone()));
+            configure_get_time_point_from_chain(&mut runner, &next_time_point);
             runner
                 .expect_get_current_non_certified_open_message()
                 .once()
@@ -831,10 +808,8 @@ mod tests {
         #[tokio::test]
         pub async fn ready_certificate_does_not_exist_for_time_point() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_get_current_non_certified_open_message()
                 .once()
@@ -856,7 +831,7 @@ mod tests {
 
             let mut runtime = init_runtime(
                 Some(AggregatorState::Ready(ReadyState {
-                    current_time_point: TimePoint::dummy(),
+                    current_time_point: time_point,
                 })),
                 runner,
                 false,
@@ -870,10 +845,8 @@ mod tests {
         #[tokio::test]
         async fn signing_changing_open_message_to_ready() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_is_open_message_outdated()
                 .once()
@@ -888,7 +861,7 @@ mod tests {
                 .returning(|| ());
 
             let initial_state = AggregatorState::Signing(SigningState {
-                current_time_point: TimePoint::dummy(),
+                current_time_point: time_point,
                 open_message: OpenMessage::dummy(),
             });
 
@@ -901,10 +874,8 @@ mod tests {
         #[tokio::test]
         async fn signing_certificate_is_not_created() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_is_open_message_outdated()
                 .once()
@@ -918,7 +889,7 @@ mod tests {
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .never();
             let state = SigningState {
-                current_time_point: TimePoint::dummy(),
+                current_time_point: time_point,
                 open_message: OpenMessage::dummy(),
             };
             let mut runtime =
@@ -939,10 +910,8 @@ mod tests {
         #[tokio::test]
         async fn signing_artifact_not_created() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_is_open_message_outdated()
                 .once()
@@ -962,7 +931,7 @@ mod tests {
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .never();
             let state = SigningState {
-                current_time_point: TimePoint::dummy(),
+                current_time_point: time_point,
                 open_message: OpenMessage::dummy(),
             };
             let mut runtime =
@@ -983,10 +952,8 @@ mod tests {
         #[tokio::test]
         async fn signing_certificate_is_created() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_is_open_message_outdated()
                 .once()
@@ -1005,7 +972,7 @@ mod tests {
                 .returning(|| ());
 
             let state = SigningState {
-                current_time_point: TimePoint::dummy(),
+                current_time_point: time_point,
                 open_message: OpenMessage::dummy(),
             };
             let mut runtime =
@@ -1018,13 +985,11 @@ mod tests {
         #[tokio::test]
         pub async fn critical_error() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_update_era_checker()
-                .with(predicate::eq(TimePoint::dummy().epoch))
+                .with(predicate::eq(time_point.epoch))
                 .once()
                 .returning(|_| Err(anyhow!("ERROR")));
             runner
@@ -1061,15 +1026,12 @@ mod tests {
         #[tokio::test]
         pub async fn idle_new_epoch_detected_and_leader_not_transitioned_to_epoch() {
             let mut runner = MockAggregatorRunner::new();
-            let time_point = TimePoint::dummy();
+            let time_point = time_point(Epoch(10), 100);
             let new_time_point = TimePoint {
                 epoch: time_point.epoch + 1,
                 ..time_point.clone()
             };
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(move || Ok(new_time_point.clone()));
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
             runner
                 .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
@@ -1098,37 +1060,21 @@ mod tests {
         #[tokio::test]
         pub async fn idle_new_epoch_detected_and_leader_has_transitioned_to_epoch() {
             let mut runner = MockAggregatorRunner::new();
-            let time_point = TimePoint::dummy();
+            let time_point = time_point(Epoch(10), 100);
             let new_time_point = TimePoint {
                 epoch: time_point.epoch + 1,
                 ..time_point.clone()
             };
-            let new_time_point_clone = new_time_point.clone();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(move || Ok(new_time_point.clone()));
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &new_time_point);
             runner
                 .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
                 .returning(|_| Ok(true));
             runner
-                .expect_update_stake_distribution()
-                .with(predicate::eq(new_time_point_clone.clone()))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_close_signer_registration_round()
-                .once()
-                .returning(|| Ok(()));
-            runner
                 .expect_synchronize_follower_aggregator_signer_registration()
                 .once()
                 .returning(|| Ok(()));
-            runner
-                .expect_open_signer_registration_round()
-                .once()
-                .returning(|_| Ok(()));
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
@@ -1138,26 +1084,6 @@ mod tests {
                 .once()
                 .with(eq(false)) // Certificate chain valid so force_sync must be false
                 .returning(|_| Ok(()));
-            runner
-                .expect_update_era_checker()
-                .with(predicate::eq(new_time_point_clone.clone().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_inform_new_epoch()
-                .with(predicate::eq(new_time_point_clone.clone().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
-            runner
-                .expect_upkeep()
-                .with(predicate::eq(new_time_point_clone.clone().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_increment_runtime_cycle_total_since_startup_counter()
-                .once()
-                .returning(|| ());
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
