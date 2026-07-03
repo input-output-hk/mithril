@@ -1,9 +1,10 @@
 use super::{
-    ComposableChip, ConstraintSystem, EccChip, EccConfig, EmulatedCurve, EmulatedCurveBaseField,
-    FieldChip, ForeignEccChip, ForeignEccConfig, IvcNativeGadget, Jubjub, NB_ARITH_COLS,
-    NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS,
-    NativeChip, NativeConfig, NativeField, P2RDecompositionChip, P2RDecompositionConfig,
-    PoseidonChip, PoseidonConfig, Pow2RangeChip, nb_foreign_ecc_chip_columns,
+    CircuitCurve, ComposableChip, ConstraintSystem, EccChip, EccConfig, EmulatedCurve,
+    EmulatedCurveBaseField, FieldChip, ForeignEccChip, ForeignEccConfig, IvcNativeGadget,
+    NB_ARITH_COLS, NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS,
+    NB_POSEIDON_FIXED_COLS, NativeChip, NativeConfig, NativeField, P2RDecompositionChip,
+    P2RDecompositionConfig, PoseidonChip, PoseidonConfig, Pow2RangeChip,
+    nb_foreign_ecc_chip_columns,
 };
 use midnight_circuits::hash::sha256::{
     NB_SHA256_ADVICE_COLS, NB_SHA256_FIXED_COLS, Sha256Chip, Sha256Config,
@@ -68,7 +69,7 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<NativeField>) -> IvcCon
         P2RDecompositionChip::configure(meta, &(native_config.clone(), pow2_config))
     };
 
-    let jubjub_config = EccChip::<Jubjub>::configure(
+    let jubjub_config = EccChip::<CircuitCurve>::configure(
         meta,
         &advice_columns[..NB_EDWARDS_COLS]
             .try_into()

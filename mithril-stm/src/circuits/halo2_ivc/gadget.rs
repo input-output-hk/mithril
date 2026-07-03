@@ -10,10 +10,10 @@ use super::{
     Accumulator, ArithInstructions, AssertionInstructions, AssignedAccumulator, AssignedBit,
     AssignedForeignPoint, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
     AssignedVk, AssignmentInstructions, BinaryInstructions, CERTIFICATE_VERIFICATION_KEY_NAME,
-    CircuitCurve, ComposableChip, ConstraintSystem, ControlFlowInstructions,
+    CircuitCurve, CircuitCurveTrait, ComposableChip, ConstraintSystem, ControlFlowInstructions,
     ConversionInstructions, EccChip, EccInstructions, EmulatedCurve, EqualityInstructions, Error,
     EvaluationDomain, ForeignEccChip, HashInstructions, IVC_VERIFICATION_KEY_NAME, IvcNativeGadget,
-    Jubjub, Layouter, NativeChip, NativeField, NativeGadget, P2RDecompositionChip,
+    Layouter, NativeChip, NativeField, NativeGadget, P2RDecompositionChip,
     PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PoseidonChip, PublicInputInstructions,
     RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation, Value, VerifierGadget, ZeroInstructions,
@@ -28,7 +28,7 @@ use super::{
 pub struct IvcGadget {
     pub(crate) core_decomp_chip: P2RDecompositionChip<NativeField>,
     pub(crate) native_gadget: IvcNativeGadget,
-    pub(crate) jubjub_chip: EccChip<Jubjub>,
+    pub(crate) jubjub_chip: EccChip<CircuitCurve>,
     pub(crate) poseidon_chip: PoseidonChip<NativeField>,
     pub(crate) sha2_256_chip: Sha256Chip<NativeField>,
     pub(crate) bls12_381_chip:
@@ -47,7 +47,7 @@ impl IvcGadget {
             &(RECURSIVE_CIRCUIT_DEGREE as usize - 1),
         );
         let native_gadget = NativeGadget::new(core_decomp_chip.clone(), native_chip.clone());
-        let jubjub_chip = EccChip::<Jubjub>::new(&config.jubjub_config, &native_gadget);
+        let jubjub_chip = EccChip::<CircuitCurve>::new(&config.jubjub_config, &native_gadget);
         let bls12_381_chip: ForeignEccChip<_, EmulatedCurve, EmulatedCurve, _, _> =
             { ForeignEccChip::new(&config.bls12_381_config, &native_gadget, &native_gadget) };
         let poseidon_chip = PoseidonChip::new(&config.poseidon_config, &native_chip);
@@ -297,7 +297,7 @@ impl IvcGadget {
             .assign_fixed(layouter, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE.0)?;
         let generator: AssignedNativePoint<_> = self.jubjub_chip.assign_fixed(
             layouter,
-            <Jubjub as CircuitCurve>::CryptographicGroup::generator(),
+            <CircuitCurve as CircuitCurveTrait>::CryptographicGroup::generator(),
         )?;
 
         let cap_r = self.jubjub_chip.msm(

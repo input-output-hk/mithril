@@ -10,8 +10,8 @@ use crate::signature_scheme::{SchnorrVerificationKey, StandardSchnorrSignature};
 
 use super::{
     Accumulator, AssignedByte, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-    AssignedVk, ConstraintSystem, EmulatedCurve, Instantiable, Jubjub, KZGCommitmentScheme, Msm,
-    NativeField, PairingEngine, RecursiveEmulation, VerifyingKey,
+    AssignedVk, CircuitCurve, ConstraintSystem, EmulatedCurve, Instantiable, KZGCommitmentScheme,
+    Msm, NativeField, PairingEngine, RecursiveEmulation, VerifyingKey,
     types::{
         CertificateCircuitVerificationKeyRepresentation, EpochNumber,
         IvcCircuitVerificationKeyRepresentation, MerkleTreeCommitment, MessageHash,
@@ -145,7 +145,7 @@ impl Global {
     pub(crate) fn as_public_input(&self) -> Vec<NativeField> {
         [
             vec![self.genesis_message.as_field()],
-            AssignedNativePoint::<Jubjub>::as_public_input(
+            AssignedNativePoint::<CircuitCurve>::as_public_input(
                 self.genesis_verification_key.as_jubjub_subgroup(),
             ),
             vec![
@@ -161,7 +161,7 @@ impl Global {
 pub(crate) struct AssignedGlobal {
     //Persistent values that do not change through an ivc stream
     pub(crate) genesis_message: AssignedNative<NativeField>,
-    pub(crate) genesis_verification_key: AssignedNativePoint<Jubjub>,
+    pub(crate) genesis_verification_key: AssignedNativePoint<CircuitCurve>,
     pub(crate) certificate_verification_key: AssignedVk<RecursiveEmulation>,
     pub(crate) ivc_verification_key: AssignedVk<RecursiveEmulation>,
     // Combined fixed base names for certificate and IVC verification keys.
@@ -197,7 +197,7 @@ impl Witness {
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedWitness {
     pub(crate) genesis_signature: (
-        AssignedScalarOfNativeCurve<Jubjub>,
+        AssignedScalarOfNativeCurve<CircuitCurve>,
         AssignedNative<NativeField>,
     ),
     pub(crate) certificate_message: AssignedNative<NativeField>,

@@ -6,11 +6,11 @@
 //! The code in this module is moved from the standalone recursive prototype and
 //! is kept locally here until the recursive circuit is wired into STM.
 
-pub(crate) use midnight_curves::JubjubExtended as Jubjub;
+pub(crate) use crate::circuits::CircuitCurve;
 
 pub(crate) use midnight_circuits::{
     ecc::{
-        curves::CircuitCurve,
+        curves::CircuitCurve as CircuitCurveTrait,
         foreign::{ForeignEccChip, ForeignEccConfig, nb_foreign_ecc_chip_columns},
         native::{EccChip, EccConfig, NB_EDWARDS_COLS},
     },
@@ -73,7 +73,7 @@ pub(crate) type NativeField = <RecursiveEmulation as SelfEmulation>::F;
 type EmulatedCurve = <RecursiveEmulation as SelfEmulation>::C;
 
 pub(crate) type PairingEngine = <RecursiveEmulation as SelfEmulation>::Engine;
-type EmulatedCurveBaseField = <EmulatedCurve as CircuitCurve>::Base;
+type EmulatedCurveBaseField = <EmulatedCurve as CircuitCurveTrait>::Base;
 
 type IvcNativeGadget =
     NativeGadget<NativeField, P2RDecompositionChip<NativeField>, NativeChip<NativeField>>;
