@@ -36,10 +36,7 @@ pub(crate) use midnight_circuits::{
         AssignedBit, AssignedByte, AssignedForeignPoint, AssignedNative, AssignedNativePoint,
         AssignedScalarOfNativeCurve, ComposableChip, Instantiable,
     },
-    verifier::{
-        self, Accumulator, AssignedAccumulator, AssignedVk, BlstrsEmulation, Msm, SelfEmulation,
-        VerifierGadget,
-    },
+    verifier::{self, Accumulator, AssignedAccumulator, AssignedVk, Msm, VerifierGadget},
 };
 
 pub(crate) use midnight_proofs::{
@@ -68,12 +65,10 @@ pub(crate) mod tests;
 
 pub(crate) use types::ProtocolMessagePreimage;
 
-type RecursiveEmulation = BlstrsEmulation;
-pub(crate) type NativeField = <RecursiveEmulation as SelfEmulation>::F;
-type EmulatedCurve = <RecursiveEmulation as SelfEmulation>::C;
+mod midnight_backend;
 
-pub(crate) type PairingEngine = <RecursiveEmulation as SelfEmulation>::Engine;
-type EmulatedCurveBaseField = <EmulatedCurve as CircuitCurveTrait>::Base;
+use midnight_backend::{EmulatedCurve, EmulatedCurveBaseField, RecursiveEmulation};
+pub(crate) use midnight_backend::{NativeField, PairingEngine};
 
 type IvcNativeGadget =
     NativeGadget<NativeField, P2RDecompositionChip<NativeField>, NativeChip<NativeField>>;
