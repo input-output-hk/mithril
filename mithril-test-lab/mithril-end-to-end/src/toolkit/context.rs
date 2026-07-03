@@ -69,9 +69,9 @@ impl AttemptPolicy {
         ))
     }
 
-    /// Returns a timeout covering the given number of epochs, saturating at [`Duration::MAX`].
+    /// Returns a timeout covering the given number of epochs.
     pub fn timeout_for_epochs(self, epochs: u32) -> Duration {
-        self.epoch_duration.checked_mul(epochs).unwrap_or(Duration::MAX)
+        self.epoch_duration * epochs
     }
 }
 
@@ -94,13 +94,6 @@ mod tests {
         assert_eq!(policy.timeout_for_epochs(0), Duration::from_secs(0));
         assert_eq!(policy.timeout_for_epochs(1), Duration::from_secs(10));
         assert_eq!(policy.timeout_for_epochs(5), Duration::from_secs(50));
-    }
-
-    #[test]
-    fn timeout_for_epochs_saturates_on_overflow() {
-        let policy = AttemptPolicy::new(Duration::MAX);
-
-        assert_eq!(policy.timeout_for_epochs(2), Duration::MAX);
     }
 
     #[test]

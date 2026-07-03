@@ -13,7 +13,8 @@ pub struct WaitToolkit {
 }
 
 impl WaitToolkit {
-    /// Extra epoch added on top of the epochs remaining until the target epoch.
+    /// Extra epoch of timeout margin on top of the number of epochs remaining until the target,
+    /// so block-production and chain-observation jitter near the boundary does not trip the deadline.
     const TARGET_EPOCH_SLACK: u64 = 1;
 
     pub fn new(context: ScenarioToolkitContext) -> Self {
@@ -110,10 +111,7 @@ impl WaitToolkit {
             .ok()
             .flatten()
             .unwrap_or(Epoch(0));
-        let epochs_to_wait =
-            (*target_epoch).saturating_sub(*current_epoch) + Self::TARGET_EPOCH_SLACK;
-        let epochs_to_wait = u32::try_from(epochs_to_wait)
-            .with_context(|| format!("Number of epochs to wait is too large: {epochs_to_wait}"))?;
+        let epochs_to_wait = Self::compute_number_of_epochs_to_wait(target_epoch, current_epoch);
         let timeout = self.context.timeout_for_epochs(epochs_to_wait);
 
         match poll_until!(timeout, self.context.poll_backoff(), {
@@ -144,5 +142,12 @@ impl WaitToolkit {
         }?;
 
         Ok(())
+    }
+
+    /// Number of epochs to wait for the chain to reach `target_epoch` from `current_epoch`,
+    /// including the target epoch slack.
+    fn compute_number_of_epochs_to_wait(target_epoch: Epoch, current_epoch: Epoch) -> u32 {
+        let epochs_to_wait = target_epoch - current_epoch + Self::TARGET_EPOCH_SLACK;
+        u32::try_from(*epochs_to_wait).expect("Number of epochs to wait should fit in a u32")
     }
 }
