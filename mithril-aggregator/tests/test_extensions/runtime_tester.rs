@@ -674,7 +674,7 @@ impl RuntimeTester {
         async_wait!(
             max_iter:100, sleep_ms:1,
             condition: !self.observer.is_last_signed_entity(signed_entity_type_expected).await?,
-            error_msg: "Signed entity not found: {signed_entity_type_expected}"
+            error_msg: "Signed entity not found: {signed_entity_type_expected:?}"
         )
     }
 
