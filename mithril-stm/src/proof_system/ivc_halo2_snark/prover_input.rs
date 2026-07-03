@@ -15,7 +15,7 @@ use crate::{
     },
     proof_system::ivc_halo2_snark::{
         prover_input_helpers::{
-            IvcTransitionType, assert_correct_parameters, build_next_accumulator, build_next_state,
+            IvcTransitionType, build_next_accumulator, build_next_state,
             create_snark_message_for_next_state, verify_certificate_proof,
         },
         prover_setup::IvcSnarkProverSetup,
@@ -59,8 +59,7 @@ impl IvcProverInput {
             protocol_message_preimage,
         )?;
 
-        assert_correct_parameters(
-            rolling_state,
+        rolling_state.assert_correct_parameters(
             protocol_message_preimage,
             aggregate_verification_key_for_snark,
             message,

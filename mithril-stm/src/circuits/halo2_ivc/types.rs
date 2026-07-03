@@ -149,8 +149,22 @@ impl From<[u8; PREIMAGE_SIZE]> for ProtocolMessagePreimage {
 }
 
 impl EpochNumber {
-    pub(crate) fn add(self, value: u64) -> Self {
-        Self(self.0 + value)
+    pub(crate) fn is_equal(&self, value: &Self) -> bool {
+        self == value
+    }
+
+    /// Computes the next epoch value using a checked addition
+    /// to avoid not catching potential overflows
+    pub(crate) fn next_epoch(self) -> Option<Self> {
+        self.0.checked_add(1).map(Self)
+    }
+}
+
+impl StepCounter {
+    /// Returns true if the StepCounter is not in the genesis
+    /// step (= 0) or the first step after genesis (= 1)
+    pub(crate) fn is_not_first_step(&self) -> bool {
+        self.0 > 1
     }
 }
 

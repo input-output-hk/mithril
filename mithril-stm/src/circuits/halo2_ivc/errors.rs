@@ -72,6 +72,12 @@ pub enum EpochTransitionErrorKind {
     /// do not match the protocol message parameters expected for the given transition type.
     #[error("rolling state parameters do not match the current protocol message parameters")]
     RollingStateParametersDoesNotMatchProtocolMessage,
+
+    /// Off-circuit step transition: the chain's epoch would overflow u64.
+    #[error(
+        "IvcTransitionType::try_compute_transition_type: epoch overflow advancing past the last committed epoch"
+    )]
+    EpochOverflow,
 }
 
 /// Convert an IVC circuit error into a Plonk synthesis error at gadget boundaries.

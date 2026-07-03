@@ -321,8 +321,6 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         // then continue with the seeded state. Otherwise advance from the supplied state.
         let effective_rolling_state: &IvcRollingState = match rolling_state {
             None => &self.run_genesis_step(global, genesis_bootstrap)?,
-            // if the transition is not Genesis it means that rolling_state is Some
-            // so the unwrap() is safe
             Some(rolling_state) => rolling_state,
         };
 
