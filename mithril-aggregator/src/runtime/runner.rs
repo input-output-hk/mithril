@@ -11,6 +11,7 @@ use mithril_persistence::store::StakeStorer;
 
 use crate::ServeCommandDependenciesContainer;
 use crate::entities::OpenMessage;
+use crate::services::CertificateChainSynchronizationOutcome;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -79,7 +80,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn synchronize_follower_aggregator_certificate_chain(
         &self,
         force_sync: bool,
-    ) -> StdResult<()>;
+    ) -> StdResult<CertificateChainSynchronizationOutcome>;
 
     /// Compute the protocol message
     async fn compute_protocol_message(
@@ -517,7 +518,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn synchronize_follower_aggregator_certificate_chain(
         &self,
         force_sync: bool,
-    ) -> StdResult<()> {
+    ) -> StdResult<CertificateChainSynchronizationOutcome> {
         debug!(
             self.logger,
             ">> synchronize_follower_aggregator_certificate_chain(force_sync:{force_sync})"

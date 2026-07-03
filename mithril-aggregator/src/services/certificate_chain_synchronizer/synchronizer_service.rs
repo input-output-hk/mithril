@@ -5,7 +5,8 @@
 //!    - If false, fetch the latest local genesis certificate in database
 //!       - If it's found, fetch the remote Genesis certificate
 //!          - If it's different from the local genesis, continue synchronization
-//!          - If it's the same, abort with an `Ok`
+//!          - If it's the same, skip synchronization with `AlreadyUpToDate`
+//!          - If it's not found, skip synchronization with `EmptyRemoteCertificateChain`
 //!       - If it's not found, continue synchronization
 //!    - If true, skip the remote Genesis certificate check and synchronize
 //! 2. Fetch then validate the latest remote certificate
@@ -20,7 +21,7 @@
 //!    foreign key constraint violations when synchronizing a gapped certificate chain)
 //! 6. End
 //!
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use chrono::Utc;
 use slog::{Logger, debug, info, warn};
@@ -34,6 +35,7 @@ use mithril_common::logging::LoggerExtensions;
 
 use crate::EpochSettingsStorer;
 use crate::entities::OpenMessage;
+use crate::services::CertificateChainSynchronizationOutcome;
 
 use super::{
     CertificateChainSynchronizer, OpenMessageStorer, RemoteCertificateRetriever,
@@ -54,17 +56,23 @@ pub struct MithrilCertificateChainSynchronizer {
 enum SyncStatus {
     Forced,
     NoLocalGenesis,
+    EmptyRemoteCertificateChain,
     RemoteGenesisMatchesLocalGenesis,
     RemoteGenesisDoesntMatchLocalGenesis,
 }
 
 impl SyncStatus {
-    fn should_sync(&self) -> bool {
+    fn skipped_outcome(&self) -> Option<CertificateChainSynchronizationOutcome> {
         match self {
-            SyncStatus::Forced => true,
-            SyncStatus::NoLocalGenesis => true,
-            SyncStatus::RemoteGenesisMatchesLocalGenesis => false,
-            SyncStatus::RemoteGenesisDoesntMatchLocalGenesis => true,
+            SyncStatus::EmptyRemoteCertificateChain => {
+                Some(CertificateChainSynchronizationOutcome::EmptyRemoteCertificateChain)
+            }
+            SyncStatus::RemoteGenesisMatchesLocalGenesis => {
+                Some(CertificateChainSynchronizationOutcome::AlreadyUpToDate)
+            }
+            SyncStatus::Forced
+            | SyncStatus::NoLocalGenesis
+            | SyncStatus::RemoteGenesisDoesntMatchLocalGenesis => None,
         }
     }
 }
@@ -105,8 +113,7 @@ impl MithrilCertificateChainSynchronizer {
                         Ok(SyncStatus::RemoteGenesisMatchesLocalGenesis)
                     }
                     Some(_) => Ok(SyncStatus::RemoteGenesisDoesntMatchLocalGenesis),
-                    // The remote aggregator doesn't have a chain yet, we can't sync
-                    None => Err(anyhow!("Remote aggregator doesn't have a chain yet")),
+                    None => Ok(SyncStatus::EmptyRemoteCertificateChain),
                 }
             }
             None => Ok(SyncStatus::NoLocalGenesis),
@@ -161,25 +168,35 @@ impl MithrilCertificateChainSynchronizer {
 
 #[async_trait]
 impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
-    async fn synchronize_certificate_chain(&self, force: bool) -> StdResult<()> {
+    async fn synchronize_certificate_chain(
+        &self,
+        force: bool,
+    ) -> StdResult<CertificateChainSynchronizationOutcome> {
         debug!(self.logger, ">> synchronize_certificate_chain"; "force" => force);
 
         let sync_state = self.check_sync_state(force).await.with_context(|| {
             format!("Failed to check if certificate chain should be sync (force: `{force}`)")
         })?;
-        if sync_state.should_sync() {
-            info!(self.logger, "Start synchronizing certificate chain"; "sync_state" => ?sync_state);
-        } else {
+
+        if let Some(skip_outcome) = sync_state.skipped_outcome() {
             info!(self.logger, "No need to synchronize certificate chain"; "sync_state" => ?sync_state);
-            return Ok(());
+            return Ok(skip_outcome);
+        } else {
+            info!(self.logger, "Start synchronizing certificate chain"; "sync_state" => ?sync_state);
         }
 
-        let starting_point = self
+        let starting_point = match self
             .remote_certificate_retriever
             .get_latest_certificate_details()
-            .await?
-            .with_context(|| "Failed to retrieve latest remote certificate details")
-            .with_context(|| "Remote aggregator doesn't have a chain yet")?;
+            .await
+            .with_context(|| "Failed to retrieve latest remote certificate details")?
+        {
+            Some(certificate) => certificate,
+            None => {
+                info!(self.logger, "Remote certificate chain is empty"; "sync_state" => ?sync_state);
+                return Ok(CertificateChainSynchronizationOutcome::EmptyRemoteCertificateChain);
+            }
+        };
         let remote_certificate_chain = self
             .retrieve_and_validate_remote_certificate_chain(starting_point)
             .await
@@ -195,7 +212,7 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
 
         // In case the synchronized certificate chain is incomplete, the open message creation
         // may be skipped to avoid foreign key constraint violations which could occur with the absence of
-        // epoch settings (as we they are pruned regularly) for the latest synchronized certificate's epoch.
+        // epoch settings (as they are pruned regularly) for the latest synchronized certificate's epoch.
         // This situation may arise when synchronizing a gapped certificate chain.
         let epoch_settings_exist = self
             .epoch_settings_storer
@@ -222,7 +239,7 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
             self.logger,
             "Certificate chain synchronized with remote source"
         );
-        Ok(())
+        Ok(CertificateChainSynchronizationOutcome::Synchronized)
     }
 }
 
@@ -391,11 +408,21 @@ mod tests {
         use super::*;
 
         #[test]
-        fn sync_state_should_sync() {
-            assert!(SyncStatus::Forced.should_sync());
-            assert!(!SyncStatus::RemoteGenesisMatchesLocalGenesis.should_sync());
-            assert!(SyncStatus::RemoteGenesisDoesntMatchLocalGenesis.should_sync());
-            assert!(SyncStatus::NoLocalGenesis.should_sync());
+        fn sync_state_skipped_outcome() {
+            assert_eq!(None, SyncStatus::Forced.skipped_outcome());
+            assert_eq!(
+                None,
+                SyncStatus::RemoteGenesisDoesntMatchLocalGenesis.skipped_outcome()
+            );
+            assert_eq!(None, SyncStatus::NoLocalGenesis.skipped_outcome());
+            assert_eq!(
+                Some(CertificateChainSynchronizationOutcome::AlreadyUpToDate),
+                SyncStatus::RemoteGenesisMatchesLocalGenesis.skipped_outcome()
+            );
+            assert_eq!(
+                Some(CertificateChainSynchronizationOutcome::EmptyRemoteCertificateChain),
+                SyncStatus::EmptyRemoteCertificateChain.skipped_outcome()
+            );
         }
 
         #[tokio::test]
@@ -444,12 +471,25 @@ mod tests {
                 "should not fetch genesis"
             )));
 
-            synchronizer.check_sync_state(true).await.unwrap();
+            let sync_state = synchronizer.check_sync_state(true).await.unwrap();
+            assert_eq!(SyncStatus::Forced, sync_state);
+        }
+
+        #[tokio::test]
+        async fn state_when_force_false_local_genesis_found_and_no_remote_genesis() {
+            let local_genesis = fake_data::genesis_certificate("genesis");
+            let synchronizer = mocked_synchronizer!(with_remote_genesis: Ok(None), with_local_genesis: Ok(Some(local_genesis)));
+
+            let sync_state = synchronizer.check_sync_state(false).await.unwrap();
+            assert_eq!(SyncStatus::EmptyRemoteCertificateChain, sync_state);
         }
 
         #[tokio::test]
         async fn should_abort_with_error_if_force_false_and_fails_to_retrieve_local_genesis() {
-            let synchronizer = mocked_synchronizer!(with_local_genesis: Err(anyhow!("failure")));
+            let synchronizer = mocked_synchronizer!(
+                with_remote_genesis: Ok(Some(fake_data::genesis_certificate("genesis"))),
+                with_local_genesis: Err(anyhow!("failure"))
+            );
             synchronizer
                 .check_sync_state(false)
                 .await
@@ -466,25 +506,6 @@ mod tests {
                 .check_sync_state(false)
                 .await
                 .expect_err("Expected an error but was:");
-        }
-
-        #[tokio::test]
-        async fn should_abort_with_error_if_force_false_and_remote_genesis_is_none() {
-            let synchronizer = mocked_synchronizer!(
-                with_remote_genesis: Ok(None),
-                with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
-            );
-            let error = synchronizer
-                .check_sync_state(false)
-                .await
-                .expect_err("Expected an error but was:");
-
-            assert!(
-                error
-                    .to_string()
-                    .contains("Remote aggregator doesn't have a chain yet"),
-                "Unexpected error:\n{error:?}"
-            );
         }
     }
 
@@ -688,7 +709,7 @@ mod tests {
                     MockBuilder::<MockRemoteCertificateRetriever>::configure(|mock| {
                         let genesis = remote_chain.genesis_certificate().clone();
                         mock.expect_get_genesis_certificate_details()
-                            .return_once(move || Ok(Some(genesis)));
+                            .returning(move || Ok(Some(genesis.clone())));
                         let latest = remote_chain.latest_certificate().clone();
                         mock.expect_get_latest_certificate_details()
                             .return_once(move || Ok(Some(latest)));
@@ -729,7 +750,11 @@ mod tests {
             let synchronizer = build_synchronizer(&remote_chain, storer.clone());
 
             // Will sync even if force is false
-            synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            let outcome = synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            assert_eq!(
+                CertificateChainSynchronizationOutcome::Synchronized,
+                outcome
+            );
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
@@ -752,12 +777,20 @@ mod tests {
             let synchronizer = build_synchronizer(&remote_chain, storer.clone());
 
             // Force false - won't sync
-            synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            let outcome = synchronizer.synchronize_certificate_chain(false).await.unwrap();
 
+            assert_eq!(
+                CertificateChainSynchronizationOutcome::AlreadyUpToDate,
+                outcome
+            );
             assert_eq!(&existing_certificates, &storer.stored_certificates());
 
             // Force true - will sync
-            synchronizer.synchronize_certificate_chain(true).await.unwrap();
+            let outcome = synchronizer.synchronize_certificate_chain(true).await.unwrap();
+            assert_eq!(
+                CertificateChainSynchronizationOutcome::Synchronized,
+                outcome
+            );
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
@@ -775,12 +808,52 @@ mod tests {
             let synchronizer =
                 build_synchronizer_with_epoch_settings(&remote_chain, storer.clone(), false);
 
-            synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            let outcome = synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            assert_eq!(
+                CertificateChainSynchronizationOutcome::Synchronized,
+                outcome
+            );
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
             expected.reverse();
             assert_eq!(expected, storer.stored_certificates());
+        }
+
+        #[tokio::test]
+        async fn skip_synchronization_if_force_false_and_remote_does_not_have_a_chain() {
+            let synchronizer = mocked_synchronizer!(
+                with_remote_genesis: Ok(None),
+                with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
+            );
+
+            let outcome = synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            assert_eq!(
+                CertificateChainSynchronizationOutcome::EmptyRemoteCertificateChain,
+                outcome
+            );
+        }
+
+        #[tokio::test]
+        async fn skip_synchronization_if_force_true_and_remote_does_not_have_a_chain() {
+            let storer = Arc::new(DumbCertificateStorer::default());
+            let synchronizer = MithrilCertificateChainSynchronizer {
+                certificate_storer: storer.clone(),
+                remote_certificate_retriever:
+                    MockBuilder::<MockRemoteCertificateRetriever>::configure(|mock| {
+                        mock.expect_get_latest_certificate_details()
+                            .return_once(move || Ok(None));
+                    }),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            };
+
+            let outcome = synchronizer.synchronize_certificate_chain(true).await.unwrap();
+            assert_eq!(
+                CertificateChainSynchronizationOutcome::EmptyRemoteCertificateChain,
+                outcome
+            );
+
+            assert_eq!(Vec::<Certificate>::new(), storer.stored_certificates());
         }
     }
 }
