@@ -14,7 +14,7 @@ use ff::Field;
 use midnight_circuits::{types::Instantiable, verifier::AssignedMsm};
 
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, S, state::trivial_acc,
+    AssignedAccumulator, RecursiveEmulation, state::trivial_acc,
     tests::common::helpers::build_unextracted_recursive_proof_accumulator_from_assets,
 };
 
@@ -78,9 +78,11 @@ fn extract_fixed_bases_does_not_affect_lhs() {
     let (mut accumulator, recursive_fixed_bases) =
         build_unextracted_recursive_proof_accumulator_from_assets();
 
-    let lhs_encoding_before_extraction = AssignedMsm::<S>::as_public_input(&accumulator.lhs());
+    let lhs_encoding_before_extraction =
+        AssignedMsm::<RecursiveEmulation>::as_public_input(&accumulator.lhs());
     accumulator.extract_fixed_bases(&recursive_fixed_bases);
-    let lhs_encoding_after_extraction = AssignedMsm::<S>::as_public_input(&accumulator.lhs());
+    let lhs_encoding_after_extraction =
+        AssignedMsm::<RecursiveEmulation>::as_public_input(&accumulator.lhs());
 
     assert_eq!(
         lhs_encoding_before_extraction, lhs_encoding_after_extraction,

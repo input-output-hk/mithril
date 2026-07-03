@@ -28,7 +28,7 @@ fn merkle_tree_commitment_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
-        |s| s.merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
+        |s| s.merkle_tree_commitment = MerkleTreeCommitment::from_field(NativeField::ONE),
         "proof with tampered merkle_tree_commitment should be rejected by the verifier",
     );
 }
@@ -39,7 +39,7 @@ fn next_merkle_tree_commitment_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
-        |s| s.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
+        |s| s.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(NativeField::ONE),
         "proof with tampered next_merkle_tree_commitment should be rejected by the verifier",
     );
 }
@@ -50,7 +50,7 @@ fn protocol_parameters_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
-        |s| s.protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
+        |s| s.protocol_parameters = ProtocolParametersHash::from_field(NativeField::ONE),
         "proof with tampered protocol_parameters should be rejected by the verifier",
     );
 }
@@ -61,7 +61,7 @@ fn next_protocol_parameters_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
-        |s| s.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
+        |s| s.next_protocol_parameters = ProtocolParametersHash::from_field(NativeField::ONE),
         "proof with tampered next_protocol_parameters should be rejected by the verifier",
     );
 }
@@ -72,7 +72,7 @@ fn current_epoch_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
-        |s| s.current_epoch = EpochNumber::from_field(F::ONE),
+        |s| s.current_epoch = EpochNumber::from_field(NativeField::ONE),
         "proof with tampered current_epoch should be rejected by the verifier",
     );
 }
@@ -83,7 +83,7 @@ fn counter_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
-        |s| s.step_counter = StepCounter::from_field(F::ONE),
+        |s| s.step_counter = StepCounter::from_field(NativeField::ONE),
         "proof with tampered step_counter should be rejected by the verifier",
     );
 }
@@ -94,7 +94,7 @@ fn msg_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
-        |s| s.message = MessageHash::from_field(F::ONE),
+        |s| s.message = MessageHash::from_field(NativeField::ONE),
         "proof with tampered message should be rejected by the verifier",
     );
 }
@@ -124,7 +124,7 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
-        tampered_state.merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE);
+        tampered_state.merkle_tree_commitment = MerkleTreeCommitment::from_field(NativeField::ONE);
         let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
@@ -157,7 +157,7 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
-        tampered_state.protocol_parameters = ProtocolParametersHash::from_field(F::ONE);
+        tampered_state.protocol_parameters = ProtocolParametersHash::from_field(NativeField::ONE);
         let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);

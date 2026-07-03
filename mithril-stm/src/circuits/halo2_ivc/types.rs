@@ -7,7 +7,7 @@ use ff::Field;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
+    NativeField, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PREIMAGE_SIZE,
 };
 use crate::BaseFieldElement;
@@ -15,30 +15,30 @@ use crate::BaseFieldElement;
 macro_rules! field_wrapper {
     ($name:ident, zero) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-        pub(crate) struct $name(F);
+        pub(crate) struct $name(NativeField);
 
         impl $name {
-            pub(crate) const ZERO: Self = Self(F::ZERO);
+            pub(crate) const ZERO: Self = Self(NativeField::ZERO);
 
-            pub(crate) fn from_field(value: F) -> Self {
+            pub(crate) fn from_field(value: NativeField) -> Self {
                 Self(value)
             }
 
-            pub(crate) fn as_field(self) -> F {
+            pub(crate) fn as_field(self) -> NativeField {
                 self.0
             }
         }
     };
     ($name:ident) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        pub(crate) struct $name(F);
+        pub(crate) struct $name(NativeField);
 
         impl $name {
-            pub(crate) fn from_field(value: F) -> Self {
+            pub(crate) fn from_field(value: NativeField) -> Self {
                 Self(value)
             }
 
-            pub(crate) fn as_field(self) -> F {
+            pub(crate) fn as_field(self) -> NativeField {
                 self.0
             }
         }
@@ -67,12 +67,12 @@ macro_rules! u64_wrapper {
                 self.0
             }
 
-            pub(crate) fn as_field(self) -> F {
-                F::from(self.0)
+            pub(crate) fn as_field(self) -> NativeField {
+                NativeField::from(self.0)
             }
 
             #[cfg(test)]
-            pub(crate) fn from_field(value: F) -> Self {
+            pub(crate) fn from_field(value: NativeField) -> Self {
                 let bytes = value.to_bytes_le();
                 let low_bytes = bytes[0..8]
                     .try_into()

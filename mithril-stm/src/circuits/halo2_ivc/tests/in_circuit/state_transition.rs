@@ -15,7 +15,7 @@ mod slow {
     use ff::Field;
 
     use crate::circuits::halo2_ivc::{
-        F,
+        NativeField,
         state::Witness,
         tests::common::{
             asset_readers::load_embedded_recursive_chain_state_asset,
@@ -55,7 +55,8 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE);
+        tampered_state.next_merkle_tree_commitment =
+            MerkleTreeCommitment::from_field(NativeField::ONE);
         let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
@@ -87,7 +88,8 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE);
+        tampered_state.next_protocol_parameters =
+            ProtocolParametersHash::from_field(NativeField::ONE);
         let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
@@ -120,7 +122,7 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.message = MessageHash::from_field(F::ONE);
+        tampered_state.message = MessageHash::from_field(NativeField::ONE);
         let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(

@@ -13,23 +13,31 @@ use midnight_proofs::{
 use rand_core::{CryptoRng, RngCore};
 
 use crate::circuits::halo2_ivc::keys::RecursiveCircuitProvingKey;
-use crate::circuits::halo2_ivc::{C, E, F, VerifyingKey, circuit::IvcCircuitData};
+use crate::circuits::halo2_ivc::{
+    EmulatedCurve, NativeField, PairingEngine, VerifyingKey, circuit::IvcCircuitData,
+};
 
 /// Generates a recursive proof using the chosen transcript hash.
 fn prove_ivc_with_transcript<H: TranscriptHash>(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &RecursiveCircuitProvingKey,
     ivc_circuit_data: &IvcCircuitData,
-    public_inputs: &[F],
+    public_inputs: &[NativeField],
     random_generator: &mut (impl RngCore + CryptoRng),
     proof_generation_error: &str,
 ) -> Vec<u8>
 where
-    F: Sampleable<H> + Hashable<H> + Hash + Ord + FromUniformBytes<64>,
-    <KZGCommitmentScheme<E> as PolynomialCommitmentScheme<F>>::Commitment: Hashable<H>,
+    NativeField: Sampleable<H> + Hashable<H> + Hash + Ord + FromUniformBytes<64>,
+    <KZGCommitmentScheme<PairingEngine> as PolynomialCommitmentScheme<NativeField>>::Commitment:
+        Hashable<H>,
 {
     let mut transcript = CircuitTranscript::<H>::init();
-    create_proof::<F, KZGCommitmentScheme<E>, CircuitTranscript<H>, IvcCircuitData>(
+    create_proof::<
+        NativeField,
+        KZGCommitmentScheme<PairingEngine>,
+        CircuitTranscript<H>,
+        IvcCircuitData,
+    >(
         commitment_parameters,
         proving_key.proving_key(),
         std::slice::from_ref(ivc_circuit_data),
@@ -44,24 +52,26 @@ where
 
 /// Verifies a recursive proof and returns the prepared MSM.
 fn verify_prepare_ivc_with_transcript<H: TranscriptHash>(
-    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    verifying_key: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
     proof: &[u8],
-    public_inputs: &[F],
+    public_inputs: &[NativeField],
     verification_error: &str,
     transcript_error: &str,
-) -> DualMSM<E>
+) -> DualMSM<PairingEngine>
 where
-    F: Sampleable<H> + Hashable<H> + Hash + Ord + FromUniformBytes<64>,
-    <KZGCommitmentScheme<E> as PolynomialCommitmentScheme<F>>::Commitment: Hashable<H>,
+    NativeField: Sampleable<H> + Hashable<H> + Hash + Ord + FromUniformBytes<64>,
+    <KZGCommitmentScheme<PairingEngine> as PolynomialCommitmentScheme<NativeField>>::Commitment:
+        Hashable<H>,
 {
     let mut transcript = CircuitTranscript::<H>::init_from_bytes(proof);
-    let dual_msm = prepare::<F, KZGCommitmentScheme<E>, CircuitTranscript<H>>(
-        verifying_key,
-        &[&[C::identity()]],
-        &[&[public_inputs]],
-        &mut transcript,
-    )
-    .expect(verification_error);
+    let dual_msm =
+        prepare::<NativeField, KZGCommitmentScheme<PairingEngine>, CircuitTranscript<H>>(
+            verifying_key,
+            &[&[EmulatedCurve::identity()]],
+            &[&[public_inputs]],
+            &mut transcript,
+        )
+        .expect(verification_error);
     transcript.assert_empty().expect(transcript_error);
     dual_msm
 }
@@ -71,10 +81,10 @@ pub(crate) fn prove_poseidon_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &RecursiveCircuitProvingKey,
     ivc_circuit_data: &IvcCircuitData,
-    public_inputs: &[F],
+    public_inputs: &[NativeField],
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> Vec<u8> {
-    prove_ivc_with_transcript::<PoseidonState<F>>(
+    prove_ivc_with_transcript::<PoseidonState<NativeField>>(
         commitment_parameters,
         proving_key,
         ivc_circuit_data,
@@ -86,11 +96,11 @@ pub(crate) fn prove_poseidon_ivc(
 
 /// Verifies a recursive proof using the Poseidon transcript and returns the prepared MSM.
 pub(crate) fn verify_prepare_poseidon_ivc(
-    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    verifying_key: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
     proof: &[u8],
-    public_inputs: &[F],
-) -> DualMSM<E> {
-    verify_prepare_ivc_with_transcript::<PoseidonState<F>>(
+    public_inputs: &[NativeField],
+) -> DualMSM<PairingEngine> {
+    verify_prepare_ivc_with_transcript::<PoseidonState<NativeField>>(
         verifying_key,
         proof,
         public_inputs,
@@ -104,7 +114,7 @@ pub(crate) fn prove_blake2b_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &RecursiveCircuitProvingKey,
     ivc_circuit_data: &IvcCircuitData,
-    public_inputs: &[F],
+    public_inputs: &[NativeField],
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> Vec<u8> {
     prove_ivc_with_transcript::<blake2b_simd::State>(
@@ -127,14 +137,18 @@ pub(crate) fn prove_blake2b_ivc(
 /// Use this instead of `verify_prepare_poseidon_ivc` when testing with tampered
 /// bytes where a panic-on-error would be inappropriate.
 pub(crate) fn try_verify_prepare_poseidon_ivc(
-    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    verifying_key: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
     proof: &[u8],
-    public_inputs: &[F],
-) -> Option<DualMSM<E>> {
-    let mut transcript = CircuitTranscript::<PoseidonState<F>>::init_from_bytes(proof);
-    let dual_msm = prepare::<F, KZGCommitmentScheme<E>, CircuitTranscript<PoseidonState<F>>>(
+    public_inputs: &[NativeField],
+) -> Option<DualMSM<PairingEngine>> {
+    let mut transcript = CircuitTranscript::<PoseidonState<NativeField>>::init_from_bytes(proof);
+    let dual_msm = prepare::<
+        NativeField,
+        KZGCommitmentScheme<PairingEngine>,
+        CircuitTranscript<PoseidonState<NativeField>>,
+    >(
         verifying_key,
-        &[&[C::identity()]],
+        &[&[EmulatedCurve::identity()]],
         &[&[public_inputs]],
         &mut transcript,
     )
@@ -145,10 +159,10 @@ pub(crate) fn try_verify_prepare_poseidon_ivc(
 
 /// Verifies the final recursive proof using the Blake2b transcript.
 pub(crate) fn verify_prepare_blake2b_ivc(
-    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    verifying_key: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
     proof: &[u8],
-    public_inputs: &[F],
-) -> DualMSM<E> {
+    public_inputs: &[NativeField],
+) -> DualMSM<PairingEngine> {
     verify_prepare_ivc_with_transcript::<blake2b_simd::State>(
         verifying_key,
         proof,

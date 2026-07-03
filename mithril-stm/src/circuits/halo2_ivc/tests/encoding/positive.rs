@@ -6,9 +6,9 @@ use midnight_proofs::utils::SerdeFormat;
 use sha2::{Digest as Sha2Digest, Sha256};
 
 use crate::circuits::halo2_ivc::{
-    Accumulator, E, F, KZGCommitmentScheme, PREIMAGE_CURRENT_EPOCH_BYTES,
+    Accumulator, KZGCommitmentScheme, NativeField, PREIMAGE_CURRENT_EPOCH_BYTES,
     PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
-    PREIMAGE_SIZE, S, VerifyingKey,
+    PREIMAGE_SIZE, PairingEngine, RecursiveEmulation, VerifyingKey,
     circuit::IvcCircuitData,
     io::{Read as IvcRead, Write as IvcWrite},
     protocol_message::{DynamicProtocolMessagePartKey, ProtocolMessage},
@@ -95,13 +95,13 @@ fn state_public_input_has_7_elements_in_correct_order() {
     // Off-circuit check that State::as_public_input() returns exactly 7 field
     // elements in the order the circuit expects: step_counter, message, merkle_tree_commitment,
     // next_merkle_tree_commitment, protocol_parameters, next_protocol_parameters, current_epoch.
-    let step_counter = F::from(1u64);
-    let message = F::from(2u64);
-    let merkle_tree_commitment = F::from(3u64);
-    let next_merkle_tree_commitment = F::from(4u64);
-    let protocol_parameters = F::from(5u64);
-    let next_protocol_parameters = F::from(6u64);
-    let current_epoch = F::from(7u64);
+    let step_counter = NativeField::from(1u64);
+    let message = NativeField::from(2u64);
+    let merkle_tree_commitment = NativeField::from(3u64);
+    let next_merkle_tree_commitment = NativeField::from(4u64);
+    let protocol_parameters = NativeField::from(5u64);
+    let next_protocol_parameters = NativeField::from(6u64);
+    let current_epoch = NativeField::from(7u64);
 
     let state = State::new(
         StepCounter::from_field(step_counter),
@@ -152,9 +152,11 @@ fn accumulator_serialization_round_trip() {
         .write(&mut first_bytes, SerdeFormat::RawBytesUnchecked)
         .expect("accumulator serialization should succeed");
 
-    let deserialized =
-        Accumulator::<S>::read(&mut first_bytes.as_slice(), SerdeFormat::RawBytesUnchecked)
-            .expect("accumulator deserialization should succeed");
+    let deserialized = Accumulator::<RecursiveEmulation>::read(
+        &mut first_bytes.as_slice(),
+        SerdeFormat::RawBytesUnchecked,
+    )
+    .expect("accumulator deserialization should succeed");
 
     let mut second_bytes = Vec::new();
     deserialized
@@ -191,11 +193,10 @@ fn vk_serialization_round_trip() {
         .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
         .expect("verifying key serialization should succeed");
 
-    let deserialized = VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuitData>(
-        &mut bytes.as_slice(),
-        SerdeFormat::RawBytesUnchecked,
-        (),
-    )
+    let deserialized = VerifyingKey::<NativeField, KZGCommitmentScheme<PairingEngine>>::read::<
+        _,
+        IvcCircuitData,
+    >(&mut bytes.as_slice(), SerdeFormat::RawBytesUnchecked, ())
     .expect("verifying key deserialization should succeed");
 
     assert_eq!(

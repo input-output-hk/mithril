@@ -21,7 +21,7 @@ use crate::{
     StmResult,
     circuits::{
         halo2::types::CircuitBase,
-        halo2_ivc::{E, F, VerifyingKey, errors::IvcCircuitError},
+        halo2_ivc::{NativeField, PairingEngine, VerifyingKey, errors::IvcCircuitError},
     },
 };
 
@@ -39,7 +39,7 @@ use crate::{
 pub(crate) fn verify_and_prepare_accumulator(
     proof_bytes: &[u8],
     public_inputs: &[CircuitBase],
-    circuit_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    circuit_verification_key: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
     verifier_params: &ParamsVerifierKZG<Bls12>,
 ) -> StmResult<DualMSM<Bls12>> {
     let mut transcript =

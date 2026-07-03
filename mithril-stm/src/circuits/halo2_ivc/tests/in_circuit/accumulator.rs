@@ -9,7 +9,7 @@ use midnight_circuits::types::Instantiable;
 
 use crate::StmResult;
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, F,
+    AssignedAccumulator, NativeField,
     tests::common::{
         asset_readers::{
             StepOutputAsset, load_embedded_following_certificate_in_epoch_asset,
@@ -20,7 +20,7 @@ use crate::circuits::halo2_ivc::{
     },
 };
 
-/// Loads a step output via `load_step_output`, replaces `acc[0]` with `F::ONE`
+/// Loads a step output via `load_step_output`, replaces `acc[0]` with `NativeField::ONE`
 /// in the public inputs, then asserts the verifier rejects the resulting proof.
 fn assert_step_output_rejects_tampered_next_accumulator<T: StepOutputAsset>(
     load_step_output: impl FnOnce() -> StmResult<T>,
@@ -37,7 +37,7 @@ fn assert_step_output_rejects_tampered_next_accumulator<T: StepOutputAsset>(
     let mut accumulator_encoding =
         AssignedAccumulator::as_public_input(step_output.next_accumulator());
 
-    accumulator_encoding[0] = F::ONE;
+    accumulator_encoding[0] = NativeField::ONE;
 
     let public_inputs = [global, state, accumulator_encoding].concat();
 
@@ -91,7 +91,7 @@ mod slow {
     use midnight_circuits::types::Instantiable;
 
     use crate::circuits::halo2_ivc::{
-        AssignedAccumulator, F,
+        AssignedAccumulator, NativeField,
         circuit::IvcCircuitData,
         tests::common::{
             asset_readers::load_embedded_recursive_chain_state_asset,
@@ -143,7 +143,7 @@ mod slow {
         .expect("valid IvcCircuitData construction");
 
         let mut accumulator_encoding = AssignedAccumulator::as_public_input(&next_accumulator);
-        accumulator_encoding[0] = F::ONE;
+        accumulator_encoding[0] = NativeField::ONE;
 
         let public_inputs = [
             mock_prover_setup.global.as_public_input(),

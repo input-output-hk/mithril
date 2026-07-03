@@ -9,15 +9,18 @@ use std::collections::BTreeMap;
 use midnight_curves::pairing::Engine;
 
 use crate::circuits::halo2_ivc::{
-    Accumulator, C, E, S,
+    Accumulator, EmulatedCurve, PairingEngine, RecursiveEmulation,
     tests::common::helpers::build_unextracted_certificate_accumulator_from_assets,
 };
 
 /// Verifies the stored certificate proof and returns the accumulator after
 /// `extract_fixed_bases` but before `collapse`, together with the certificate
 /// fixed-base map and `tau_in_g2` needed to call `accumulator.check`.
-fn build_extracted_certificate_accumulator()
--> (Accumulator<S>, BTreeMap<String, C>, <E as Engine>::G2Affine) {
+fn build_extracted_certificate_accumulator() -> (
+    Accumulator<RecursiveEmulation>,
+    BTreeMap<String, EmulatedCurve>,
+    <PairingEngine as Engine>::G2Affine,
+) {
     let (mut accumulator, certificate_fixed_bases, tau_in_g2) =
         build_unextracted_certificate_accumulator_from_assets();
     accumulator.extract_fixed_bases(&certificate_fixed_bases);

@@ -4,10 +4,11 @@ use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use anyhow::anyhow;
 
 use super::{
-    Accumulator, BinaryInstructions, C, Circuit, ComposableChip, ConstraintSystem, Error,
-    EvaluationDomain, F, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS,
-    NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_ADVICE_COLS, NB_SHA256_FIXED_COLS,
-    NG, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, S, SimpleFloorPlanner, Value,
+    Accumulator, BinaryInstructions, Circuit, ComposableChip, ConstraintSystem, EmulatedCurve,
+    Error, EvaluationDomain, IvcNativeGadget, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS,
+    NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_ADVICE_COLS,
+    NB_SHA256_FIXED_COLS, NativeField, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE,
+    RecursiveEmulation, SimpleFloorPlanner, Value,
     config::{IvcConfig, configure_ivc_circuit, ivc_column_pool_sizes},
     errors::IvcCircuitError,
     gadget::IvcGadget,
@@ -34,11 +35,13 @@ pub struct IvcCircuitData {
     // Latest IVC proof
     ivc_proof: Value<Vec<u8>>,
     // Latest Accumulator
-    acc: Value<Accumulator<S>>,
+    acc: Value<Accumulator<RecursiveEmulation>>,
     // Domain and ConstraintSystem associated with certificate circuit VerifyingKey
-    certificate_circuit_domain_and_constraint_system: (EvaluationDomain<F>, ConstraintSystem<F>),
+    certificate_circuit_domain_and_constraint_system:
+        (EvaluationDomain<NativeField>, ConstraintSystem<NativeField>),
     // Domain and ConstraintSystem associated with IVC circuit VerifyingKey
-    ivc_circuit_domain_and_constraint_system: (EvaluationDomain<F>, ConstraintSystem<F>),
+    ivc_circuit_domain_and_constraint_system:
+        (EvaluationDomain<NativeField>, ConstraintSystem<NativeField>),
 }
 
 impl IvcCircuitData {
@@ -70,7 +73,8 @@ impl IvcCircuitData {
             NB_EDWARDS_COLS,
             NB_POSEIDON_ADVICE_COLS,
             NB_SHA256_ADVICE_COLS,
-            nb_foreign_ecc_chip_columns::<F, C, C, NG>(),
+            nb_foreign_ecc_chip_columns::<NativeField, EmulatedCurve, EmulatedCurve, IvcNativeGadget>(
+            ),
         ] {
             if needed > nb_advice_cols {
                 return Err(anyhow!(IvcCircuitError::InsufficientAdviceColumns {
@@ -108,7 +112,7 @@ impl IvcCircuitData {
         witness: Witness,
         certificate_proof: CertificateProofBytes,
         ivc_proof: IvcProofBytes,
-        acc: Accumulator<S>,
+        acc: Accumulator<RecursiveEmulation>,
         certificate_verification_key: &NonRecursiveCircuitVerifyingKey,
         ivc_verification_key: &RecursiveCircuitVerifyingKey,
     ) -> StmResult<Self> {
@@ -163,7 +167,7 @@ impl IvcCircuitData {
     }
 }
 
-impl Circuit<F> for IvcCircuitData {
+impl Circuit<NativeField> for IvcCircuitData {
     type Config = IvcConfig;
     type FloorPlanner = SimpleFloorPlanner;
     type Params = ();
@@ -185,14 +189,14 @@ impl Circuit<F> for IvcCircuitData {
         }
     }
 
-    fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+    fn configure(meta: &mut ConstraintSystem<NativeField>) -> Self::Config {
         configure_ivc_circuit(meta)
     }
 
     fn synthesize(
         &self,
         config: Self::Config,
-        mut layouter: impl Layouter<F>,
+        mut layouter: impl Layouter<NativeField>,
     ) -> Result<(), Error> {
         let ivc_gadget = IvcGadget::new(&config);
 
@@ -254,7 +258,7 @@ mod tests {
 
     #[test]
     fn ivc_circuit_constraint_count() {
-        let mut cs = ConstraintSystem::<F>::default();
+        let mut cs = ConstraintSystem::<NativeField>::default();
         configure_ivc_circuit(&mut cs);
 
         let poly_constraints: usize = cs.gates().iter().map(|g| g.polynomials().len()).sum();
