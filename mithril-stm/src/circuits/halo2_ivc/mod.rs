@@ -63,7 +63,7 @@ pub(crate) mod types;
 #[cfg(test)]
 pub(crate) mod tests;
 
-pub(crate) use types::ProtocolMessagePreimage;
+pub(crate) use types::{CircuitValue, ProtocolMessagePreimage};
 
 mod midnight_backend;
 

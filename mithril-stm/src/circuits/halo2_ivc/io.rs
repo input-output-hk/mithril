@@ -1,6 +1,7 @@
+use super::types::SerdeFormat;
 use super::{Accumulator, EmulatedCurve, Msm, NativeField, RecursiveEmulation};
 use midnight_curves::serde::SerdeObject;
-use midnight_proofs::utils::{SerdeFormat, helpers::ProcessedSerdeObject};
+use midnight_proofs::utils::helpers::ProcessedSerdeObject;
 use std::{collections::BTreeMap, io};
 
 pub trait Write {
