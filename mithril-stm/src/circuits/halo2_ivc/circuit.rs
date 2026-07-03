@@ -254,6 +254,10 @@ impl Circuit<NativeField> for IvcCircuitData {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        circuits::halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, codec::TryFromBytes,
+    };
+
     use super::*;
 
     #[test]
@@ -275,5 +279,18 @@ mod tests {
             7,
             "lookup argument count must not silently grow"
         );
+    }
+
+    #[test]
+    fn ivc_constraint_degree() {
+        let certificate_verification_key = NonRecursiveCircuitVerifyingKey::try_from_bytes(
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .unwrap();
+        let ivc_data = IvcCircuitData::unknown(&certificate_verification_key).unwrap();
+
+        let circuit_degree = ivc_data.ivc_circuit_domain_and_constraint_system.0.k();
+
+        assert_eq!(circuit_degree, RECURSIVE_CIRCUIT_DEGREE);
     }
 }

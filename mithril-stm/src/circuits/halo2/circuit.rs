@@ -450,3 +450,55 @@ mod circuit_creation_tests {
         circuit.expect_err("Creation should have failed with k too large.");
     }
 }
+
+#[cfg(test)]
+mod circuit_degree_correctness {
+    use midnight_zk_stdlib as zk;
+
+    use crate::{
+        Parameters,
+        circuits::halo2::{
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::StmCertificateCircuit,
+            keys::NonRecursiveCircuitVerifyingKey,
+        },
+        codec::TryFromBytes,
+    };
+
+    const SMALL_CERTIFICATE_CIRCUIT_DEGREE: u32 = 13;
+
+    const NON_RECURSIVE_CIRCUIT_DEGREE: u32 = 22;
+
+    #[test]
+    fn certificate_circuit_constraint_degree_for_small_circuit() {
+        // Those parameters and merkle tree depth lead to a circuit
+        // with constraints close to the next power of two
+        let parameters = Parameters {
+            k: 4,
+            m: 10,
+            phi_f: 0.2,
+        };
+        let merkle_tree_depth = 10;
+
+        let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth).unwrap();
+        let circuit_cost = zk::cost_model(&circuit);
+
+        assert_eq!(circuit_cost.k, SMALL_CERTIFICATE_CIRCUIT_DEGREE);
+
+        let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth + 1).unwrap();
+        let circuit_cost = zk::cost_model(&circuit);
+        assert_eq!(circuit_cost.k, SMALL_CERTIFICATE_CIRCUIT_DEGREE + 1);
+    }
+
+    #[test]
+    fn certificate_circuit_constraint_degree_for_production_circuit() {
+        let non_recursive_circuit_verifying_key = NonRecursiveCircuitVerifyingKey::try_from_bytes(
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .unwrap();
+
+        assert_eq!(
+            non_recursive_circuit_verifying_key.midnight_vk().k() as u32,
+            NON_RECURSIVE_CIRCUIT_DEGREE
+        );
+    }
+}
