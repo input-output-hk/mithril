@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.44 (07-03-2026)
+
+### Changed
+
+- Refactors `IvcProverInput::prepare` for readability using helper functions
+- Reworked the way the `Genesis` case is handled: now happens when no rolling state is given to the `prove` function
+- Renamed variables to clarify which proof or epoch they correspond to
+- Added tests for the helper functions
+
 ## 0.10.43 (07-02-2026)
 
 ### Changed
