@@ -78,6 +78,15 @@ async fn prove_blocks_transactions() {
         )
     );
 
+    comment!("Start the runtime state machine & register signers");
+    cycle!(tester, "blocked-genesis-epoch");
+    tester.register_signers(signers).await.unwrap();
+
+    comment!("Increase epoch - state machine can now go to signing");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
+    cycle!(tester, "ready");
+
     // Lock all signed entity types except CardanoBlocksTransactions to limit the scope of the test
     for entity in SignedEntityTypeDiscriminants::all()
         .into_iter()
@@ -85,10 +94,6 @@ async fn prove_blocks_transactions() {
     {
         tester.dependencies.signed_entity_type_lock.lock(entity).await;
     }
-
-    comment!("Register signers");
-    cycle!(tester, "ready");
-    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
     comment!(
         "Increase the Cardano chain block number to 166; \
@@ -113,14 +118,14 @@ async fn prove_blocks_transactions() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoBlocksTransactions(
-                Epoch(1),
+                Epoch(2),
                 BlockNumber(165),
                 BlockNumberOffset(0)
             ),
@@ -159,18 +164,22 @@ async fn prove_blocks_transactions() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoBlocksTransactions(
-                Epoch(1),
+                Epoch(2),
                 BlockNumber(185),
                 BlockNumberOffset(0)
             ),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            ExpectedCertificate::identifier(&SignedEntityType::CardanoBlocksTransactions(
+                Epoch(2),
+                BlockNumber(165),
+                BlockNumberOffset(0)
+            )),
         )
     );
 

@@ -147,7 +147,7 @@ async fn create_certificate_follower() {
         .unwrap();
 
     comment!("Leader: start the runtime state machine");
-    cycle_err!(leader_tester, "idle");
+    cycle!(leader_tester, "blocked-no-genesis");
 
     comment!("Follower: start the runtime state machine");
     cycle_err!(follower_tester, "idle");
@@ -157,7 +157,7 @@ async fn create_certificate_follower() {
         .register_signers(&epoch_fixture.registering.signers_fixture())
         .await
         .unwrap();
-    cycle_err!(leader_tester, "idle");
+    cycle!(leader_tester, "blocked-no-genesis");
 
     comment!(
         "Epoch 2:
@@ -182,7 +182,8 @@ async fn create_certificate_follower() {
 
     comment!("Leader: change the epoch");
     leader_tester.increase_epoch().await.unwrap();
-    cycle_err!(leader_tester, "idle");
+    cycle!(leader_tester, "idle");
+    cycle!(leader_tester, "blocked-no-genesis");
 
     comment!("Follower: change the epoch after leader");
     follower_tester.increase_epoch().await.unwrap();
@@ -193,7 +194,7 @@ async fn create_certificate_follower() {
         .register_signers(&epoch_fixture.registering.signers_fixture())
         .await
         .unwrap();
-    cycle_err!(leader_tester, "idle");
+    cycle!(leader_tester, "blocked-no-genesis");
 
     comment!("Leader: bootstrap the genesis certificate");
     leader_tester
@@ -238,6 +239,7 @@ async fn create_certificate_follower() {
 
     comment!("Leader: change the epoch");
     leader_tester.increase_epoch().await.unwrap();
+    cycle!(leader_tester, "idle");
     cycle!(leader_tester, "ready");
     cycle!(leader_tester, "signing");
 
@@ -280,7 +282,7 @@ async fn create_certificate_follower() {
         "Follower: change the epoch after leader created a certificate and synchronize certificate chain"
     );
     follower_tester.increase_epoch().await.unwrap();
-    cycle_err!(follower_tester, "idle");
+    cycle!(follower_tester, "ready");
     assert_last_certificate_eq!(
         follower_tester, synchronized_from_leader => expected_certificate_on_both_aggregator
     );
@@ -300,7 +302,6 @@ async fn create_certificate_follower() {
         "Follower: transition to 'Signing(CardanoStakeDistribution)' directly since a\
         OpenMessage for MithrilStakeDistribution was stored by the synchronizer"
     );
-    cycle!(follower_tester, "ready");
     cycle!(follower_tester, "signing");
     let current_csd_open_message = follower_tester
         .observer

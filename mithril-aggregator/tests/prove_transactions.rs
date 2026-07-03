@@ -69,6 +69,15 @@ async fn prove_transactions() {
         )
     );
 
+    comment!("Start the runtime state machine & register signers");
+    cycle!(tester, "blocked-genesis-epoch");
+    tester.register_signers(signers).await.unwrap();
+
+    comment!("Increase epoch - state machine can now go to signing");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
+    cycle!(tester, "ready");
+
     // Lock all signed entity types except CardanoTransactions to limit the scope of the test
     for entity in SignedEntityTypeDiscriminants::all()
         .into_iter()
@@ -76,10 +85,6 @@ async fn prove_transactions() {
     {
         tester.dependencies.signed_entity_type_lock.lock(entity).await;
     }
-
-    comment!("register signers");
-    cycle!(tester, "ready");
-    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
     comment!(
         "Increase cardano chain block number to 185, 
@@ -100,13 +105,13 @@ async fn prove_transactions() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
+            SignedEntityType::CardanoTransactions(Epoch(2), BlockNumber(179)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );

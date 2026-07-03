@@ -76,16 +76,17 @@ async fn create_certificate() {
         )
     );
 
-    comment!("Increase immutable number");
-    tester.increase_immutable_number().await.unwrap();
+    comment!("Start the runtime state machine & register signers");
+    cycle!(tester, "blocked-genesis-epoch");
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
-    comment!("start the runtime state machine");
+    comment!("Increase epoch - state machine can now go to signing");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
     cycle!(tester, "signing");
 
-    comment!("register signers");
     tester.register_signers(&fixture.signers_fixture()).await.unwrap();
-    cycle_err!(tester, "signing");
 
     comment!("signers send their single signature");
     tester
@@ -101,10 +102,10 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -128,14 +129,14 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers_for_cardano_database
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(2, 2)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
     );
 
@@ -162,14 +163,14 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers_for_transactions
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            SignedEntityType::CardanoTransactions(Epoch(2), BlockNumber(179)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
     );
 
@@ -191,18 +192,18 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers_for_blocks_transactions
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoBlocksTransactions(
-                Epoch(1),
+                Epoch(2),
                 BlockNumber(168),
                 BlockNumberOffset(0)
             ),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
     );
 
@@ -229,14 +230,14 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers_for_transactions
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(119)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            SignedEntityType::CardanoTransactions(Epoch(2), BlockNumber(119)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
     );
 
@@ -258,18 +259,18 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers_for_blocks_transactions
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoBlocksTransactions(
-                Epoch(1),
+                Epoch(2),
                 BlockNumber(144),
                 BlockNumberOffset(0)
             ),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
     );
 

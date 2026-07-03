@@ -64,10 +64,13 @@ async fn create_certificate_with_buffered_signatures() {
         )
     );
 
-    comment!("Increase immutable number");
-    tester.increase_immutable_number().await.unwrap();
+    comment!("Start the runtime state machine & register signers");
+    cycle!(tester, "blocked-genesis-epoch");
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
-    comment!("start the runtime state machine");
+    comment!("Increase epoch - state machine can now go to signing");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
 
     comment!("signers send their single signature before the state machine is signing");
@@ -90,10 +93,10 @@ async fn create_certificate_with_buffered_signatures() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );

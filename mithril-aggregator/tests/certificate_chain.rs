@@ -58,10 +58,13 @@ async fn certificate_chain() {
         )
     );
 
-    comment!("Increase immutable number");
-    tester.increase_immutable_number().await.unwrap();
+    comment!("Start the runtime state machine & register signers");
+    cycle!(tester, "blocked-genesis-epoch");
+    tester.register_signers(&signers).await.unwrap();
 
-    comment!("Start the runtime state machine & send send first single signatures");
+    comment!("Increase epoch - state machine can now go to signing");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
@@ -79,16 +82,15 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
 
     comment!("The state machine should get back to signing to sign CardanoDatabase");
-    tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     tester
         .send_single_signatures(SignedEntityTypeDiscriminants::CardanoDatabase, &signers)
@@ -99,11 +101,11 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(2, 1)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
     );
 
@@ -122,11 +124,11 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 4)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(2, 2)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
     );
 
@@ -186,11 +188,11 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(2),
+            Epoch(3),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            SignedEntityType::MithrilStakeDistribution(Epoch(3)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
     );
 
@@ -217,11 +219,11 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(3),
+            Epoch(4),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(3)),
-            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
+            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
         )
     );
 
@@ -248,11 +250,11 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(4),
+            Epoch(5),
             StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
             next_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
-            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
+            SignedEntityType::MithrilStakeDistribution(Epoch(5)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
         )
     );
 
@@ -279,11 +281,11 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(4),
+            Epoch(5),
             StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
             next_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(4, 7)),
-            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(5, 5)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(5))),
         )
     );
 

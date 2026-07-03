@@ -44,7 +44,7 @@ async fn genesis_to_signing_with_all_signed_entities() {
         .build();
     tester.init_state_from_fixture(&fixture).await.unwrap();
 
-    cycle_err!(tester, "idle");
+    cycle!(tester, "blocked-no-genesis");
 
     comment!("Bootstrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
@@ -57,9 +57,16 @@ async fn genesis_to_signing_with_all_signed_entities() {
         )
     );
 
-    comment!("Increase immutable number");
-    tester.increase_immutable_number().await.unwrap();
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
+    comment!("Increase immutable number - still blocked(no-genesis)");
+    tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "blocked-no-genesis");
+
+    comment!("Increase epoch - can go to signing");
+    tester.increase_epoch().await.unwrap();
+
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
     cycle!(tester, "signing");
 }
