@@ -42,8 +42,8 @@ impl RunOnlyScenario {
         let chain_observer = leader_aggregator.chain_observer();
         let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
-        // Wait 3 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
-        let target_epoch = start_epoch + 3;
+        // Wait 2 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
+        let target_epoch = start_epoch + 2;
         self.toolkit
             .wait
             .for_aggregator_at_target_epoch(
