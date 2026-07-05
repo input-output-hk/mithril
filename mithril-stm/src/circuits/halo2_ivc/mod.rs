@@ -1,10 +1,13 @@
-//! Halo2 IVC circuit prototype integration (feature-gated by `future_snark`).
+//! Recursive (IVC) SNARK circuit for STM certificate-chain aggregation (feature-gated by `future_snark`).
 //!
-//! This module is the landing zone for the recursive SNARK / IVC prototype
-//! while it is being moved into `mithril-stm`.
+//! At each step the circuit verifies, in-circuit, the previous IVC proof and the current certificate proof
+//! (the certificate being aggregated at that step), folding their KZG openings into a running accumulator so
+//! one recursive proof attests to the whole certificate chain. The Midnight proving-backend aliases
+//! (field/curve/engine) are isolated in the `midnight_backend` submodule; the circuit-boundary types
+//! (`CircuitValue`, `SerdeFormat`, and the field-element wrappers) live in `types`.
 //!
-//! The code in this module is moved from the standalone recursive prototype and
-//! is kept locally here until the recursive circuit is wired into STM.
+//! Internally, `Accumulator`, raw `VerifyingKey`, and `ConstraintSystem` are used directly where the verifier
+//! gadget and PLONK APIs require them.
 
 pub(crate) use crate::circuits::CircuitCurve;
 
