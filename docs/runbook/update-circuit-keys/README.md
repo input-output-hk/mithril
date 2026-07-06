@@ -37,18 +37,6 @@ and
 cargo test -p mithril-stm --features future_snark --release integrity_test_for_recursive_production_key -- --ignored
 ```
 
-Commands to validate the degree of the circuits did not increase:
-
-```bash
-cargo test -p mithril-stm --features future_snark non_recursive_circuit_degree_correctness
-```
-
-and
-
-```bash
-cargo test -p mithril-stm --features future_snark ivc_constant_constraints_degree
-```
-
 Release manager:
 
 - Prepares the release of this update
