@@ -111,6 +111,12 @@ impl ExecToolkit {
                 m: 10,
                 phi_f: 0.95,
             },
+            // The IVC parameters must not change as this means a new genesis certificate must be created.
+            AggregateSignatureType::IvcSnark => ProtocolParameters {
+                k: 5,
+                m: 9,
+                phi_f: 0.95,
+            },
         };
 
         info!(
