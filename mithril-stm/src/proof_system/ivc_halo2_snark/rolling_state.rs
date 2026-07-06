@@ -6,16 +6,21 @@ use midnight_circuits::{
 };
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+use crate::circuits::halo2_ivc::types::EpochNumber;
 use crate::{
-    StmResult,
+    AggregateVerificationKeyForSnark, MembershipDigest, StmResult,
     circuits::{
         halo2::types::CircuitBase,
         halo2_ivc::{
-            AssignedAccumulator,
-            errors::IvcCircuitError,
+            AssignedAccumulator, ProtocolMessagePreimage,
+            errors::{EpochTransitionErrorKind, IvcCircuitError},
             state::{Global, State, trivial_acc},
-            types::{EpochNumber, IvcProofBytes, StepCounter},
+            types::{IvcProofBytes, StepCounter},
         },
+    },
+    proof_system::ivc_halo2_snark::prover_input_helpers::{
+        IvcTransitionType, create_snark_message_for_next_state,
     },
     signature_scheme::{BaseFieldElement, StandardSchnorrSignature},
 };
@@ -126,9 +131,54 @@ impl IvcRollingState {
 
     /// Returns `true` if the certificate belongs to the epoch immediately following
     /// the chain's current epoch (`certificate_epoch == current_epoch + 1`).
+    #[cfg(test)]
     pub(crate) fn is_next_epoch(&self, certificate_epoch: EpochNumber) -> bool {
         certificate_epoch.as_field()
             == self.state.current_epoch.as_field() + EpochNumber::new(1).as_field()
+    }
+
+    /// Asserts that the parameters in the rolling state matches the ones in
+    /// the protocol message depending on the epoch transition type.
+    /// This is done mainly to avoid computing a proof that will not verify.
+    pub(crate) fn assert_correct_parameters<D: MembershipDigest>(
+        &self,
+        protocol_message_preimage: &ProtocolMessagePreimage,
+        aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
+        message: &[u8],
+        transition_type: IvcTransitionType,
+    ) -> StmResult<()> {
+        let (_, merkle_tree_commitment) =
+            create_snark_message_for_next_state(aggregate_verification_key, message)?;
+
+        let result = match transition_type {
+            IvcTransitionType::SameEpoch => {
+                let merkle_tree_commitment_matches =
+                    self.state().merkle_tree_commitment == merkle_tree_commitment;
+                let next_merkle_tree_commitment_matches = self.state().next_merkle_tree_commitment
+                    == protocol_message_preimage.next_merkle_tree_commitment();
+                let next_protocol_parameters_matches = self.state().next_protocol_parameters
+                    == protocol_message_preimage.next_protocol_parameters();
+
+                merkle_tree_commitment_matches
+                    && next_merkle_tree_commitment_matches
+                    && next_protocol_parameters_matches
+                    && self.state().step_counter.is_not_first_step()
+            }
+            IvcTransitionType::NextEpoch => {
+                self.state().next_merkle_tree_commitment == merkle_tree_commitment
+            }
+            IvcTransitionType::Genesis => true,
+        };
+
+        if !result {
+            return Err(IvcCircuitError::InvalidEpochTransition {
+                kind: EpochTransitionErrorKind::RollingStateParametersDoesNotMatchProtocolMessage,
+                last_committed_epoch: self.state().current_epoch.as_u64(),
+            }
+            .into());
+        }
+
+        Ok(())
     }
 }
 
@@ -234,5 +284,214 @@ mod tests {
         assert!(rolling_state.is_next_epoch(EpochNumber::new(1)));
         assert!(!rolling_state.is_next_epoch(EpochNumber::new(0)));
         assert!(!rolling_state.is_next_epoch(EpochNumber::new(2)));
+    }
+
+    mod assert_correct_parameters {
+        use crate::{
+            MithrilMembershipDigest,
+            circuits::halo2_ivc::types::ProtocolParametersHash,
+            proof_system::{
+                AggregateVerificationKeyForSnark,
+                ivc_halo2_snark::prover_input_helpers::tests::{
+                    build_preimage, build_rolling_state, build_standard_preimage,
+                    build_standard_rolling_state, merkle_tree_commitment_from_bytes,
+                },
+            },
+        };
+
+        use super::*;
+
+        // Creates an avk with a zero root
+        fn avk_with_zero_root() -> AggregateVerificationKeyForSnark<MithrilMembershipDigest> {
+            AggregateVerificationKeyForSnark::from_bytes(&[0u8; 40]).unwrap()
+        }
+
+        // Creates an avk with non zero root
+        fn avk_with_nonzero_root() -> AggregateVerificationKeyForSnark<MithrilMembershipDigest> {
+            let mut bytes = [0u8; 40];
+            bytes[0] = 0x02;
+            AggregateVerificationKeyForSnark::from_bytes(&bytes).unwrap()
+        }
+
+        #[test]
+        fn same_epoch_passes_with_valid_parameters() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
+            let preimage = build_standard_preimage(EpochNumber::new(3));
+
+            let result = rolling_state.assert_correct_parameters(
+                &preimage,
+                &avk_with_zero_root(),
+                &[0u8; 32],
+                IvcTransitionType::SameEpoch,
+            );
+
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn rejects_same_epoch_after_genesis_step() {
+            let rolling_state_with_step_counter_one =
+                build_standard_rolling_state(StepCounter::new(1), EpochNumber::ZERO);
+            let preimage = build_standard_preimage(EpochNumber::ZERO);
+
+            let err = rolling_state_with_step_counter_one
+                .assert_correct_parameters(
+                    &preimage,
+                    &avk_with_zero_root(),
+                    &[0u8; 32],
+                    IvcTransitionType::SameEpoch,
+                )
+                .unwrap_err();
+
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::InvalidEpochTransition {
+                    kind:
+                        EpochTransitionErrorKind::RollingStateParametersDoesNotMatchProtocolMessage,
+                    ..
+                }
+            ));
+        }
+
+        #[test]
+        fn rejects_same_epoch_with_mismatched_lookahead_commitment() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
+            let preimage_with_non_zero_next_merkle_tree_commitment =
+                build_preimage(EpochNumber::new(3), [0x11; 32], [0u8; 32]);
+
+            let err = rolling_state
+                .assert_correct_parameters(
+                    &preimage_with_non_zero_next_merkle_tree_commitment,
+                    &avk_with_zero_root(),
+                    &[0u8; 32],
+                    IvcTransitionType::SameEpoch,
+                )
+                .unwrap_err();
+
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::InvalidEpochTransition {
+                    kind:
+                        EpochTransitionErrorKind::RollingStateParametersDoesNotMatchProtocolMessage,
+                    ..
+                }
+            ));
+        }
+
+        #[test]
+        fn rejects_same_epoch_with_mismatched_lookahead_parameters() {
+            let rolling_state_with_zero_hash_parameters =
+                build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
+            let preimage_with_non_zero_hash_parameters =
+                build_preimage(EpochNumber::new(3), [0u8; 32], [0x22; 32]);
+
+            let err = rolling_state_with_zero_hash_parameters
+                .assert_correct_parameters(
+                    &preimage_with_non_zero_hash_parameters,
+                    &avk_with_zero_root(),
+                    &[0u8; 32],
+                    IvcTransitionType::SameEpoch,
+                )
+                .unwrap_err();
+
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::InvalidEpochTransition {
+                    kind:
+                        EpochTransitionErrorKind::RollingStateParametersDoesNotMatchProtocolMessage,
+                    ..
+                }
+            ));
+        }
+
+        #[test]
+        fn next_epoch_passes_when_next_merkle_commitment_matches_current() {
+            let mut non_zero_root_bytes = [0u8; 32];
+            non_zero_root_bytes[0] = 0x02;
+            let non_zero_next_merkle_tree_commitment =
+                merkle_tree_commitment_from_bytes(non_zero_root_bytes);
+            let non_zero_merkle_tree_commitment_avk = avk_with_nonzero_root();
+
+            let rolling_state = build_rolling_state(
+                StepCounter::new(5),
+                EpochNumber::new(3),
+                non_zero_next_merkle_tree_commitment,
+                ProtocolParametersHash::ZERO,
+                ProtocolParametersHash::ZERO,
+            );
+            let preimage = build_preimage(EpochNumber::new(4), [0u8; 32], [0u8; 32]);
+
+            let result = rolling_state.assert_correct_parameters(
+                &preimage,
+                &non_zero_merkle_tree_commitment_avk,
+                &[0u8; 32],
+                IvcTransitionType::NextEpoch,
+            );
+
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn rejects_next_epoch_when_next_merkle_commitment_does_not_match() {
+            let zero_next_merkle_tree_commitment = merkle_tree_commitment_from_bytes([0u8; 32]);
+            let non_zero_merkle_tree_commitment_avk = avk_with_nonzero_root();
+
+            let rolling_state = build_rolling_state(
+                StepCounter::new(5),
+                EpochNumber::new(3),
+                zero_next_merkle_tree_commitment,
+                ProtocolParametersHash::ZERO,
+                ProtocolParametersHash::ZERO,
+            );
+            let preimage = build_preimage(EpochNumber::new(4), [0u8; 32], [0u8; 32]);
+
+            let err = rolling_state
+                .assert_correct_parameters(
+                    &preimage,
+                    &non_zero_merkle_tree_commitment_avk,
+                    &[0u8; 32],
+                    IvcTransitionType::NextEpoch,
+                )
+                .unwrap_err();
+
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::InvalidEpochTransition {
+                    kind:
+                        EpochTransitionErrorKind::RollingStateParametersDoesNotMatchProtocolMessage,
+                    ..
+                }
+            ));
+        }
+
+        #[test]
+        fn genesis_always_passes() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(1), EpochNumber::ZERO);
+            let preimage = build_standard_preimage(EpochNumber::ZERO);
+
+            let result = rolling_state.assert_correct_parameters(
+                &preimage,
+                &avk_with_zero_root(),
+                &[0u8; 32],
+                IvcTransitionType::Genesis,
+            );
+
+            assert!(result.is_ok());
+        }
     }
 }
