@@ -743,6 +743,28 @@ jobs:
             google_machine_type: e2-highmem-8
             google_compute_instance_boot_disk_size: 200
             google_compute_instance_data_disk_size: 250
+          - environment: testing-2-preview
+            environment_prefix: testing
+            cardano_network: preview
+            mithril_use_p2p_network: true
+            mithril_p2p_use_dmq_protocol: true
+            mithril_p2p_use_real_dmq_node: true
+            mithril_api_domain: api.mithril.network
+            mithril_protocol_parameters: |
+              {
+                k     = 1
+                m     = 1
+                phi_f = 0.0
+              }
+            mithril_signers: |
+              {}
+            mithril_leader_aggregator_endpoint: https://aggregator.testing-preview.api.mithril.network/aggregator
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-2
+            google_compute_instance_boot_disk_size: 200
+            google_compute_instance_data_disk_size: 250
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-24.04
     needs:
@@ -808,6 +830,7 @@ jobs:
           mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
           mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
           mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
+          mithril_aggregator_leader_aggregator_endpoint: ${{ matrix.mithril_leader_aggregator_endpoint }}
           mithril_aggregator_ancillary_signer_type: ${{ vars.AGGREGATOR_ANCILLARY_SIGNER_TYPE }}
           mithril_aggregator_ancillary_signer_secret_key: ${{ secrets.AGGREGATOR_ANCILLARY_SIGNER_SECRET_KEY }}
           mithril_aggregator_ancillary_signer_gcp_kms_resource_name: ${{ secrets.AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_RESOURCE_NAME }}
