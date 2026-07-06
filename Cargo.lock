@@ -454,15 +454,16 @@ dependencies = [
 
 [[package]]
 name = "axum-test"
-version = "20.1.0"
+version = "21.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43c6a2f1d97ee33c39f13dacc0f84ae781a9c2ed373a75bad1129094f5a7c4bd"
+checksum = "3ce104337e4cced59ded9c61f9f18dab0a4670fd339e84f334312686440a9958"
 dependencies = [
  "anyhow",
  "axum",
  "bytes",
  "bytesize",
  "cookie",
+ "educe",
  "expect-json",
  "http",
  "http-body-util",
@@ -537,6 +538,12 @@ name = "bech32"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32637268377fc7b10a8c6d51de3e7fba1ce5dd371a96e342b34e6078db558e7f"
+
+[[package]]
+name = "bech32"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efbd3e1070bbdf4cd88a75264e18e8a26f7cb5c6949eadf0ceb85fb159cf08f8"
 
 [[package]]
 name = "binary-layout"
@@ -1026,7 +1033,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-block"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -1039,7 +1046,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database-v2"
-version = "0.0.20"
+version = "0.0.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1052,7 +1059,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-stake-distribution"
-version = "0.1.19"
+version = "0.1.20"
 dependencies = [
  "anyhow",
  "clap",
@@ -1065,7 +1072,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction"
-version = "0.1.28"
+version = "0.1.29"
 dependencies = [
  "anyhow",
  "clap",
@@ -1078,7 +1085,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction-v2"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -1091,7 +1098,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.2.17"
+version = "0.2.18"
 dependencies = [
  "anyhow",
  "clap",
@@ -1766,6 +1773,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "educe"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d7bc049e1bd8cdeb31b68bbd586a9464ecf9f3944af3958a7a9d0f8b9799417"
+dependencies = [
+ "enum-ordinalize",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
+
+[[package]]
 name = "either"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1802,6 +1821,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1e6a265c649f3f5979b601d26f1d05ada116434c87741c9493cb56218f76cbc"
 dependencies = [
  "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
+
+[[package]]
+name = "enum-ordinalize"
+version = "4.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07f808d588c10e464ea6f7d3eaed500049eff30aaac103460f61828c2d65b3eb"
+dependencies = [
+ "enum-ordinalize-derive",
+]
+
+[[package]]
+name = "enum-ordinalize-derive"
+version = "4.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42e528e2d34ba8a67a1a650b86beae8ef69fc5fdb638016f386b973226590432"
+dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
@@ -2482,6 +2521,9 @@ name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+dependencies = [
+ "foldhash 0.2.0",
+]
 
 [[package]]
 name = "hashlink"
@@ -2508,6 +2550,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "824e001ac4f3012dd16a264bec811403a67ca9deb6c102fc5049b32c4574b35f"
 dependencies = [
  "hashbrown 0.16.1",
+]
+
+[[package]]
+name = "hashlink"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32069d97bb81e38fa67eab65e3393bf804bb85969f2bc06bf13f64aef5aba248"
+dependencies = [
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -4063,7 +4114,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.9.14"
+version = "0.9.15"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4128,7 +4179,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-client"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4149,7 +4200,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-discovery"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4168,7 +4219,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -4182,7 +4233,7 @@ dependencies = [
  "signal-hook",
  "signal-hook-tokio",
  "tokio",
- "tower-http",
+ "tower-http 0.7.0",
  "tracing",
  "tracing-subscriber",
  "warp",
@@ -4190,7 +4241,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-api-spec"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "jsonschema",
  "mithril-common",
@@ -4203,7 +4254,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.33"
+version = "0.2.34"
 dependencies = [
  "saphyr",
  "semver",
@@ -4212,7 +4263,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-chain"
-version = "0.1.28"
+version = "0.1.29"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4240,7 +4291,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-internal-database"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4262,7 +4313,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cli-helper"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "config",
  "serde",
@@ -4271,7 +4322,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.14.16"
+version = "0.14.17"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4303,14 +4354,14 @@ dependencies = [
  "tar",
  "thiserror 2.0.18",
  "tokio",
- "tower-http",
+ "tower-http 0.7.0",
  "uuid",
  "zstd",
 ]
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.13.17"
+version = "0.13.18"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4347,7 +4398,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.10.6"
+version = "0.10.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4367,11 +4418,11 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.7.11"
+version = "0.7.12"
 dependencies = [
  "anyhow",
  "async-trait",
- "bech32",
+ "bech32 0.12.0",
  "bincode",
  "blake2 0.10.6",
  "chrono",
@@ -4409,7 +4460,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-dmq"
-version = "0.1.27"
+version = "0.1.28"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4433,7 +4484,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc"
-version = "0.1.27"
+version = "0.1.28"
 dependencies = [
  "clap",
  "config",
@@ -4444,7 +4495,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc-derive"
-version = "0.1.24"
+version = "0.1.25"
 dependencies = [
  "quote",
  "syn 2.0.118",
@@ -4452,7 +4503,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4479,7 +4530,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-era"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4493,7 +4544,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-merkle-tree"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "bincode",
@@ -4506,7 +4557,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-metric"
-version = "0.1.23"
+version = "0.1.24"
 dependencies = [
  "anyhow",
  "axum",
@@ -4523,7 +4574,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.74"
+version = "0.2.75"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4541,7 +4592,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-protocol-config"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4557,7 +4608,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -4584,7 +4635,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-resource-pool"
-version = "0.0.11"
+version = "0.0.12"
 dependencies = [
  "anyhow",
  "mithril-common",
@@ -4594,7 +4645,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signed-entity-lock"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "mithril-common",
  "tokio",
@@ -4602,7 +4653,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signed-entity-preloader"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4618,7 +4669,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "1.1.3"
+version = "1.1.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4702,7 +4753,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-test-http-server"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "reqwest",
  "serde",
@@ -4712,7 +4763,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-ticker"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4725,7 +4776,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.58"
+version = "0.1.59"
 dependencies = [
  "clap",
  "hex",
@@ -4740,9 +4791,9 @@ dependencies = [
 
 [[package]]
 name = "mockall"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f58d964098a5f9c6b63d0798e5372fd04708193510a7af313c22e9f29b7b620b"
+checksum = "1a6ceddfe3ce334925e96bf420fdb2dcee5bed6c632a168ece622676dadeaf8a"
 dependencies = [
  "cfg-if",
  "downcast",
@@ -4754,9 +4805,9 @@ dependencies = [
 
 [[package]]
 name = "mockall_derive"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca41ce716dda6a9be188b385aa78ee5260fc25cd3802cb2a8afdc6afbe6b6dbf"
+checksum = "9cfe16fbe8a314aeec0b861ac24e60b1e123e97634bab045475b9d6a18416fd8"
 dependencies = [
  "cfg-if",
  "proc-macro2",
@@ -5193,7 +5244,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d10fe64a9b5b4b72d1e9ed3a802a6d87a204385a48bdca0136f7fb9ff8be73f"
 dependencies = [
  "base58",
- "bech32",
+ "bech32 0.11.1",
  "crc",
  "cryptoxide",
  "hex",
@@ -6114,7 +6165,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "tower",
- "tower-http",
+ "tower-http 0.6.11",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -6405,25 +6456,25 @@ dependencies = [
 
 [[package]]
 name = "saphyr"
-version = "0.0.6"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3767dfe8889ebb55a21409df2b6f36e66abfbe1eb92d64ff76ae799d3f91016"
+checksum = "ef5bcc48916766e53689486df76c80ccf62a38f20d20b816056ff6ab84197cbd"
 dependencies = [
- "arraydeque",
  "encoding_rs",
- "hashlink 0.10.0",
+ "hashlink 0.12.1",
  "ordered-float",
  "saphyr-parser",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "saphyr-parser"
-version = "0.0.6"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb771b59f6b1985d1406325ec28f97cfb14256abcec4fdfb37b36a1766d6af7"
+checksum = "cbeae0f40b92f2afe16422744aabb145187167184cc18bf4d01da5acdc665f09"
 dependencies = [
  "arraydeque",
- "hashlink 0.10.0",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7592,6 +7643,28 @@ dependencies = [
  "http",
  "http-body",
  "http-body-util",
+ "pin-project-lite",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tower-layer",
+ "tower-service",
+ "url",
+]
+
+[[package]]
+name = "tower-http"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b11f75e912b0c2be01b63d8cf8057b8c3f97cf34abb3d431a3a4c8675498e233"
+dependencies = [
+ "bitflags",
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
  "http-range-header",
  "httpdate",
  "mime",
@@ -7600,11 +7673,9 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tokio-util",
- "tower",
  "tower-layer",
  "tower-service",
  "tracing",
- "url",
 ]
 
 [[package]]
