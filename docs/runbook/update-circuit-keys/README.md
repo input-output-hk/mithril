@@ -13,6 +13,7 @@ The author of the change:
 
 - Prepares the PR that includes the change
 - Needs to justify the change in the circuit
+- Checks that the changes did not increase the degree of the circuits
 - Updates the key values (golden and production)
 - Ensures the approval of the tech lead and all cryptographers before the merge
 
@@ -20,6 +21,7 @@ Reviewers:
 
 - Perform a thorough review of the change
 - Analyse the justification of the change to make sure it is valid and cannot be avoided
+- Make sure the degree of the circuits did not increase
 - Reviews the update of the key values (golden and production)
 - Run the tests for the integrity of the production keys
 
@@ -33,6 +35,18 @@ and
 
 ```bash
 cargo test -p mithril-stm --features future_snark --release integrity_test_for_recursive_production_key -- --ignored
+```
+
+Commands to validate the degree of the circuits did not increase:
+
+```bash
+cargo test -p mithril-stm --features future_snark non_recursive_circuit_degree_correctness
+```
+
+and
+
+```bash
+cargo test -p mithril-stm --features future_snark ivc_constant_constraints_degree
 ```
 
 Release manager:

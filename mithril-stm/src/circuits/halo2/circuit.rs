@@ -452,7 +452,7 @@ mod circuit_creation_tests {
 }
 
 #[cfg(test)]
-mod circuit_degree_correctness {
+mod non_recursive_circuit_degree_correctness {
     use midnight_zk_stdlib as zk;
 
     use crate::{
@@ -469,7 +469,7 @@ mod circuit_degree_correctness {
     const NON_RECURSIVE_CIRCUIT_DEGREE: u32 = 22;
 
     #[test]
-    fn certificate_circuit_constraint_degree_for_small_circuit() {
+    fn constant_certificate_circuit_constraint_degree_for_small_circuit() {
         // Those parameters and merkle tree depth lead to a circuit
         // with constraints close to the next power of two
         let parameters = Parameters {
@@ -490,7 +490,7 @@ mod circuit_degree_correctness {
     }
 
     #[test]
-    fn certificate_circuit_constraint_degree_for_production_circuit() {
+    fn constant_certificate_circuit_constraint_degree_for_production_circuit() {
         let non_recursive_circuit_verifying_key = NonRecursiveCircuitVerifyingKey::try_from_bytes(
             NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
         )

@@ -282,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn ivc_constraint_degree() {
+    fn ivc_constant_constraints_degree() {
         let certificate_verification_key = NonRecursiveCircuitVerifyingKey::try_from_bytes(
             NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
         )
