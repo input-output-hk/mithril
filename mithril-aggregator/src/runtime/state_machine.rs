@@ -1223,8 +1223,6 @@ mod tests {
     mod follower {
         use mockall::predicate::eq;
 
-        use crate::services::CertificateChainSynchronizationOutcome;
-
         use super::*;
 
         #[tokio::test]
@@ -1254,7 +1252,7 @@ mod tests {
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
                 .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| Ok(CertificateChainSynchronizationOutcome::AlreadyUpToDate));
+                .returning(|_| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -1341,7 +1339,7 @@ mod tests {
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
                 .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| Ok(CertificateChainSynchronizationOutcome::Synchronized));
+                .returning(|_| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -1386,9 +1384,7 @@ mod tests {
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
                 .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| {
-                    Ok(CertificateChainSynchronizationOutcome::EmptyRemoteCertificateChain)
-                });
+                .returning(|_| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -1438,7 +1434,7 @@ mod tests {
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
                 .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| Ok(CertificateChainSynchronizationOutcome::Synchronized));
+                .returning(|_| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()

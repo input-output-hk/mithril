@@ -5,19 +5,6 @@ use mithril_common::entities::Certificate;
 
 use crate::entities::OpenMessage;
 
-/// Outcome of a certificate chain synchronization attempt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CertificateChainSynchronizationOutcome {
-    /// Synchronization was skipped because local and remote genesis certificates match.
-    AlreadyUpToDate,
-
-    /// Synchronization was skipped because the remote chain has no genesis yet.
-    EmptyRemoteCertificateChain,
-
-    /// Synchronization was performed.
-    Synchronized,
-}
-
 /// Define how to synchronize the certificate chain with a remote source
 #[cfg_attr(test, mockall::automock)]
 #[async_trait::async_trait]
@@ -26,10 +13,7 @@ pub trait CertificateChainSynchronizer: Send + Sync {
     ///
     /// If `force` is true, the chain will always be synchronized, else it will only synchronize
     /// if the remote source has started a new chain with a new Genesis.
-    async fn synchronize_certificate_chain(
-        &self,
-        force: bool,
-    ) -> StdResult<CertificateChainSynchronizationOutcome>;
+    async fn synchronize_certificate_chain(&self, force: bool) -> StdResult<()>;
 }
 
 /// Define how to retrieve remote certificate details
