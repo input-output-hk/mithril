@@ -58,7 +58,7 @@ mimalloc = { version = "0.1.52" }
 
 [dev-dependencies]
 axum = { version = "0.8.9", features = ["json"] }
-axum-test = "20.1.0"
+axum-test = "21.0.0"
 criterion = { version = "0.8.2", features = ["html_reports", "async_tokio"] }
 httpmock = "0.8.3"
 mockall = { workspace = true }

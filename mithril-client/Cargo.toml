@@ -73,31 +73,31 @@ strum = { workspace = true }
 tar = { version = "0.4.46", optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-uuid = { version = "1.23.2", features = ["v4"] }
+uuid = { version = "1.23.4", features = ["v4"] }
 zstd = { version = "0.13.3", optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 mithril-aggregator-discovery = { path = "../internal/mithril-aggregator-discovery", version = "0.1.9" }
 mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database", version = "0.2.3" }
-rand = { version = "0.10.1" }
+rand = { version = "0.10.2" }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.4.2", features = ["wasm_js"] }
-uuid = { version = "1.23.2", features = ["v4", "js"] }
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
+uuid = { version = "1.23.4", features = ["v4", "js"] }
 
 [dev-dependencies]
 axum = { version = "0.8.9", features = ["json"] }
-axum-test = "20.1.0"
-bon = "3.9.1"
+axum-test = "21.0.0"
+bon = "3.9.3"
 hex = { workspace = true }
-http = "1.4.1"
+http = "1.4.2"
 httpmock = "0.8.3"
 mockall = { workspace = true }
 sha2 = "0.11.0"
 slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
-tower-http = { version = "0.6.11", features = ["fs"] }
+tower-http = { version = "0.7.0", features = ["fs"] }
 
 [[test]]
 name = "cardano_transaction_proof"
