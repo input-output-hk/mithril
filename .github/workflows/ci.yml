@@ -980,6 +980,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
+      actions: write
       contents: read
       pages: write
       id-token: write
@@ -1024,6 +1025,19 @@ jobs:
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
+
+      - name: Delete stale GitHub Pages artifacts from previous run attempts
+        if: github.run_attempt != '1'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IDS=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts[] | select(.name == "github-pages") | .id')
+
+          for ID in $IDS; do
+            gh api --silent -X DELETE "repos/${{ github.repository }}/actions/artifacts/${ID}"
+          done
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v5
