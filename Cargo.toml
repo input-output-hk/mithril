@@ -51,15 +51,15 @@ license = "Apache-2.0"
 repository = "https://github.com/input-output-hk/mithril/"
 
 [workspace.dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 async-recursion = "1.1.1"
 async-trait = "0.1.89"
-chrono = { version = "0.4.44", features = ["serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
-config = "0.15.23"
+config = "0.15.25"
 digest = { version = "0.10.7", features = ["alloc"] }
 hex = "0.4.3"
-mockall = "0.14.0"
+mockall = "0.15.0"
 rand_chacha = "0.3.1"
 rand_core = { version = "0.6.4", features = ["std"] }
 rayon = "1.12.0"

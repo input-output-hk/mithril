@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.9.14"
+version = "0.9.15"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -44,7 +44,7 @@ mithril-ticker = { path = "../internal/mithril-ticker" }
 paste = "1.0.15"
 percent-encoding = "2.3.2"
 rayon = { workspace = true }
-regex = "1.12.3"
+regex = "1.12.4"
 reqwest = { workspace = true, features = ["charset", "http2", "system-proxy", "gzip", "zstd", "deflate", "brotli"] }
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] }
 semver = { workspace = true }
@@ -58,7 +58,7 @@ tar = "0.4.46"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7.18", features = ["codec"] }
-uuid = { version = "1.23.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
+uuid = { version = "1.23.4", features = ["v4", "fast-rng", "macro-diagnostics"] }
 warp = { workspace = true }
 zstd = { version = "0.13.3", features = ["zstdmt"] }
 
@@ -70,10 +70,10 @@ mimalloc = { version = "0.1.52" }
 
 [dev-dependencies]
 axum = { version = "0.8.9", features = ["json"] }
-axum-test = "20.1.0"
+axum-test = "21.0.0"
 criterion = { version = "0.8.2", features = ["html_reports", "async_tokio"] }
 hex = { workspace = true }
-http = "1.4.1"
+http = "1.4.2"
 httpmock = "0.8.3"
 mithril-api-spec = { path = "../internal/tests/mithril-api-spec" }
 mithril-common = { path = "../mithril-common", features = ["allow_skip_signer_certification"] }
