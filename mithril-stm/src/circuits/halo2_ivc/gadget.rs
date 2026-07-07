@@ -17,11 +17,10 @@ use super::{
     P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PoseidonChip, PublicInputInstructions,
     RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation, VerifierGadget, ZeroInstructions,
+    accumulator::fixed_base_names,
     config::IvcConfig,
     errors::{IvcCircuitError, to_synthesis_error},
-    state::{
-        AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness, fixed_base_names,
-    },
+    state::{AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness},
 };
 
 #[derive(Debug, Clone)]

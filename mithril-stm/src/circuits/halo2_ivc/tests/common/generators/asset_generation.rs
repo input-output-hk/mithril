@@ -26,9 +26,10 @@ use crate::circuits::halo2_ivc::tests::common::asset_readers::{
 };
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, EmulatedCurve, PREIMAGE_SIZE, RecursiveEmulation,
+    accumulator::trivial_accumulator,
     circuit::IvcCircuitData,
     keys::RecursiveCircuitProvingKey,
-    state::{Global, State, trivial_acc},
+    state::{Global, State},
     types::{CertificateProofBytes, IvcProofBytes},
 };
 
@@ -58,7 +59,7 @@ fn build_certificate_chain_artifacts(
     recursive_fixed_base_names: &[String],
 ) -> CertificateChainArtifacts {
     let mut certificate_proofs = vec![CertificateProofBytes::empty()];
-    let mut certificate_accumulators = vec![trivial_acc(recursive_fixed_base_names)];
+    let mut certificate_accumulators = vec![trivial_accumulator(recursive_fixed_base_names)];
     let mut recursive_next_states = vec![build_genesis_base_case_next_state(setup, GENESIS_EPOCH)];
     let mut recursive_witnesses = vec![build_genesis_base_case_witness(setup)];
     let mut certificate_random_generator = OsRng;
@@ -114,7 +115,7 @@ fn build_recursive_chain_snapshot(
     let combined_fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
     let mut current_state = State::genesis();
     let mut recursive_proof = IvcProofBytes::empty();
-    let mut current_accumulator = trivial_acc(&combined_fixed_base_names);
+    let mut current_accumulator = trivial_accumulator(&combined_fixed_base_names);
     let mut next_accumulator = current_accumulator.clone();
     let mut recursive_random_generator = OsRng;
 
@@ -532,7 +533,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
 
     let genesis_witness = build_genesis_base_case_witness(setup);
     let genesis_next_state = build_genesis_base_case_next_state(setup, GENESIS_EPOCH);
-    let current_accumulator = trivial_acc(&combined_fixed_base_names);
+    let current_accumulator = trivial_accumulator(&combined_fixed_base_names);
     let next_accumulator = current_accumulator.clone();
 
     let ivc_circuit_data = IvcCircuitData::try_new(

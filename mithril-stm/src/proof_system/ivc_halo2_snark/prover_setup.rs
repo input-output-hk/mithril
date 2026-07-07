@@ -21,12 +21,12 @@ use crate::{
         halo2::{keys::NonRecursiveCircuitVerifyingKey, types::CircuitBase},
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, RECURSIVE_CIRCUIT_DEGREE,
+            accumulator::fixed_bases_and_names,
             certificate_proof::verify_and_prepare_accumulator,
             keys::{
                 RecursiveCircuitKeyGenerator, RecursiveCircuitProvingKey,
                 RecursiveCircuitVerifyingKey,
             },
-            state::fixed_bases_and_names,
         },
         key_provider::KeyProvider,
         trusted_setup::TrustedSetupProvider,

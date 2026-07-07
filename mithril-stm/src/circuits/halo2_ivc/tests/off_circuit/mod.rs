@@ -7,7 +7,7 @@
 //! covered by Layer C1.
 //!
 //! `accumulator_collapse`        — `collapse` preserves the `accumulator.check` invariant.
-//! `accumulator_construction`    — `trivial_acc` structure and public-input encoding.
+//! `accumulator_construction`    — `trivial_accumulator` structure and public-input encoding.
 //! `accumulator_update`          — full folding pipeline on stored assets; soundness under wrong previous accumulator.
 //! `accumulator_verification`    — `accumulator.check` accepts valid stored accumulators and rejects tampered ones.
 //! `certificate_proof_rejection` — `verify_and_prepare_accumulator` rejects garbage bytes and wrong public inputs.

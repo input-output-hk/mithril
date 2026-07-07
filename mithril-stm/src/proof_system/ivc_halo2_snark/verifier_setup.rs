@@ -17,7 +17,8 @@ use crate::{
         halo2::keys::NonRecursiveCircuitVerifyingKey,
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
-            keys::RecursiveCircuitVerifyingKey, state::fixed_bases_and_names, types::MessageHash,
+            accumulator::fixed_bases_and_names, keys::RecursiveCircuitVerifyingKey,
+            types::MessageHash,
         },
     },
     codec,

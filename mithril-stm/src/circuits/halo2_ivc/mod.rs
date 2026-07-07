@@ -48,6 +48,7 @@ pub(crate) use midnight_proofs::{
     poly::{EvaluationDomain, kzg::KZGCommitmentScheme},
 };
 
+pub(crate) mod accumulator;
 pub(crate) mod certificate_proof;
 pub(crate) mod circuit;
 pub(crate) mod config;

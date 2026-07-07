@@ -15,8 +15,8 @@ use crate::AggregateVerificationKeyForSnark;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
 use crate::circuits::halo2_ivc::RECURSIVE_CIRCUIT_DEGREE;
+use crate::circuits::halo2_ivc::accumulator::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::keys::{RecursiveCircuitProvingKey, RecursiveCircuitVerifyingKey};
-use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::types::MessageHash;
 use crate::circuits::halo2_ivc::{
     CERTIFICATE_VERIFICATION_KEY_NAME, EmulatedCurve, IVC_VERIFICATION_KEY_NAME, NativeField,
