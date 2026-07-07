@@ -12,10 +12,6 @@ use super::{
 };
 use crate::BaseFieldElement;
 
-/// Local re-export of Midnight proofs' `SerdeFormat`, isolating the Midnight serialization enum behind
-/// the IVC module boundary (used by the `io` serialization traits).
-pub(crate) use midnight_proofs::utils::SerdeFormat;
-
 /// Circuit-boundary alias for Midnight proofs' `Value<T>` witness wrapper.
 pub(crate) type CircuitValue<T> = Value<T>;
 
