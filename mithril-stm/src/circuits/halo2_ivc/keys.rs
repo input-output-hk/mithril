@@ -16,45 +16,58 @@ use crate::circuits::key_provider::KeyProvider;
 use crate::codec::{TryFromBytes, TryToBytes};
 
 use super::{
-    E, F, KZGCommitmentScheme, ProvingKey, RECURSIVE_CIRCUIT_DEGREE, VerifyingKey,
-    circuit::IvcCircuitData,
+    KZGCommitmentScheme, NativeField, PairingEngine, ProvingKey, RECURSIVE_CIRCUIT_DEGREE,
+    VerifyingKey, circuit::IvcCircuitData,
 };
 
 /// Verifying key of the recursive (IVC) circuit.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RecursiveCircuitVerifyingKey(
-    #[serde(with = "recursive_verifying_key_serde")] VerifyingKey<F, KZGCommitmentScheme<E>>,
+    #[serde(with = "recursive_verifying_key_serde")]
+    VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
 );
 
 /// Proving key of the recursive (IVC) circuit.
-pub(crate) struct RecursiveCircuitProvingKey(ProvingKey<F, KZGCommitmentScheme<E>>);
+pub(crate) struct RecursiveCircuitProvingKey(
+    ProvingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
+);
 
 impl RecursiveCircuitVerifyingKey {
     /// Wraps a raw recursive verifying key.
-    pub(crate) fn new(verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>) -> Self {
+    pub(crate) fn new(
+        verifying_key: VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
+    ) -> Self {
         Self(verifying_key)
     }
 
     /// Borrows the wrapped raw verifying key, for the prover/verifier and fixed-base construction.
-    pub(crate) fn verifying_key(&self) -> &VerifyingKey<F, KZGCommitmentScheme<E>> {
+    pub(crate) fn verifying_key(
+        &self,
+    ) -> &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>> {
         &self.0
     }
 }
 
-impl AsRef<VerifyingKey<F, KZGCommitmentScheme<E>>> for RecursiveCircuitVerifyingKey {
-    fn as_ref(&self) -> &VerifyingKey<F, KZGCommitmentScheme<E>> {
+impl AsRef<VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>>
+    for RecursiveCircuitVerifyingKey
+{
+    fn as_ref(&self) -> &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>> {
         &self.0
     }
 }
 
 impl RecursiveCircuitProvingKey {
     /// Wraps a raw recursive proving key.
-    pub(crate) fn new(proving_key: ProvingKey<F, KZGCommitmentScheme<E>>) -> Self {
+    pub(crate) fn new(
+        proving_key: ProvingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
+    ) -> Self {
         Self(proving_key)
     }
 
     /// Borrows the wrapped raw proving key, for proof generation.
-    pub(crate) fn proving_key(&self) -> &ProvingKey<F, KZGCommitmentScheme<E>> {
+    pub(crate) fn proving_key(
+        &self,
+    ) -> &ProvingKey<NativeField, KZGCommitmentScheme<PairingEngine>> {
         &self.0
     }
 }
@@ -67,9 +80,10 @@ impl TryToBytes for RecursiveCircuitVerifyingKey {
 
 impl TryFromBytes for RecursiveCircuitVerifyingKey {
     fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        Ok(Self(
-            VerifyingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(bytes)?,
-        ))
+        Ok(Self(VerifyingKey::<
+            NativeField,
+            KZGCommitmentScheme<PairingEngine>,
+        >::try_from_bytes(bytes)?))
     }
 }
 
@@ -81,9 +95,10 @@ impl TryToBytes for RecursiveCircuitProvingKey {
 
 impl TryFromBytes for RecursiveCircuitProvingKey {
     fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        Ok(Self(
-            ProvingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(bytes)?,
-        ))
+        Ok(Self(ProvingKey::<
+            NativeField,
+            KZGCommitmentScheme<PairingEngine>,
+        >::try_from_bytes(bytes)?))
     }
 }
 
@@ -92,11 +107,11 @@ impl TryFromBytes for RecursiveCircuitProvingKey {
 mod recursive_verifying_key_serde {
     use serde::{Deserializer, Serializer};
 
-    use super::{E, F, KZGCommitmentScheme, VerifyingKey};
+    use super::{KZGCommitmentScheme, NativeField, PairingEngine, VerifyingKey};
     use crate::codec::{TryFromBytes, TryToBytes};
 
     pub(super) fn serialize<S: Serializer>(
-        verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+        verifying_key: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         let bytes = verifying_key.to_bytes_vec().map_err(serde::ser::Error::custom)?;
@@ -105,9 +120,9 @@ mod recursive_verifying_key_serde {
 
     pub(super) fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
-    ) -> Result<VerifyingKey<F, KZGCommitmentScheme<E>>, D::Error> {
+    ) -> Result<VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>, D::Error> {
         let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
-        VerifyingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(&bytes)
+        VerifyingKey::<NativeField, KZGCommitmentScheme<PairingEngine>>::try_from_bytes(&bytes)
             .map_err(serde::de::Error::custom)
     }
 }

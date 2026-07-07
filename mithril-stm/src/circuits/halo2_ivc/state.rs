@@ -10,8 +10,8 @@ use crate::signature_scheme::{SchnorrVerificationKey, StandardSchnorrSignature};
 
 use super::{
     Accumulator, AssignedByte, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-    AssignedVk, C, ConstraintSystem, E, F, Instantiable, Jubjub, KZGCommitmentScheme, Msm, S,
-    VerifyingKey,
+    AssignedVk, ConstraintSystem, EmulatedCurve, Instantiable, Jubjub, KZGCommitmentScheme, Msm,
+    NativeField, PairingEngine, RecursiveEmulation, VerifyingKey,
     types::{
         CertificateCircuitVerificationKeyRepresentation, EpochNumber,
         IvcCircuitVerificationKeyRepresentation, MerkleTreeCommitment, MessageHash,
@@ -65,8 +65,7 @@ impl State {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn as_public_input(&self) -> Vec<F> {
+    pub(crate) fn as_public_input(&self) -> Vec<NativeField> {
         let state = self.clone();
         // Public-input order is part of the recursive circuit statement contract:
         // [step_counter, message, merkle_tree_commitment, next_merkle_tree_commitment, protocol_parameters, next_protocol_parameters, current_epoch].
@@ -85,17 +84,17 @@ impl State {
 /// In-circuit counterpart of [`State`].
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedState {
-    pub(crate) step_counter: AssignedNative<F>,
-    pub(crate) message: AssignedNative<F>,
-    pub(crate) merkle_tree_commitment: AssignedNative<F>,
-    pub(crate) next_merkle_tree_commitment: AssignedNative<F>,
-    pub(crate) protocol_parameters: AssignedNative<F>,
-    pub(crate) next_protocol_parameters: AssignedNative<F>,
-    pub(crate) current_epoch: AssignedNative<F>,
+    pub(crate) step_counter: AssignedNative<NativeField>,
+    pub(crate) message: AssignedNative<NativeField>,
+    pub(crate) merkle_tree_commitment: AssignedNative<NativeField>,
+    pub(crate) next_merkle_tree_commitment: AssignedNative<NativeField>,
+    pub(crate) protocol_parameters: AssignedNative<NativeField>,
+    pub(crate) next_protocol_parameters: AssignedNative<NativeField>,
+    pub(crate) current_epoch: AssignedNative<NativeField>,
 }
 
 impl AssignedState {
-    pub(crate) fn as_public_input(&self) -> Vec<AssignedNative<F>> {
+    pub(crate) fn as_public_input(&self) -> Vec<AssignedNative<NativeField>> {
         let state = self.clone();
         vec![
             state.step_counter,
@@ -143,8 +142,7 @@ impl Global {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn as_public_input(&self) -> Vec<F> {
+    pub(crate) fn as_public_input(&self) -> Vec<NativeField> {
         [
             vec![self.genesis_message.as_field()],
             AssignedNativePoint::<Jubjub>::as_public_input(
@@ -162,10 +160,10 @@ impl Global {
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedGlobal {
     //Persistent values that do not change through an ivc stream
-    pub(crate) genesis_message: AssignedNative<F>,
+    pub(crate) genesis_message: AssignedNative<NativeField>,
     pub(crate) genesis_verification_key: AssignedNativePoint<Jubjub>,
-    pub(crate) certificate_verification_key: AssignedVk<S>,
-    pub(crate) ivc_verification_key: AssignedVk<S>,
+    pub(crate) certificate_verification_key: AssignedVk<RecursiveEmulation>,
+    pub(crate) ivc_verification_key: AssignedVk<RecursiveEmulation>,
     // Combined fixed base names for certificate and IVC verification keys.
     pub(crate) fixed_base_names: Vec<String>,
 }
@@ -198,38 +196,48 @@ impl Witness {
 
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedWitness {
-    pub(crate) genesis_signature: (AssignedScalarOfNativeCurve<Jubjub>, AssignedNative<F>),
-    pub(crate) certificate_message: AssignedNative<F>,
-    pub(crate) certificate_merkle_tree_commitment: AssignedNative<F>,
+    pub(crate) genesis_signature: (
+        AssignedScalarOfNativeCurve<Jubjub>,
+        AssignedNative<NativeField>,
+    ),
+    pub(crate) certificate_message: AssignedNative<NativeField>,
+    pub(crate) certificate_merkle_tree_commitment: AssignedNative<NativeField>,
     // Protocol message preimage bytes
-    pub(crate) message_preimage: Vec<AssignedByte<F>>,
+    pub(crate) message_preimage: Vec<AssignedByte<NativeField>>,
 }
 
-pub(crate) fn trivial_acc(fixed_base_names: &[String]) -> Accumulator<S> {
-    Accumulator::<S>::new(
-        Msm::new(&[C::default()], &[F::ONE], &BTreeMap::new()),
+pub(crate) fn trivial_acc(fixed_base_names: &[String]) -> Accumulator<RecursiveEmulation> {
+    Accumulator::<RecursiveEmulation>::new(
         Msm::new(
-            &[C::default()],
-            &[F::ONE],
-            &fixed_base_names.iter().map(|name| (name.clone(), F::ZERO)).collect(),
+            &[EmulatedCurve::default()],
+            &[NativeField::ONE],
+            &BTreeMap::new(),
+        ),
+        Msm::new(
+            &[EmulatedCurve::default()],
+            &[NativeField::ONE],
+            &fixed_base_names
+                .iter()
+                .map(|name| (name.clone(), NativeField::ZERO))
+                .collect(),
         ),
     )
 }
 
 pub(crate) fn fixed_bases_and_names(
     vk_name: &str,
-    vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
-) -> (BTreeMap<String, C>, Vec<String>) {
+    vk: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
+) -> (BTreeMap<String, EmulatedCurve>, Vec<String>) {
     let mut fixed_bases = BTreeMap::new();
-    fixed_bases.insert(String::from("com_instance"), C::identity());
-    fixed_bases.extend(verifier::fixed_bases::<S>(vk_name, vk));
+    fixed_bases.insert(String::from("com_instance"), EmulatedCurve::identity());
+    fixed_bases.extend(verifier::fixed_bases::<RecursiveEmulation>(vk_name, vk));
     let fixed_base_names = fixed_bases.keys().cloned().collect::<Vec<_>>();
     (fixed_bases, fixed_base_names)
 }
 
-pub(crate) fn fixed_base_names(vk_name: &str, cs: &ConstraintSystem<F>) -> Vec<String> {
+pub(crate) fn fixed_base_names(vk_name: &str, cs: &ConstraintSystem<NativeField>) -> Vec<String> {
     let mut fixed_base_names = vec![String::from("com_instance")];
-    fixed_base_names.extend(verifier::fixed_base_names::<S>(
+    fixed_base_names.extend(verifier::fixed_base_names::<RecursiveEmulation>(
         vk_name,
         cs.num_fixed_columns() + cs.num_selectors(),
         cs.permutation().columns.len(),

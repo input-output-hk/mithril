@@ -6,7 +6,7 @@ use midnight_circuits::types::Instantiable;
 
 use crate::StmResult;
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, F,
+    AssignedAccumulator, NativeField,
     state::State,
     tests::common::{
         asset_readers::{StepOutputAsset, load_embedded_verification_context_asset},

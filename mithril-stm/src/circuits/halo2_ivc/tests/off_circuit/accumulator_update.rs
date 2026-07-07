@@ -18,7 +18,7 @@ use ff::Field;
 use midnight_curves::pairing::Engine;
 
 use crate::circuits::halo2_ivc::{
-    Accumulator, C, E, Msm, S,
+    Accumulator, EmulatedCurve, Msm, PairingEngine, RecursiveEmulation,
     tests::common::{
         asset_readers::load_embedded_recursive_chain_state_asset,
         helpers::{
@@ -40,10 +40,10 @@ use crate::circuits::halo2_ivc::{
 /// KZG verifier parameters and are covered by
 /// `golden/positive.rs::replay_integrity_matches_stored_next_step_output`.
 fn build_proof_accumulators_from_stored_step_assets() -> (
-    Accumulator<S>,
-    Accumulator<S>,
-    BTreeMap<String, C>,
-    <E as Engine>::G2Affine,
+    Accumulator<RecursiveEmulation>,
+    Accumulator<RecursiveEmulation>,
+    BTreeMap<String, EmulatedCurve>,
+    <PairingEngine as Engine>::G2Affine,
 ) {
     let (mut certificate_accumulator, certificate_fixed_bases, tau_in_g2) =
         build_unextracted_certificate_accumulator_from_assets();
@@ -55,7 +55,7 @@ fn build_proof_accumulators_from_stored_step_assets() -> (
     previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
     previous_proof_accumulator.collapse();
 
-    let combined_fixed_bases: BTreeMap<String, C> = certificate_fixed_bases
+    let combined_fixed_bases: BTreeMap<String, EmulatedCurve> = certificate_fixed_bases
         .into_iter()
         .chain(recursive_fixed_bases)
         .collect();
@@ -70,8 +70,11 @@ fn build_proof_accumulators_from_stored_step_assets() -> (
 
 /// Runs the full off-circuit accumulation pipeline on stored step assets and returns
 /// `(next_accumulator, combined_fixed_bases, tau_in_g2)`.
-fn build_next_accumulator_from_stored_step_assets()
--> (Accumulator<S>, BTreeMap<String, C>, <E as Engine>::G2Affine) {
+fn build_next_accumulator_from_stored_step_assets() -> (
+    Accumulator<RecursiveEmulation>,
+    BTreeMap<String, EmulatedCurve>,
+    <PairingEngine as Engine>::G2Affine,
+) {
     let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
     let (certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, tau_in_g2) =
@@ -124,7 +127,7 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
             !scalar.is_zero_vartime()
                 && combined_fixed_bases
                     .get(*key)
-                    .map(|base| *base != C::default())
+                    .map(|base| *base != EmulatedCurve::default())
                     .unwrap_or(false)
         })
         .map(|(key, _)| key.clone())
@@ -132,12 +135,12 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
     tampered_fixed_base_scalars
         .entry(key_to_negate)
         .and_modify(|scalar| *scalar = scalar.neg());
-    let tampered_right_hand_side = Msm::<S>::new(
+    let tampered_right_hand_side = Msm::<RecursiveEmulation>::new(
         &right_hand_side.bases(),
         &right_hand_side.scalars(),
         &tampered_fixed_base_scalars,
     );
-    let tampered_chain_accumulator = Accumulator::<S>::new(
+    let tampered_chain_accumulator = Accumulator::<RecursiveEmulation>::new(
         recursive_chain_state.accumulator.lhs(),
         tampered_right_hand_side,
     );

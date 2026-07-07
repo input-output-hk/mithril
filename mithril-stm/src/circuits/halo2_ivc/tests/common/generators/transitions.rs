@@ -20,7 +20,7 @@ use crate::circuits::halo2_ivc::types::{
     ProtocolParametersHash, StepCounter,
 };
 use crate::circuits::halo2_ivc::{
-    Accumulator, CERTIFICATE_VERIFICATION_KEY_NAME, F, PREIMAGE_SIZE, S,
+    Accumulator, CERTIFICATE_VERIFICATION_KEY_NAME, NativeField, PREIMAGE_SIZE, RecursiveEmulation,
 };
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey,
@@ -103,7 +103,12 @@ pub(crate) fn build_next_certificate_asset_data(
     certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
-) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
+) -> (
+    CertificateProofBytes,
+    Accumulator<RecursiveEmulation>,
+    State,
+    Witness,
+) {
     let merkle_tree_commitment = recursive_chain_state.next_merkle_tree_commitment.as_field();
     let (message, message_preimage) =
         next_message_and_preimage_for_step(setup, recursive_chain_state);
@@ -129,7 +134,12 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
     certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
-) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
+) -> (
+    CertificateProofBytes,
+    Accumulator<RecursiveEmulation>,
+    State,
+    Witness,
+) {
     let merkle_tree_commitment = recursive_chain_state.merkle_tree_commitment.as_field();
     let (message, message_preimage) =
         same_epoch_message_and_preimage_for_step(setup, recursive_chain_state);
@@ -158,12 +168,17 @@ fn build_certificate_asset_data_inner(
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
     certificate_relation: &StmCertificateCircuit,
     certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
-    merkle_tree_commitment: F,
-    message: F,
+    merkle_tree_commitment: NativeField,
+    message: NativeField,
     message_preimage: Vec<u8>,
     next_state: State,
     random_generator: &mut (impl RngCore + CryptoRng),
-) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
+) -> (
+    CertificateProofBytes,
+    Accumulator<RecursiveEmulation>,
+    State,
+    Witness,
+) {
     let certificate_proving_key = zk_lib::setup_pk(
         certificate_relation,
         certificate_verifying_key.midnight_vk(),
@@ -228,7 +243,7 @@ fn build_certificate_asset_data_inner(
         certificate_public_inputs(merkle_tree_commitment, next_state.message.as_field());
 
     let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
-        zk_lib::prove::<StmCertificateCircuit, PoseidonState<F>>(
+        zk_lib::prove::<StmCertificateCircuit, PoseidonState<NativeField>>(
             certificate_commitment_parameters,
             &certificate_proving_key,
             certificate_relation,
@@ -252,7 +267,7 @@ fn build_certificate_asset_data_inner(
             .clone()
             .check(&certificate_commitment_parameters.verifier_params())
     );
-    let mut certificate_accumulator: Accumulator<S> = certificate_dual_msm.into();
+    let mut certificate_accumulator: Accumulator<RecursiveEmulation> = certificate_dual_msm.into();
     certificate_accumulator.extract_fixed_bases(&certificate_fixed_bases);
     certificate_accumulator.collapse();
 
@@ -272,7 +287,10 @@ fn build_certificate_asset_data_inner(
 }
 
 /// Formats a `(merkle_tree_commitment, message)` pair as certificate public inputs.
-pub(super) fn certificate_public_inputs(merkle_tree_commitment: F, message: F) -> Vec<F> {
+pub(super) fn certificate_public_inputs(
+    merkle_tree_commitment: NativeField,
+    message: NativeField,
+) -> Vec<NativeField> {
     StmCertificateCircuit::format_instance(&(
         CircuitBaseField::from(merkle_tree_commitment),
         CircuitBaseField::from(message),
@@ -284,7 +302,7 @@ pub(super) fn certificate_public_inputs(merkle_tree_commitment: F, message: F) -
 pub(crate) fn certificate_public_inputs_for_step(
     previous_state: &State,
     next_state: &State,
-) -> Vec<F> {
+) -> Vec<NativeField> {
     certificate_public_inputs(
         previous_state.next_merkle_tree_commitment.as_field(),
         next_state.message.as_field(),
@@ -296,7 +314,7 @@ pub(crate) fn certificate_public_inputs_for_step(
 pub(crate) fn next_message_and_preimage_for_step(
     setup: &AssetGenerationSetup,
     previous_state: &State,
-) -> (F, Vec<u8>) {
+) -> (NativeField, Vec<u8>) {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
 
@@ -327,7 +345,7 @@ pub(crate) fn next_message_and_preimage_for_step(
 pub(crate) fn same_epoch_message_and_preimage_for_step(
     setup: &AssetGenerationSetup,
     previous_state: &State,
-) -> (F, Vec<u8>) {
+) -> (NativeField, Vec<u8>) {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
 
@@ -355,7 +373,7 @@ pub(crate) fn same_epoch_message_and_preimage_for_step(
 
 /// Returns the recursive next state for a non-genesis step once the next
 /// certificate message has been fixed.
-pub(crate) fn next_state_for_step(previous_state: &State, message: F) -> State {
+pub(crate) fn next_state_for_step(previous_state: &State, message: NativeField) -> State {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
 
@@ -371,7 +389,10 @@ pub(crate) fn next_state_for_step(previous_state: &State, message: F) -> State {
 }
 
 /// Returns the recursive next state for a same-epoch step.
-pub(crate) fn same_epoch_next_state_for_step(previous_state: &State, message: F) -> State {
+pub(crate) fn same_epoch_next_state_for_step(
+    previous_state: &State,
+    message: NativeField,
+) -> State {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
 

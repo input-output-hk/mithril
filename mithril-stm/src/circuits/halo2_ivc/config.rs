@@ -1,9 +1,9 @@
 use super::{
-    C, CBase, ComposableChip, ConstraintSystem, EccChip, EccConfig, F, FieldChip, ForeignEccChip,
-    ForeignEccConfig, Jubjub, NB_ARITH_COLS, NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS,
-    NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NG, NativeChip, NativeConfig,
-    P2RDecompositionChip, P2RDecompositionConfig, PoseidonChip, PoseidonConfig, Pow2RangeChip,
-    nb_foreign_ecc_chip_columns,
+    ComposableChip, ConstraintSystem, EccChip, EccConfig, EmulatedCurve, EmulatedCurveBaseField,
+    FieldChip, ForeignEccChip, ForeignEccConfig, IvcNativeGadget, Jubjub, NB_ARITH_COLS,
+    NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS,
+    NativeChip, NativeConfig, NativeField, P2RDecompositionChip, P2RDecompositionConfig,
+    PoseidonChip, PoseidonConfig, Pow2RangeChip, nb_foreign_ecc_chip_columns,
 };
 use midnight_circuits::hash::sha256::{
     NB_SHA256_ADVICE_COLS, NB_SHA256_FIXED_COLS, Sha256Chip, Sha256Config,
@@ -14,8 +14,8 @@ pub struct IvcConfig {
     pub(crate) native_config: NativeConfig,
     pub(crate) core_decomp_config: P2RDecompositionConfig,
     pub(crate) jubjub_config: EccConfig,
-    pub(crate) bls12_381_config: ForeignEccConfig<C>,
-    pub(crate) poseidon_config: PoseidonConfig<F>,
+    pub(crate) bls12_381_config: ForeignEccConfig<EmulatedCurve>,
+    pub(crate) poseidon_config: PoseidonConfig<NativeField>,
     pub(crate) sha256_config: Sha256Config,
 }
 
@@ -29,7 +29,7 @@ pub(crate) fn ivc_column_pool_sizes() -> (usize, usize) {
         NB_EDWARDS_COLS,
         NB_POSEIDON_ADVICE_COLS,
         NB_SHA256_ADVICE_COLS,
-        nb_foreign_ecc_chip_columns::<F, C, C, NG>(),
+        nb_foreign_ecc_chip_columns::<NativeField, EmulatedCurve, EmulatedCurve, IvcNativeGadget>(),
     ]
     .into_iter()
     .max()
@@ -43,7 +43,7 @@ pub(crate) fn ivc_column_pool_sizes() -> (usize, usize) {
     (nb_advice_cols, nb_fixed_cols)
 }
 
-pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
+pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<NativeField>) -> IvcConfig {
     let (nb_advice_cols, nb_fixed_cols) = ivc_column_pool_sizes();
 
     let advice_columns: Vec<_> = (0..nb_advice_cols).map(|_| meta.advice_column()).collect();
@@ -75,9 +75,19 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
             .expect("column counts pre-validated by validate_column_counts"),
     );
 
-    let base_config = FieldChip::<F, CBase, C, NG>::configure(meta, &advice_columns);
-    let bls12_381_config =
-        ForeignEccChip::<F, C, C, NG, NG>::configure(meta, &base_config, &advice_columns);
+    let base_config = FieldChip::<
+        NativeField,
+        EmulatedCurveBaseField,
+        EmulatedCurve,
+        IvcNativeGadget,
+    >::configure(meta, &advice_columns);
+    let bls12_381_config = ForeignEccChip::<
+        NativeField,
+        EmulatedCurve,
+        EmulatedCurve,
+        IvcNativeGadget,
+        IvcNativeGadget,
+    >::configure(meta, &base_config, &advice_columns);
 
     let poseidon_config = PoseidonChip::configure(
         meta,

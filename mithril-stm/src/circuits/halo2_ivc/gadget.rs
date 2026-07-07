@@ -9,14 +9,14 @@ use crate::signature_scheme::DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE;
 use super::{
     Accumulator, ArithInstructions, AssertionInstructions, AssignedAccumulator, AssignedBit,
     AssignedForeignPoint, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-    AssignedVk, AssignmentInstructions, BinaryInstructions, C, CERTIFICATE_VERIFICATION_KEY_NAME,
+    AssignedVk, AssignmentInstructions, BinaryInstructions, CERTIFICATE_VERIFICATION_KEY_NAME,
     CircuitCurve, ComposableChip, ConstraintSystem, ControlFlowInstructions,
-    ConversionInstructions, EccChip, EccInstructions, EqualityInstructions, Error,
-    EvaluationDomain, F, ForeignEccChip, HashInstructions, IVC_VERIFICATION_KEY_NAME, Jubjub,
-    Layouter, NG, NativeChip, NativeGadget, P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES,
-    PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
-    PoseidonChip, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, S, Value, VerifierGadget,
-    ZeroInstructions,
+    ConversionInstructions, EccChip, EccInstructions, EmulatedCurve, EqualityInstructions, Error,
+    EvaluationDomain, ForeignEccChip, HashInstructions, IVC_VERIFICATION_KEY_NAME, IvcNativeGadget,
+    Jubjub, Layouter, NativeChip, NativeField, NativeGadget, P2RDecompositionChip,
+    PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
+    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PoseidonChip, PublicInputInstructions,
+    RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation, Value, VerifierGadget, ZeroInstructions,
     config::IvcConfig,
     errors::{IvcCircuitError, to_synthesis_error},
     state::{
@@ -26,29 +26,33 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub struct IvcGadget {
-    pub(crate) core_decomp_chip: P2RDecompositionChip<F>,
-    pub(crate) native_gadget: NG,
+    pub(crate) core_decomp_chip: P2RDecompositionChip<NativeField>,
+    pub(crate) native_gadget: IvcNativeGadget,
     pub(crate) jubjub_chip: EccChip<Jubjub>,
-    pub(crate) poseidon_chip: PoseidonChip<F>,
-    pub(crate) sha2_256_chip: Sha256Chip<F>,
-    pub(crate) bls12_381_chip: ForeignEccChip<F, C, C, NG, NG>,
-    pub(crate) verifier_gadget: VerifierGadget<S>,
+    pub(crate) poseidon_chip: PoseidonChip<NativeField>,
+    pub(crate) sha2_256_chip: Sha256Chip<NativeField>,
+    pub(crate) bls12_381_chip:
+        ForeignEccChip<NativeField, EmulatedCurve, EmulatedCurve, IvcNativeGadget, IvcNativeGadget>,
+    pub(crate) verifier_gadget: VerifierGadget<RecursiveEmulation>,
 }
 
 impl IvcGadget {
     pub fn new(config: &IvcConfig) -> Self {
-        let native_chip = <NativeChip<F> as ComposableChip<F>>::new(&config.native_config, &());
+        let native_chip = <NativeChip<NativeField> as ComposableChip<NativeField>>::new(
+            &config.native_config,
+            &(),
+        );
         let core_decomp_chip = P2RDecompositionChip::new(
             &config.core_decomp_config,
             &(RECURSIVE_CIRCUIT_DEGREE as usize - 1),
         );
         let native_gadget = NativeGadget::new(core_decomp_chip.clone(), native_chip.clone());
         let jubjub_chip = EccChip::<Jubjub>::new(&config.jubjub_config, &native_gadget);
-        let bls12_381_chip: ForeignEccChip<_, C, C, _, _> =
+        let bls12_381_chip: ForeignEccChip<_, EmulatedCurve, EmulatedCurve, _, _> =
             { ForeignEccChip::new(&config.bls12_381_config, &native_gadget, &native_gadget) };
         let poseidon_chip = PoseidonChip::new(&config.poseidon_config, &native_chip);
         let sha2_256_chip = Sha256Chip::new(&config.sha256_config, &native_gadget);
-        let verifier_gadget: VerifierGadget<S> =
+        let verifier_gadget: VerifierGadget<RecursiveEmulation> =
             VerifierGadget::new(&bls12_381_chip, &native_gadget, &poseidon_chip);
 
         IvcGadget {
@@ -64,13 +68,16 @@ impl IvcGadget {
 
     pub fn assign_global_as_public_input(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<NativeField>,
         global: &Value<Global>,
         certificate_circuit_domain_and_constraint_system: &(
-            EvaluationDomain<F>,
-            ConstraintSystem<F>,
+            EvaluationDomain<NativeField>,
+            ConstraintSystem<NativeField>,
         ),
-        ivc_circuit_domain_and_constraint_system: &(EvaluationDomain<F>, ConstraintSystem<F>),
+        ivc_circuit_domain_and_constraint_system: &(
+            EvaluationDomain<NativeField>,
+            ConstraintSystem<NativeField>,
+        ),
     ) -> Result<AssignedGlobal, Error> {
         let genesis_message: AssignedNative<_> = self.native_gadget.assign_as_public_input(
             layouter,
@@ -86,7 +93,7 @@ impl IvcGadget {
 
         let (certificate_circuit_domain, certificate_circuit_constraint_system) =
             &certificate_circuit_domain_and_constraint_system;
-        let certificate_verification_key: AssignedVk<S> =
+        let certificate_verification_key: AssignedVk<RecursiveEmulation> =
             self.verifier_gadget.assign_vk_as_public_input(
                 layouter,
                 CERTIFICATE_VERIFICATION_KEY_NAME,
@@ -100,15 +107,16 @@ impl IvcGadget {
         // Assign for IVC proof verification
         let (ivc_circuit_domain, ivc_circuit_constraint_system) =
             &ivc_circuit_domain_and_constraint_system;
-        let ivc_verification_key: AssignedVk<S> = self.verifier_gadget.assign_vk_as_public_input(
-            layouter,
-            IVC_VERIFICATION_KEY_NAME,
-            ivc_circuit_domain,
-            ivc_circuit_constraint_system,
-            global
-                .clone()
-                .map(|gl| gl.ivc_circuit_verification_key_representation.as_field()),
-        )?;
+        let ivc_verification_key: AssignedVk<RecursiveEmulation> =
+            self.verifier_gadget.assign_vk_as_public_input(
+                layouter,
+                IVC_VERIFICATION_KEY_NAME,
+                ivc_circuit_domain,
+                ivc_circuit_constraint_system,
+                global
+                    .clone()
+                    .map(|gl| gl.ivc_circuit_verification_key_representation.as_field()),
+            )?;
 
         let fixed_base_names = {
             let mut names = fixed_base_names(
@@ -136,7 +144,7 @@ impl IvcGadget {
 
     pub fn assign_state(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<NativeField>,
         state: &Value<State>,
     ) -> Result<AssignedState, Error> {
         let values = state
@@ -187,7 +195,7 @@ impl IvcGadget {
 
     pub fn constrain_state_as_public_input(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<NativeField>,
         state: &AssignedState,
     ) -> Result<(), Error> {
         for value in [
@@ -207,7 +215,7 @@ impl IvcGadget {
 
     pub fn assign_witness(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<NativeField>,
         witness: &Value<Witness>,
     ) -> Result<AssignedWitness, Error> {
         let genesis_signature = {
@@ -222,7 +230,8 @@ impl IvcGadget {
             (s, c)
         };
 
-        let [certificate_message, certificate_merkle_tree_commitment]: [AssignedNative<F>; 2] = {
+        let [certificate_message, certificate_merkle_tree_commitment]: [AssignedNative<NativeField>;
+            2] = {
             let values = witness
                 .clone()
                 .map(|w| {
@@ -261,9 +270,9 @@ impl IvcGadget {
 
     pub fn is_genesis(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<NativeField>,
         state: &AssignedState,
-    ) -> Result<AssignedBit<F>, Error> {
+    ) -> Result<AssignedBit<NativeField>, Error> {
         self.native_gadget.is_zero(layouter, &state.step_counter)
     }
 
@@ -275,10 +284,10 @@ impl IvcGadget {
     /// Returns an `AssignedBit` that is `true` when the signature is valid.
     pub fn is_genesis_signature_valid(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<NativeField>,
         global: &AssignedGlobal,
         witness: &AssignedWitness,
-    ) -> Result<AssignedBit<F>, Error> {
+    ) -> Result<AssignedBit<NativeField>, Error> {
         let s = witness.genesis_signature.0.clone();
         let c_native = witness.genesis_signature.1.clone();
         let c: AssignedScalarOfNativeCurve<_> = self.jubjub_chip.convert(layouter, &c_native)?;
@@ -319,8 +328,8 @@ impl IvcGadget {
 
     pub fn assert_genesis(
         &self,
-        layouter: &mut impl Layouter<F>,
-        is_not_genesis: &AssignedBit<F>,
+        layouter: &mut impl Layouter<NativeField>,
+        is_not_genesis: &AssignedBit<NativeField>,
         global: &AssignedGlobal,
         witness: &AssignedWitness,
     ) -> Result<(), Error> {
@@ -339,9 +348,9 @@ impl IvcGadget {
 
     pub fn global_as_public_input(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<NativeField>,
         global: &AssignedGlobal,
-    ) -> Result<Vec<AssignedNative<F>>, Error> {
+    ) -> Result<Vec<AssignedNative<NativeField>>, Error> {
         let pi = [
             vec![
                 global.genesis_message.clone(),
@@ -359,31 +368,32 @@ impl IvcGadget {
 
     fn combine_bytes(
         &self,
-        layouter: &mut impl Layouter<F>,
-        bytes: impl IntoIterator<Item = impl Into<AssignedNative<F>>>,
-        bases: &[F],
-    ) -> Result<AssignedNative<F>, Error> {
+        layouter: &mut impl Layouter<NativeField>,
+        bytes: impl IntoIterator<Item = impl Into<AssignedNative<NativeField>>>,
+        bases: &[NativeField],
+    ) -> Result<AssignedNative<NativeField>, Error> {
         let items: Vec<_> = bytes
             .into_iter()
             .zip(bases.iter())
             .map(|(v, base)| (*base, v.into()))
             .collect();
 
-        self.native_gadget.linear_combination(layouter, &items, F::ZERO)
+        self.native_gadget
+            .linear_combination(layouter, &items, NativeField::ZERO)
     }
 
     pub fn transition(
         &self,
-        layouter: &mut impl Layouter<F>,
-        is_genesis: &AssignedBit<F>,
-        is_not_genesis: &AssignedBit<F>,
+        layouter: &mut impl Layouter<NativeField>,
+        is_genesis: &AssignedBit<NativeField>,
+        is_not_genesis: &AssignedBit<NativeField>,
         global: &AssignedGlobal,
         state: &AssignedState,
         witness: &AssignedWitness,
     ) -> Result<AssignedState, Error> {
         let step_counter =
             self.native_gadget
-                .add_constant(layouter, &state.step_counter, F::ONE)?;
+                .add_constant(layouter, &state.step_counter, NativeField::ONE)?;
 
         let (certificate_message, certificate_merkle_tree_commitment) = (
             witness.certificate_message.clone(),
@@ -401,9 +411,9 @@ impl IvcGadget {
 
         let hash = self.sha2_256_chip.hash(layouter, &witness.message_preimage)?;
 
-        let factor = F::from(256u64);
+        let factor = NativeField::from(256u64);
         let bases: Vec<_> = (0..32)
-            .scan(F::ONE, |s, _| {
+            .scan(NativeField::ONE, |s, _| {
                 let out = *s;
                 *s *= factor;
                 Some(out)
@@ -417,7 +427,7 @@ impl IvcGadget {
         }
 
         // If it is genesis, merkle_tree_commitment = 0; otherwise, merkle_tree_commitment = certificate_merkle_tree_commitment.
-        let zero = self.native_gadget.assign_fixed(layouter, F::ZERO)?;
+        let zero = self.native_gadget.assign_fixed(layouter, NativeField::ZERO)?;
         let merkle_tree_commitment = self.native_gadget.select(
             layouter,
             is_genesis,
@@ -455,9 +465,11 @@ impl IvcGadget {
                     .is_equal(layouter, &current_epoch, &state.current_epoch)?;
 
             //  current_epoch == state.current_epoch + 1
-            let next = self
-                .native_gadget
-                .add_constant(layouter, &state.current_epoch, F::ONE)?;
+            let next = self.native_gadget.add_constant(
+                layouter,
+                &state.current_epoch,
+                NativeField::ONE,
+            )?;
             let is_next_epoch = self.native_gadget.is_equal(layouter, &current_epoch, &next)?;
 
             (is_same_epoch, is_next_epoch)
@@ -468,9 +480,11 @@ impl IvcGadget {
             // the current certificate is the first certificate after the genesis and
             // its epoch number must be the next epoch number.
             // Assert true: is_not_first or is_next_epoch
-            let is_first =
-                self.native_gadget
-                    .is_equal_to_fixed(layouter, &state.step_counter, F::ONE)?;
+            let is_first = self.native_gadget.is_equal_to_fixed(
+                layouter,
+                &state.step_counter,
+                NativeField::ONE,
+            )?;
             let is_not_first = self.native_gadget.not(layouter, &is_first)?;
 
             let is_valid = self
@@ -568,17 +582,18 @@ impl IvcGadget {
     #[allow(clippy::too_many_arguments)]
     pub fn verify_prepare(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<NativeField>,
         global: &AssignedGlobal,
-        is_not_genesis: &AssignedBit<F>,
+        is_not_genesis: &AssignedBit<NativeField>,
         state: &AssignedState,
         witness: &AssignedWitness,
         certificate_proof: &Value<Vec<u8>>,
         ivc_proof: &Value<Vec<u8>>,
-        acc_value: &Value<Accumulator<S>>,
-    ) -> Result<AssignedAccumulator<S>, Error> {
-        let id_point: AssignedForeignPoint<_, _, _> =
-            self.bls12_381_chip.assign_fixed(layouter, C::identity())?;
+        acc_value: &Value<Accumulator<RecursiveEmulation>>,
+    ) -> Result<AssignedAccumulator<RecursiveEmulation>, Error> {
+        let id_point: AssignedForeignPoint<_, _, _> = self
+            .bls12_381_chip
+            .assign_fixed(layouter, EmulatedCurve::identity())?;
 
         let mut certificate_proof_accumulator = self.verifier_gadget.prepare(
             layouter,
@@ -646,7 +661,7 @@ impl IvcGadget {
         ivc_proof_accumulator.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
 
         // Accumulate the certificate and IVC proof accumulators.
-        let mut next_acc = AssignedAccumulator::<S>::accumulate(
+        let mut next_acc = AssignedAccumulator::<RecursiveEmulation>::accumulate(
             layouter,
             &self.verifier_gadget,
             &self.native_gadget,

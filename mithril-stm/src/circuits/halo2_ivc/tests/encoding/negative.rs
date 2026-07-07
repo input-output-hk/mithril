@@ -5,7 +5,7 @@ use ff::Field;
 use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES,
+    AssignedAccumulator, NativeField, PREIMAGE_CURRENT_EPOCH_BYTES,
     PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
     protocol_message::{DynamicProtocolMessagePartKey, ProtocolMessage},
     state::State,
@@ -106,7 +106,7 @@ fn next_merkle_tree_commitment_tampered_public_input_is_rejected() {
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
-    tampered_state.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE);
+    tampered_state.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(NativeField::ONE);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
@@ -138,7 +138,7 @@ fn next_protocol_parameters_tampered_public_input_is_rejected() {
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
-    tampered_state.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE);
+    tampered_state.next_protocol_parameters = ProtocolParametersHash::from_field(NativeField::ONE);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
@@ -170,7 +170,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
-    tampered_state.current_epoch = EpochNumber::from_field(F::ONE);
+    tampered_state.current_epoch = EpochNumber::from_field(NativeField::ONE);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),

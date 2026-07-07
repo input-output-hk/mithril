@@ -5,7 +5,7 @@ use ff::Field;
 use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, F,
+    AssignedAccumulator, NativeField,
     state::State,
     tests::common::{
         asset_readers::{
@@ -28,7 +28,7 @@ use crate::circuits::halo2_ivc::{
 /// `global` layout: `[genesis_message, genesis_verification_key.x, genesis_verification_key.y,
 /// certificate_circuit_verification_key_representation, ivc_circuit_verification_key_representation]`.
 fn assert_genesis_step_output_rejects_tampered_public_inputs(
-    tamper: impl FnOnce(&mut Vec<F>, &mut Vec<F>, &mut Vec<F>),
+    tamper: impl FnOnce(&mut Vec<NativeField>, &mut Vec<NativeField>, &mut Vec<NativeField>),
     rejection_message: &str,
 ) {
     let verification_context =
@@ -62,7 +62,7 @@ fn genesis_message_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when genesis_message
     // is replaced in the global public inputs, confirming it is committed at index 0.
     assert_genesis_step_output_rejects_tampered_public_inputs(
-        |global, _, _| global[0] = F::ONE,
+        |global, _, _| global[0] = NativeField::ONE,
         "proof with tampered genesis_message should be rejected by the verifier",
     );
 }
@@ -72,7 +72,7 @@ fn genesis_verification_key_x_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when the x coordinate of
     // genesis_verification_key is replaced in the global public inputs, confirming index 1 is committed.
     assert_genesis_step_output_rejects_tampered_public_inputs(
-        |global, _, _| global[1] = F::ONE,
+        |global, _, _| global[1] = NativeField::ONE,
         "proof with tampered genesis_verification_key x coordinate should be rejected by the verifier",
     );
 }
@@ -82,7 +82,7 @@ fn genesis_verification_key_y_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when the y coordinate of
     // genesis_verification_key is replaced in the global public inputs, confirming index 2 is committed.
     assert_genesis_step_output_rejects_tampered_public_inputs(
-        |global, _, _| global[2] = F::ONE,
+        |global, _, _| global[2] = NativeField::ONE,
         "proof with tampered genesis_verification_key y coordinate should be rejected by the verifier",
     );
 }
@@ -93,7 +93,7 @@ fn certificate_circuit_verification_key_representation_tampered_public_input_is_
     // certificate_circuit_verification_key_representation is replaced in the global public inputs,
     // confirming it is committed at index 3.
     assert_genesis_step_output_rejects_tampered_public_inputs(
-        |global, _, _| global[3] = F::ONE,
+        |global, _, _| global[3] = NativeField::ONE,
         "proof with tampered certificate_circuit_verification_key_representation should be rejected by the verifier",
     );
 }
@@ -104,7 +104,7 @@ fn ivc_circuit_verification_key_representation_tampered_public_input_is_rejected
     // ivc_circuit_verification_key_representation is replaced in the global public inputs,
     // confirming it is committed at index 4.
     assert_genesis_step_output_rejects_tampered_public_inputs(
-        |global, _, _| global[4] = F::ONE,
+        |global, _, _| global[4] = NativeField::ONE,
         "proof with tampered ivc_circuit_verification_key_representation should be rejected by the verifier",
     );
 }
@@ -114,7 +114,7 @@ fn next_accumulator_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when next_accumulator
     // is replaced in the public inputs, confirming the accumulator output is committed.
     assert_genesis_step_output_rejects_tampered_public_inputs(
-        |_, _, accumulator_encoding| accumulator_encoding[0] = F::ONE,
+        |_, _, accumulator_encoding| accumulator_encoding[0] = NativeField::ONE,
         "proof with tampered next_accumulator should be rejected by the verifier",
     );
 }
@@ -136,7 +136,7 @@ mod slow {
         let state = next_state.as_public_input();
         let accumulator_encoding =
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
-        global[0] = F::ONE;
+        global[0] = NativeField::ONE;
         assert_recursive_mock_prover_rejects_with_label(
             ivc_circuit_data,
             [global, state, accumulator_encoding].concat(),
@@ -158,7 +158,7 @@ mod slow {
         let state = next_state.as_public_input();
         let accumulator_encoding =
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
-        global[3] = F::ONE;
+        global[3] = NativeField::ONE;
         assert_recursive_mock_prover_rejects_with_label(
             ivc_circuit_data,
             [global, state, accumulator_encoding].concat(),
@@ -180,7 +180,7 @@ mod slow {
         let state = next_state.as_public_input();
         let accumulator_encoding =
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
-        global[4] = F::ONE;
+        global[4] = NativeField::ONE;
         assert_recursive_mock_prover_rejects_with_label(
             ivc_circuit_data,
             [global, state, accumulator_encoding].concat(),

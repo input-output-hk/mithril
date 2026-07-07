@@ -19,8 +19,8 @@ use crate::circuits::halo2_ivc::keys::{RecursiveCircuitProvingKey, RecursiveCirc
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::types::MessageHash;
 use crate::circuits::halo2_ivc::{
-    C, CERTIFICATE_VERIFICATION_KEY_NAME, E, F, IVC_VERIFICATION_KEY_NAME, circuit::IvcCircuitData,
-    state::Global,
+    CERTIFICATE_VERIFICATION_KEY_NAME, EmulatedCurve, IVC_VERIFICATION_KEY_NAME, NativeField,
+    PairingEngine, circuit::IvcCircuitData, state::Global,
 };
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
 use crate::signature_scheme::{
@@ -105,9 +105,9 @@ pub(crate) struct AssetGenerationSetup {
     pub(crate) aggregate_verification_key:
         AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
     /// Deterministic next Merkle-tree commitment committed by the genesis message.
-    pub(crate) genesis_next_merkle_tree_commitment: F,
+    pub(crate) genesis_next_merkle_tree_commitment: NativeField,
     /// Deterministic next protocol parameters committed by the genesis message.
-    pub(crate) genesis_next_protocol_parameters: F,
+    pub(crate) genesis_next_protocol_parameters: NativeField,
 }
 
 /// Shared recursive verifier-side setup reused by generators and golden helpers.
@@ -115,7 +115,7 @@ pub(crate) struct SharedRecursiveContext {
     /// Shared universal KZG parameters built at the maximum circuit degree.
     pub(crate) universal_kzg_parameters: ParamsKZG<Bls12>,
     /// Verifier-side view of the shared universal KZG parameters.
-    pub(crate) universal_verifier_params: ParamsVerifierKZG<E>,
+    pub(crate) universal_verifier_params: ParamsVerifierKZG<PairingEngine>,
     /// Certificate-sized commitment parameters derived from the shared SRS.
     pub(crate) certificate_commitment_parameters: ParamsKZG<Bls12>,
     /// Recursive-circuit-sized commitment parameters derived from the shared SRS.
@@ -142,7 +142,7 @@ fn build_merkle_tree(
         let schnorr_vk = SchnorrVerificationKey::new_from_signing_key(signing_key.clone());
         merkle_tree_leaves.push(MerkleTreeSnarkLeaf(
             schnorr_vk,
-            BaseFieldElement::from(-F::ONE),
+            BaseFieldElement::from(-NativeField::ONE),
         ));
         signing_keys.push(signing_key);
     }
@@ -151,7 +151,7 @@ fn build_merkle_tree(
     (signing_keys, merkle_tree_leaves, merkle_tree)
 }
 
-fn merkle_tree_commitment_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
+fn merkle_tree_commitment_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> NativeField {
     let commitment = merkle_tree.to_merkle_tree_commitment();
     // `MidnightPoseidonDigest` emits Jubjub base-field roots with `to_bytes_le()`;
     // the recursive state stores the same root as the circuit field element.
@@ -160,7 +160,7 @@ fn merkle_tree_commitment_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTr
         .as_slice()
         .try_into()
         .expect("STM Merkle-tree commitment should be 32 bytes");
-    F::from_bytes_le(&root_bytes)
+    NativeField::from_bytes_le(&root_bytes)
         .into_option()
         .expect("STM Merkle-tree commitment should be a canonical field element")
 }
@@ -247,9 +247,9 @@ pub(crate) fn build_recursive_fixed_bases(
     certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
     recursive_verifying_key: &RecursiveCircuitVerifyingKey,
 ) -> (
-    BTreeMap<String, C>,
-    BTreeMap<String, C>,
-    BTreeMap<String, C>,
+    BTreeMap<String, EmulatedCurve>,
+    BTreeMap<String, EmulatedCurve>,
+    BTreeMap<String, EmulatedCurve>,
 ) {
     let (certificate_fixed_bases, _) = fixed_bases_and_names(
         CERTIFICATE_VERIFICATION_KEY_NAME,
@@ -318,7 +318,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let genesis_verification_key =
         SchnorrVerificationKey::new_from_signing_key(genesis_signing_key.clone());
     let genesis_epoch = GENESIS_EPOCH;
-    let genesis_next_protocol_parameters = F::from(7u64);
+    let genesis_next_protocol_parameters = NativeField::from(7u64);
 
     let genesis_message = {
         let protocol_message = build_genesis_protocol_message(

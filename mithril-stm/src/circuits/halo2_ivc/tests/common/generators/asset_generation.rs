@@ -25,7 +25,7 @@ use crate::circuits::halo2_ivc::tests::common::asset_readers::{
     store_verification_context_asset,
 };
 use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, PREIMAGE_SIZE, S,
+    Accumulator, AssignedAccumulator, EmulatedCurve, PREIMAGE_SIZE, RecursiveEmulation,
     circuit::IvcCircuitData,
     keys::RecursiveCircuitProvingKey,
     state::{Global, State, trivial_acc},
@@ -34,7 +34,7 @@ use crate::circuits::halo2_ivc::{
 
 struct CertificateChainArtifacts {
     certificate_proofs: Vec<CertificateProofBytes>,
-    certificate_accumulators: Vec<Accumulator<S>>,
+    certificate_accumulators: Vec<Accumulator<RecursiveEmulation>>,
     recursive_next_states: Vec<State>,
     recursive_witnesses: Vec<crate::circuits::halo2_ivc::state::Witness>,
 }
@@ -42,14 +42,14 @@ struct CertificateChainArtifacts {
 struct RecursiveChainSnapshot {
     state: State,
     ivc_proof: IvcProofBytes,
-    accumulator: Accumulator<S>,
+    accumulator: Accumulator<RecursiveEmulation>,
 }
 
 struct NextRecursiveStepInputs {
     certificate_proof: CertificateProofBytes,
     next_state: State,
     recursive_witness: crate::circuits::halo2_ivc::state::Witness,
-    next_accumulator: Accumulator<S>,
+    next_accumulator: Accumulator<RecursiveEmulation>,
 }
 
 fn build_certificate_chain_artifacts(
@@ -107,8 +107,8 @@ fn build_recursive_chain_snapshot(
     context: &super::setup::SharedRecursiveContext,
     global: &Global,
     recursive_proving_key: &RecursiveCircuitProvingKey,
-    recursive_fixed_bases: &std::collections::BTreeMap<String, C>,
-    combined_fixed_bases: &std::collections::BTreeMap<String, C>,
+    recursive_fixed_bases: &std::collections::BTreeMap<String, EmulatedCurve>,
+    combined_fixed_bases: &std::collections::BTreeMap<String, EmulatedCurve>,
     artifacts: CertificateChainArtifacts,
 ) -> RecursiveChainSnapshot {
     let combined_fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
@@ -158,7 +158,7 @@ fn build_recursive_chain_snapshot(
         );
         assert!(dual_msm.clone().check(&context.universal_verifier_params));
 
-        let mut proof_accumulator: Accumulator<S> = dual_msm.into();
+        let mut proof_accumulator: Accumulator<RecursiveEmulation> = dual_msm.into();
         proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
         proof_accumulator.collapse();
 
@@ -238,8 +238,8 @@ fn build_next_recursive_step_inputs(
     context: &super::setup::SharedRecursiveContext,
     global: &Global,
     recursive_chain_state: &RecursiveChainStateAsset,
-    recursive_fixed_bases: &std::collections::BTreeMap<String, C>,
-    combined_fixed_bases: &std::collections::BTreeMap<String, C>,
+    recursive_fixed_bases: &std::collections::BTreeMap<String, EmulatedCurve>,
+    combined_fixed_bases: &std::collections::BTreeMap<String, EmulatedCurve>,
 ) -> NextRecursiveStepInputs {
     let mut recursive_step_output_random_generator = OsRng;
     println!("generate_recursive_step_output: building next certificate");
@@ -270,7 +270,7 @@ fn build_next_recursive_step_inputs(
         &previous_public_inputs,
     );
     assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
-    let mut previous_proof_accumulator: Accumulator<S> = previous_dual_msm.into();
+    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> = previous_dual_msm.into();
     previous_proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
     previous_proof_accumulator.collapse();
 
@@ -664,7 +664,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         previous_dual_msm.clone().check(&context.universal_verifier_params),
         "previous chain state proof verification failed"
     );
-    let mut previous_proof_accumulator: Accumulator<S> = previous_dual_msm.into();
+    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> = previous_dual_msm.into();
     previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
     previous_proof_accumulator.collapse();
 

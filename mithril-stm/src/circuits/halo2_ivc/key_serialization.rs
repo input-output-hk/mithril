@@ -13,14 +13,17 @@ use midnight_proofs::utils::SerdeFormat;
 use crate::StmResult;
 use crate::codec::{TryFromBytes, TryToBytes};
 
-use super::{E, F, KZGCommitmentScheme, ProvingKey, VerifyingKey, circuit::IvcCircuitData};
+use super::{
+    KZGCommitmentScheme, NativeField, PairingEngine, ProvingKey, VerifyingKey,
+    circuit::IvcCircuitData,
+};
 
 /// Serde format used for the on-disk / in-cache production keys.
 const KEY_SERDE_FORMAT: SerdeFormat = SerdeFormat::RawBytes;
 
 // Recursive (IVC) circuit verifying key. The raw PLONK `read` is generic over the circuit and
 // takes its `Params`, so it is pinned to `IvcCircuitData` with its `()` params below.
-impl TryToBytes for VerifyingKey<F, KZGCommitmentScheme<E>> {
+impl TryToBytes for VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>> {
     fn to_bytes_vec(&self) -> StmResult<Vec<u8>> {
         let mut bytes = Vec::new();
         self.write(&mut bytes, KEY_SERDE_FORMAT)
@@ -29,10 +32,10 @@ impl TryToBytes for VerifyingKey<F, KZGCommitmentScheme<E>> {
     }
 }
 
-impl TryFromBytes for VerifyingKey<F, KZGCommitmentScheme<E>> {
+impl TryFromBytes for VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>> {
     fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut reader = bytes;
-        VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuitData>(
+        VerifyingKey::<NativeField, KZGCommitmentScheme<PairingEngine>>::read::<_, IvcCircuitData>(
             &mut reader,
             KEY_SERDE_FORMAT,
             (),
@@ -42,7 +45,7 @@ impl TryFromBytes for VerifyingKey<F, KZGCommitmentScheme<E>> {
 }
 
 // Recursive (IVC) circuit proving key.
-impl TryToBytes for ProvingKey<F, KZGCommitmentScheme<E>> {
+impl TryToBytes for ProvingKey<NativeField, KZGCommitmentScheme<PairingEngine>> {
     fn to_bytes_vec(&self) -> StmResult<Vec<u8>> {
         let mut bytes = Vec::new();
         self.write(&mut bytes, KEY_SERDE_FORMAT)
@@ -51,10 +54,10 @@ impl TryToBytes for ProvingKey<F, KZGCommitmentScheme<E>> {
     }
 }
 
-impl TryFromBytes for ProvingKey<F, KZGCommitmentScheme<E>> {
+impl TryFromBytes for ProvingKey<NativeField, KZGCommitmentScheme<PairingEngine>> {
     fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut reader = bytes;
-        ProvingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuitData>(
+        ProvingKey::<NativeField, KZGCommitmentScheme<PairingEngine>>::read::<_, IvcCircuitData>(
             &mut reader,
             KEY_SERDE_FORMAT,
             (),
@@ -70,10 +73,11 @@ mod tests {
 
     #[test]
     fn production_verifying_key_serializes_to_the_embedded_bytes() {
-        let verifying_key = VerifyingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(
-            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        )
-        .expect("production recursive verifying key bytes should deserialize");
+        let verifying_key =
+            VerifyingKey::<NativeField, KZGCommitmentScheme<PairingEngine>>::try_from_bytes(
+                RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            )
+            .expect("production recursive verifying key bytes should deserialize");
         assert_eq!(
             verifying_key.to_bytes_vec().expect("serialize should succeed"),
             RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,

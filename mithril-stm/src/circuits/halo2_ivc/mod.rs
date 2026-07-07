@@ -68,14 +68,15 @@ pub(crate) mod tests;
 
 pub(crate) use types::ProtocolMessagePreimage;
 
-type S = BlstrsEmulation;
-pub(crate) type F = <S as SelfEmulation>::F;
-type C = <S as SelfEmulation>::C;
+type RecursiveEmulation = BlstrsEmulation;
+pub(crate) type NativeField = <RecursiveEmulation as SelfEmulation>::F;
+type EmulatedCurve = <RecursiveEmulation as SelfEmulation>::C;
 
-pub(crate) type E = <S as SelfEmulation>::Engine;
-type CBase = <C as CircuitCurve>::Base;
+pub(crate) type PairingEngine = <RecursiveEmulation as SelfEmulation>::Engine;
+type EmulatedCurveBaseField = <EmulatedCurve as CircuitCurve>::Base;
 
-type NG = NativeGadget<F, P2RDecompositionChip<F>, NativeChip<F>>;
+type IvcNativeGadget =
+    NativeGadget<NativeField, P2RDecompositionChip<NativeField>, NativeChip<NativeField>>;
 
 // Degree of the recursive circuit
 pub(crate) const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;

@@ -22,7 +22,7 @@ fn merkle_tree_commitment_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
+        |s| s.merkle_tree_commitment = MerkleTreeCommitment::from_field(NativeField::ONE),
         "proof with tampered merkle_tree_commitment should be rejected by the verifier",
     );
 }
@@ -33,7 +33,7 @@ fn protocol_parameters_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
+        |s| s.protocol_parameters = ProtocolParametersHash::from_field(NativeField::ONE),
         "proof with tampered protocol_parameters should be rejected by the verifier",
     );
 }
@@ -44,7 +44,7 @@ fn next_merkle_tree_commitment_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
+        |s| s.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(NativeField::ONE),
         "proof with tampered next_merkle_tree_commitment should be rejected by the verifier",
     );
 }
@@ -55,7 +55,7 @@ fn next_protocol_parameters_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
+        |s| s.next_protocol_parameters = ProtocolParametersHash::from_field(NativeField::ONE),
         "proof with tampered next_protocol_parameters should be rejected by the verifier",
     );
 }
@@ -77,7 +77,7 @@ fn current_epoch_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.current_epoch = EpochNumber::from_field(F::ONE),
+        |s| s.current_epoch = EpochNumber::from_field(NativeField::ONE),
         "proof with tampered current_epoch should be rejected by the verifier",
     );
 }
@@ -88,7 +88,7 @@ fn msg_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.message = MessageHash::from_field(F::ONE),
+        |s| s.message = MessageHash::from_field(NativeField::ONE),
         "proof with tampered message should be rejected by the verifier",
     );
 }
@@ -121,7 +121,7 @@ mod slow {
         // MockProver check that the in-circuit Blake2b hash constraint between
         // message_preimage bytes and the resulting message field is wired correctly.
         assert_genesis_circuit_rejects_tampered_next_state(|s| {
-            s.message = MessageHash::from_field(F::ONE)
+            s.message = MessageHash::from_field(NativeField::ONE)
         });
     }
 }

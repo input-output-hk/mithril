@@ -11,7 +11,7 @@ use std::ops::Neg;
 use ff::Field;
 
 use crate::circuits::halo2_ivc::{
-    Accumulator, C, Msm, S,
+    Accumulator, EmulatedCurve, Msm, RecursiveEmulation,
     tests::common::asset_readers::{
         load_embedded_following_certificate_in_epoch_asset,
         load_embedded_next_epoch_step_output_asset, load_embedded_recursive_chain_state_asset,
@@ -103,7 +103,7 @@ fn tampered_accumulator_fails_check() {
                 && verification_context
                     .combined_fixed_bases
                     .get(*key)
-                    .map(|base| *base != C::default())
+                    .map(|base| *base != EmulatedCurve::default())
                     .unwrap_or(false)
         })
         .map(|(key, _)| key.clone())
@@ -112,13 +112,15 @@ fn tampered_accumulator_fails_check() {
         .entry(key_to_negate)
         .and_modify(|scalar| *scalar = scalar.neg());
 
-    let tampered_right_hand_side = Msm::<S>::new(
+    let tampered_right_hand_side = Msm::<RecursiveEmulation>::new(
         &right_hand_side.bases(),
         &right_hand_side.scalars(),
         &tampered_fixed_base_scalars,
     );
-    let tampered_accumulator =
-        Accumulator::<S>::new(original_accumulator.lhs(), tampered_right_hand_side);
+    let tampered_accumulator = Accumulator::<RecursiveEmulation>::new(
+        original_accumulator.lhs(),
+        tampered_right_hand_side,
+    );
 
     assert!(
         !tampered_accumulator.check(
