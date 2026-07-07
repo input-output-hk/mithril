@@ -65,7 +65,6 @@ impl State {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn as_public_input(&self) -> Vec<NativeField> {
         let state = self.clone();
         // Public-input order is part of the recursive circuit statement contract:
@@ -143,7 +142,6 @@ impl Global {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn as_public_input(&self) -> Vec<NativeField> {
         [
             vec![self.genesis_message.as_field()],
