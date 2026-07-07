@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator-client"
-version = "0.2.3"
+version = "0.2.4"
 description = "Client to request data from a Mithril Aggregator"
 authors.workspace = true
 documentation.workspace = true
@@ -13,7 +13,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-mithril-common = { path = "../../mithril-common", version = "0.7.11" }
+mithril-common = { path = "../../mithril-common", version = "0.7.12" }
 reqwest = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
