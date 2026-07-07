@@ -15,6 +15,7 @@ pub mod trusted_setup;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
+pub(crate) use halo2::types::CircuitCurve;
 pub(crate) use halo2::witness::{
     CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness, MerklePath,
 };

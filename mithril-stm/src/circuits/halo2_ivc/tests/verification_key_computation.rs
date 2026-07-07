@@ -1,5 +1,4 @@
 use anyhow::Context;
-use midnight_circuits::verifier::{BlstrsEmulation, SelfEmulation};
 use midnight_proofs::{
     plonk::{VerifyingKey, keygen_vk_with_k},
     poly::kzg::KZGCommitmentScheme,
@@ -15,8 +14,8 @@ use crate::{
             keys::NonRecursiveCircuitVerifyingKey,
         },
         halo2_ivc::{
-            RECURSIVE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-            circuit::IvcCircuitData,
+            NativeField, PairingEngine, RECURSIVE_CIRCUIT_DEGREE,
+            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::IvcCircuitData,
         },
         trusted_setup::TrustedSetupProvider,
     },
@@ -40,14 +39,12 @@ fn compute_recursive_circuit_verification_key() -> StmResult<Vec<u8>> {
 
     let default_ivc_circuit =
         IvcCircuitData::unknown(&certificate_verifying_key).expect("valid IvcCircuitData unknown");
-    let recursive_verification_key: VerifyingKey<
-        <BlstrsEmulation as SelfEmulation>::F,
-        KZGCommitmentScheme<<BlstrsEmulation as SelfEmulation>::Engine>,
-    > = keygen_vk_with_k(
-        &recursive_commitment_parameters,
-        &default_ivc_circuit,
-        shared_srs_degree,
-    )?;
+    let recursive_verification_key: VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>> =
+        keygen_vk_with_k(
+            &recursive_commitment_parameters,
+            &default_ivc_circuit,
+            shared_srs_degree,
+        )?;
 
     let mut buffer_for_recursive_circuit_verification_key = vec![];
     recursive_verification_key

@@ -4,11 +4,11 @@ use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use anyhow::anyhow;
 
 use super::{
-    Accumulator, BinaryInstructions, Circuit, ComposableChip, ConstraintSystem, EmulatedCurve,
-    Error, EvaluationDomain, IvcNativeGadget, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS,
-    NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_ADVICE_COLS,
-    NB_SHA256_FIXED_COLS, NativeField, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE,
-    RecursiveEmulation, SimpleFloorPlanner, Value,
+    Accumulator, BinaryInstructions, Circuit, CircuitValue, ComposableChip, ConstraintSystem,
+    EmulatedCurve, Error, EvaluationDomain, IvcNativeGadget, Layouter, NB_ARITH_COLS,
+    NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS,
+    NB_SHA256_ADVICE_COLS, NB_SHA256_FIXED_COLS, NativeField, PublicInputInstructions,
+    RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation, SimpleFloorPlanner,
     config::{IvcConfig, configure_ivc_circuit, ivc_column_pool_sizes},
     errors::IvcCircuitError,
     gadget::IvcGadget,
@@ -25,17 +25,17 @@ use super::{
 #[derive(Clone, Debug)]
 pub struct IvcCircuitData {
     // Persistent values throughout an ivc stream. This is the root of trust for an ivc stream.
-    global: Value<Global>,
+    global: CircuitValue<Global>,
     // State values from the last aggregated certificate
-    state: Value<State>,
+    state: CircuitValue<State>,
     // Witness (mainly the next certificate to be aggregated) for deriving the next state
-    witness: Value<Witness>,
+    witness: CircuitValue<Witness>,
     // Snark proof of the next certificate
-    certificate_proof: Value<Vec<u8>>,
+    certificate_proof: CircuitValue<Vec<u8>>,
     // Latest IVC proof
-    ivc_proof: Value<Vec<u8>>,
+    ivc_proof: CircuitValue<Vec<u8>>,
     // Latest Accumulator
-    acc: Value<Accumulator<RecursiveEmulation>>,
+    acc: CircuitValue<Accumulator<RecursiveEmulation>>,
     // Domain and ConstraintSystem associated with certificate circuit VerifyingKey
     certificate_circuit_domain_and_constraint_system:
         (EvaluationDomain<NativeField>, ConstraintSystem<NativeField>),
@@ -119,12 +119,12 @@ impl IvcCircuitData {
         Self::validate_ivc_verification_key_degree(ivc_verification_key)?;
         Self::validate_column_counts()?;
         Ok(IvcCircuitData {
-            global: Value::known(global),
-            state: Value::known(state),
-            witness: Value::known(witness),
-            certificate_proof: Value::known(certificate_proof.into_vec()),
-            ivc_proof: Value::known(ivc_proof.into_vec()),
-            acc: Value::known(acc),
+            global: CircuitValue::known(global),
+            state: CircuitValue::known(state),
+            witness: CircuitValue::known(witness),
+            certificate_proof: CircuitValue::known(certificate_proof.into_vec()),
+            ivc_proof: CircuitValue::known(ivc_proof.into_vec()),
+            acc: CircuitValue::known(acc),
             certificate_circuit_domain_and_constraint_system: (
                 certificate_verification_key.as_ref().get_domain().clone(),
                 certificate_verification_key.as_ref().cs().clone(),
@@ -149,12 +149,12 @@ impl IvcCircuitData {
         );
 
         Ok(IvcCircuitData {
-            global: Value::unknown(),
-            state: Value::unknown(),
-            witness: Value::unknown(),
-            certificate_proof: Value::unknown(),
-            ivc_proof: Value::unknown(),
-            acc: Value::unknown(),
+            global: CircuitValue::unknown(),
+            state: CircuitValue::unknown(),
+            witness: CircuitValue::unknown(),
+            certificate_proof: CircuitValue::unknown(),
+            ivc_proof: CircuitValue::unknown(),
+            acc: CircuitValue::unknown(),
             certificate_circuit_domain_and_constraint_system: (
                 certificate_verification_key.as_ref().get_domain().clone(),
                 certificate_verification_key.as_ref().cs().clone(),
@@ -174,12 +174,12 @@ impl Circuit<NativeField> for IvcCircuitData {
 
     fn without_witnesses(&self) -> Self {
         IvcCircuitData {
-            global: Value::unknown(),
-            state: Value::unknown(),
-            witness: Value::unknown(),
-            certificate_proof: Value::unknown(),
-            ivc_proof: Value::unknown(),
-            acc: Value::unknown(),
+            global: CircuitValue::unknown(),
+            state: CircuitValue::unknown(),
+            witness: CircuitValue::unknown(),
+            certificate_proof: CircuitValue::unknown(),
+            ivc_proof: CircuitValue::unknown(),
+            acc: CircuitValue::unknown(),
             certificate_circuit_domain_and_constraint_system: self
                 .certificate_circuit_domain_and_constraint_system
                 .clone(),

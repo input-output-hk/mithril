@@ -51,30 +51,27 @@ impl AsRef<VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>>
     }
 }
 
-/// Serde for the wrapped Midnight verifying key: the raw-bytes encoding, matching the embedded
-/// SNARK-proof wire format.
+/// Serde for the wrapped Midnight verifying key: delegates to the key's [`TryToBytes`] /
+/// [`TryFromBytes`] impl so the raw-bytes encoding is defined in one place.
 mod midnight_verifying_key_serde {
-    use midnight_proofs::utils::SerdeFormat;
     use midnight_zk_stdlib::MidnightVK;
     use serde::{Deserializer, Serializer};
+
+    use crate::codec::{TryFromBytes, TryToBytes};
 
     pub(super) fn serialize<S: Serializer>(
         verifying_key: &MidnightVK,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        let mut buffer = Vec::new();
-        verifying_key
-            .write(&mut buffer, SerdeFormat::RawBytes)
-            .map_err(serde::ser::Error::custom)?;
-        serializer.serialize_bytes(&buffer)
+        let bytes = verifying_key.to_bytes_vec().map_err(serde::ser::Error::custom)?;
+        serializer.serialize_bytes(&bytes)
     }
 
     pub(super) fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<MidnightVK, D::Error> {
         let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
-        MidnightVK::read(&mut bytes.as_slice(), SerdeFormat::RawBytes)
-            .map_err(serde::de::Error::custom)
+        MidnightVK::try_from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }
 
@@ -157,9 +154,31 @@ mod tests {
 
     use super::{NonRecursiveCircuitProvingKey, NonRecursiveCircuitVerifyingKey};
     use crate::Parameters;
+    use crate::circuits::halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
     use crate::circuits::halo2::circuit::StmCertificateCircuit;
     use crate::circuits::key_generator::KeyGenerator;
     use crate::codec::{TryFromBytes, TryToBytes};
+
+    #[test]
+    fn verifying_key_serde_round_trips_via_the_byte_codec() {
+        // Uses the embedded production verifying key so no keygen is needed (fast).
+        let verifying_key = NonRecursiveCircuitVerifyingKey::try_from_bytes(
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .expect("production verifying key bytes should deserialize");
+
+        // Exercises the `#[serde(with = "midnight_verifying_key_serde")]` serialize + deserialize path.
+        let json = serde_json::to_vec(&verifying_key).expect("serde serialize should succeed");
+        let restored: NonRecursiveCircuitVerifyingKey =
+            serde_json::from_slice(&json).expect("serde deserialize should succeed");
+
+        // The serde path must agree with the byte codec it now delegates to.
+        assert_eq!(
+            verifying_key.to_bytes_vec().unwrap(),
+            restored.to_bytes_vec().unwrap(),
+            "serde round trip must preserve the verifying key bytes"
+        );
+    }
 
     #[test]
     fn generate_key_pair_downsizes_a_clone_and_round_trips() {

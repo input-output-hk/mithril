@@ -1,3 +1,13 @@
+//! Byte serialization of the recursive circuit's rolling accumulator and its MSMs.
+//!
+//! The `Write` / `Read` traits define the on-the-wire layout. All length prefixes are little-endian `u32`.
+//!
+//! - `Msm`: `bases.len()` then each base via the format-aware `write` (honours `SerdeFormat`);
+//!   `scalars.len()` then each scalar via raw `write_raw`; `fixed_base_scalars.len()` then, per entry,
+//!   `key.len()` + the UTF-8 key bytes + the value via raw `write_raw`. Entries follow `BTreeMap` key
+//!   order, so the encoding is deterministic.
+//! - `Accumulator`: its `lhs` `Msm` followed by its `rhs` `Msm`.
+
 use super::{Accumulator, EmulatedCurve, Msm, NativeField, RecursiveEmulation};
 use midnight_curves::serde::SerdeObject;
 use midnight_proofs::utils::{SerdeFormat, helpers::ProcessedSerdeObject};

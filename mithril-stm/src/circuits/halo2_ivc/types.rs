@@ -8,9 +8,12 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     NativeField, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
-    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PREIMAGE_SIZE,
+    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PREIMAGE_SIZE, Value,
 };
 use crate::BaseFieldElement;
+
+/// Circuit-boundary alias for Midnight proofs' `Value<T>` witness wrapper.
+pub(crate) type CircuitValue<T> = Value<T>;
 
 macro_rules! field_wrapper {
     ($name:ident, zero) => {
