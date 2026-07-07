@@ -13,6 +13,7 @@ The author of the change:
 
 - Prepares the PR that includes the change
 - Needs to justify the change in the circuit
+- Checks that the changes did not increase the degree of the circuits
 - Updates the key values (golden and production)
 - Ensures the approval of the tech lead and all cryptographers before the merge
 
@@ -20,6 +21,7 @@ Reviewers:
 
 - Perform a thorough review of the change
 - Analyse the justification of the change to make sure it is valid and cannot be avoided
+- Make sure the degree of the circuits did not increase
 - Reviews the update of the key values (golden and production)
 - Run the tests for the integrity of the production keys
 

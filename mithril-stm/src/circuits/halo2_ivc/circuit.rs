@@ -254,6 +254,16 @@ impl Circuit<NativeField> for IvcCircuitData {
 
 #[cfg(test)]
 mod tests {
+    use midnight_proofs::dev::cost_model::circuit_model;
+
+    use crate::{
+        circuits::{
+            halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        },
+        codec::TryFromBytes,
+    };
+
     use super::*;
 
     #[test]
@@ -274,6 +284,35 @@ mod tests {
             cs.lookups().len(),
             7,
             "lookup argument count must not silently grow"
+        );
+    }
+
+    #[test]
+    fn recursive_circuit_constraint_degree_stays_constant() {
+        let certificate_verification_key = NonRecursiveCircuitVerifyingKey::try_from_bytes(
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .unwrap();
+        let ivc_data = IvcCircuitData::unknown(&certificate_verification_key).unwrap();
+
+        const SIZE_BLS12_KZG_COMMITMENT: usize = 48;
+        const SIZE_SCALAR_FIELD_ELEMENT: usize = 32;
+        let circuit_model =
+            circuit_model::<_, SIZE_BLS12_KZG_COMMITMENT, SIZE_SCALAR_FIELD_ELEMENT>(&ivc_data);
+
+        assert_eq!(circuit_model.k, RECURSIVE_CIRCUIT_DEGREE);
+    }
+
+    #[test]
+    fn production_recursive_circuit_verification_key_constraint_degree_stays_constant() {
+        let recursive_verifying_key = RecursiveCircuitVerifyingKey::try_from_bytes(
+            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .unwrap();
+
+        assert_eq!(
+            recursive_verifying_key.circuit_degree(),
+            RECURSIVE_CIRCUIT_DEGREE,
         );
     }
 }

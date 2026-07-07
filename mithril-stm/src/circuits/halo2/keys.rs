@@ -35,6 +35,12 @@ impl NonRecursiveCircuitVerifyingKey {
     pub(crate) fn midnight_vk(&self) -> &MidnightVK {
         &self.0
     }
+
+    #[cfg(test)]
+    /// Returns the circuit degree using the underlying `MidnightVK`
+    pub(crate) fn circuit_degree(&self) -> u8 {
+        self.midnight_vk().k()
+    }
 }
 
 impl AsRef<VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>>

@@ -46,6 +46,12 @@ impl RecursiveCircuitVerifyingKey {
     ) -> &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>> {
         &self.0
     }
+
+    #[cfg(test)]
+    /// Returns the circuit degree using the domain of the underlying `VerifyingKey`
+    pub(crate) fn circuit_degree(&self) -> u32 {
+        self.as_ref().get_domain().k()
+    }
 }
 
 impl AsRef<VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>>
