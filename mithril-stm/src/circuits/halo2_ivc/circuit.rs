@@ -311,7 +311,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            recursive_verifying_key.as_ref().get_domain().k(),
+            recursive_verifying_key.circuit_degree(),
             RECURSIVE_CIRCUIT_DEGREE,
         );
     }

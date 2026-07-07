@@ -497,7 +497,7 @@ mod non_recursive_circuit_degree_correctness {
         .unwrap();
 
         assert_eq!(
-            non_recursive_circuit_verifying_key.midnight_vk().k() as u32,
+            non_recursive_circuit_verifying_key.circuit_degree() as u32,
             NON_RECURSIVE_CIRCUIT_DEGREE
         );
     }
