@@ -744,7 +744,7 @@ jobs:
             google_compute_instance_boot_disk_size: 200
             google_compute_instance_data_disk_size: 250
           - environment: testing-2-preview
-            environment_prefix: testing
+            environment_prefix: testing-2
             cardano_network: preview
             mithril_use_p2p_network: true
             mithril_p2p_use_dmq_protocol: true
