@@ -337,7 +337,7 @@ mod tests {
 
     use midnight_curves::Bls12;
     use midnight_proofs::poly::kzg::params::ParamsKZG;
-    use midnight_zk_stdlib as zk;
+    use midnight_zk_stdlib::{self as zk, MidnightCircuit};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -365,9 +365,10 @@ mod tests {
         ));
         let circuit = StmCertificateCircuit::try_new(&params, depth)
             .expect("certificate circuit should build");
+        let circuit_degree = MidnightCircuit::from_relation(&circuit, None).k();
 
         let mut cert_srs = (*srs).clone();
-        zk::downsize_srs_for_relation(&mut cert_srs, &circuit);
+        cert_srs.downsize(circuit_degree);
 
         let midnight_vk = zk::setup_vk(&cert_srs, &circuit);
         let midnight_pk = zk::setup_pk(&circuit, &midnight_vk);

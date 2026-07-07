@@ -30,7 +30,7 @@ pub(crate) fn golden_recursive_circuit_verification_key_bytes() -> Vec<u8> {
     };
     let merkle_tree_depth = 3;
     let circuit = StmCertificateCircuit::try_new(&small_parameters, merkle_tree_depth).unwrap();
-    let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
+    let circuit_degree = MidnightCircuit::from_relation(&circuit, None).k();
 
     let mut srs_for_non_recursive_circuit = srs_for_recursive_circuit.clone();
     srs_for_non_recursive_circuit.downsize(circuit_degree);

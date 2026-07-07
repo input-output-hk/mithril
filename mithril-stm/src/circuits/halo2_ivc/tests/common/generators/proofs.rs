@@ -43,8 +43,8 @@ where
         std::slice::from_ref(ivc_circuit_data),
         1,
         &[&[&[], public_inputs]],
-        random_generator,
         &mut transcript,
+        random_generator,
     )
     .expect(proof_generation_error);
     transcript.finalize()

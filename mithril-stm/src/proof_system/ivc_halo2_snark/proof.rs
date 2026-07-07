@@ -195,7 +195,7 @@ where
         }
 
         if !self.accumulator.check(
-            verifier_setup.tau_g2(),
+            verifier_setup.verifier_params(),
             verifier_setup.combined_fixed_bases(),
         ) {
             return Err(IvcProofError::AccumulatorFailed.into());
@@ -261,8 +261,8 @@ where
             std::slice::from_ref(circuit_data),
             1,
             &[&[&[], public_inputs]],
-            rng,
             &mut transcript,
+            rng,
         )
         .map_err(|e| IvcProofError::ProofGenerationFailed(e.to_string()))?;
         Ok(transcript.finalize())
@@ -453,7 +453,6 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
 #[cfg(test)]
 mod tests {
-    use midnight_curves::G2Affine;
 
     use crate::{
         circuits::halo2_ivc::{
@@ -500,7 +499,6 @@ mod tests {
         );
         let verifier_setup = IvcVerifierSetup::from_parts(
             ctx.verifier_params,
-            ctx.verifier_tau_in_g2,
             ctx.recursive_verifying_key,
             ctx.combined_fixed_bases,
         );
@@ -526,7 +524,6 @@ mod tests {
 
         let verifier_setup = IvcVerifierSetup::from_parts(
             verification_context.verifier_params,
-            verification_context.verifier_tau_in_g2,
             verification_context.recursive_verifying_key,
             verification_context.combined_fixed_bases,
         );
@@ -622,7 +619,6 @@ mod tests {
 
         let verifier_setup = IvcVerifierSetup::from_parts(
             verification_context.verifier_params,
-            verification_context.verifier_tau_in_g2,
             verification_context.recursive_verifying_key,
             verification_context.combined_fixed_bases,
         );
@@ -819,7 +815,6 @@ mod tests {
         );
         let verifier_setup = IvcVerifierSetup::from_parts(
             ctx.verifier_params,
-            G2Affine::default(),
             ctx.recursive_verifying_key,
             ctx.combined_fixed_bases,
         );

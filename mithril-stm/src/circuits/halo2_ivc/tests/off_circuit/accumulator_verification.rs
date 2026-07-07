@@ -30,7 +30,7 @@ fn same_epoch_accumulator_passes_check() {
 
     assert!(
         same_epoch_step_output.next_accumulator.check(
-            &verification_context.verifier_tau_in_g2,
+            &verification_context.verifier_params,
             &verification_context.combined_fixed_bases,
         ),
         "same-epoch accumulator should satisfy the pairing equation"
@@ -49,7 +49,7 @@ fn next_epoch_accumulator_passes_check() {
 
     assert!(
         recursive_step_output.next_accumulator.check(
-            &verification_context.verifier_tau_in_g2,
+            &verification_context.verifier_params,
             &verification_context.combined_fixed_bases,
         ),
         "next-epoch accumulator should satisfy the pairing equation"
@@ -68,7 +68,7 @@ fn chain_state_accumulator_passes_check() {
 
     assert!(
         recursive_chain_state.accumulator.check(
-            &verification_context.verifier_tau_in_g2,
+            &verification_context.verifier_params,
             &verification_context.combined_fixed_bases,
         ),
         "chain-state accumulator should satisfy the pairing equation"
@@ -124,7 +124,7 @@ fn tampered_accumulator_fails_check() {
 
     assert!(
         !tampered_accumulator.check(
-            &verification_context.verifier_tau_in_g2,
+            &verification_context.verifier_params,
             &verification_context.combined_fixed_bases,
         ),
         "tampered accumulator should not satisfy the pairing equation"

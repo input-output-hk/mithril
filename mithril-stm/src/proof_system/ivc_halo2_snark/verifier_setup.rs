@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use anyhow::Context;
-use midnight_curves::{Bls12, G1Projective, G2Affine};
+use midnight_curves::{Bls12, G1Projective};
 use midnight_proofs::{poly::kzg::params::ParamsVerifierKZG, utils::SerdeFormat};
 use serde::{Deserialize, Serialize};
 
@@ -45,8 +45,6 @@ use crate::{
 pub(crate) struct IvcVerifierSetup {
     /// Stabilized KZG verifier parameters (embedded constant, no SRS load required).
     verifier_params: ParamsVerifierKZG<Bls12>,
-    /// `s_g2` (tau·G2) extracted from the embedded params; passed to the accumulator check.
-    tau_g2: G2Affine,
     /// Verifying key of the IVC circuit.
     ivc_verifying_key: RecursiveCircuitVerifyingKey,
     /// Combined fixed-base map (certificate ∪ IVC) used by the accumulator check.
@@ -63,7 +61,7 @@ impl IvcVerifierSetup {
         certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
         ivc_verifying_key: &RecursiveCircuitVerifyingKey,
     ) -> StmResult<Self> {
-        let (verifier_params, tau_g2) = Self::read_embedded_params()?;
+        let verifier_params = Self::read_embedded_params()?;
 
         let (certificate_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
             CERTIFICATE_VERIFICATION_KEY_NAME,
@@ -78,7 +76,6 @@ impl IvcVerifierSetup {
 
         Ok(Self {
             verifier_params,
-            tau_g2,
             ivc_verifying_key: ivc_verifying_key.clone(),
             combined_fixed_bases,
         })
@@ -89,10 +86,9 @@ impl IvcVerifierSetup {
     /// Avoids recomputing fixed bases from scratch when a proving session is already running.
     #[allow(dead_code)]
     pub(crate) fn from_ivc_setup(ivc_setup: &IvcSnarkProverSetup) -> StmResult<Self> {
-        let (verifier_params, tau_g2) = Self::read_embedded_params()?;
+        let verifier_params = Self::read_embedded_params()?;
         Ok(Self {
             verifier_params,
-            tau_g2,
             ivc_verifying_key: ivc_setup.ivc_verifying_key.clone(),
             combined_fixed_bases: ivc_setup.combined_fixed_bases.clone(),
         })
@@ -105,10 +101,8 @@ impl IvcVerifierSetup {
     #[allow(dead_code)]
     pub(crate) fn from_ivc_setup_with_srs(ivc_setup: &IvcSnarkProverSetup) -> Self {
         let verifier_params = ivc_setup.srs.verifier_params();
-        let tau_g2: G2Affine = verifier_params.s_g2().into();
         Self {
             verifier_params,
-            tau_g2,
             ivc_verifying_key: ivc_setup.ivc_verifying_key.clone(),
             combined_fixed_bases: ivc_setup.combined_fixed_bases.clone(),
         }
@@ -121,13 +115,11 @@ impl IvcVerifierSetup {
     #[cfg(test)]
     pub(crate) fn from_parts(
         verifier_params: ParamsVerifierKZG<Bls12>,
-        tau_g2: G2Affine,
         ivc_verifying_key: RecursiveCircuitVerifyingKey,
         combined_fixed_bases: BTreeMap<String, G1Projective>,
     ) -> Self {
         Self {
             verifier_params,
-            tau_g2,
             ivc_verifying_key,
             combined_fixed_bases,
         }
@@ -140,26 +132,19 @@ impl IvcVerifierSetup {
     ///
     /// [`try_new`]: Self::try_new
     /// [`from_ivc_setup`]: Self::from_ivc_setup
-    pub(crate) fn read_embedded_params() -> StmResult<(ParamsVerifierKZG<Bls12>, G2Affine)> {
+    pub(crate) fn read_embedded_params() -> StmResult<ParamsVerifierKZG<Bls12>> {
         let verifier_params = ParamsVerifierKZG::<Bls12>::read(
             &mut &KZG_VERIFIER_PARAMS[..],
             SerdeFormat::RawBytesUnchecked,
         )
         .with_context(|| "Failed to read embedded IVC verifier params")?;
 
-        let tau_g2: G2Affine = verifier_params.s_g2().into();
-
-        Ok((verifier_params, tau_g2))
+        Ok(verifier_params)
     }
 
     /// Returns the embedded KZG verifier parameters.
     pub(crate) fn verifier_params(&self) -> &ParamsVerifierKZG<Bls12> {
         &self.verifier_params
-    }
-
-    /// Returns `tau·G2` (`s_g2`) extracted from the embedded verifier params.
-    pub(crate) fn tau_g2(&self) -> &G2Affine {
-        &self.tau_g2
     }
 
     /// Returns the IVC circuit verifying key.

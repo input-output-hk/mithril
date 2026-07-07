@@ -268,8 +268,12 @@ fn build_certificate_asset_data_inner(
             .clone()
             .check(&certificate_commitment_parameters.verifier_params())
     );
-    let mut certificate_accumulator: Accumulator<RecursiveEmulation> = certificate_dual_msm.into();
-    certificate_accumulator.extract_fixed_bases(&certificate_fixed_bases);
+    let mut certificate_accumulator: Accumulator<RecursiveEmulation> = Accumulator::from_dual_msm(
+        certificate_dual_msm,
+        CERTIFICATE_VERIFICATION_KEY_NAME,
+        &certificate_fixed_bases,
+    );
+
     certificate_accumulator.collapse();
 
     let ivc_witness = Witness::new(

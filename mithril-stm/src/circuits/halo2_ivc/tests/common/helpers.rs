@@ -2,21 +2,22 @@ use std::collections::BTreeMap;
 
 use midnight_circuits::types::Instantiable;
 use midnight_curves::Bls12;
-use midnight_curves::pairing::Engine;
 use midnight_proofs::{
     dev::MockProver,
     poly::kzg::params::{ParamsKZG, ParamsVerifierKZG},
 };
 
-use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
-use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, EmulatedCurve, NativeField, PairingEngine,
-    RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation,
+    RecursiveEmulation,
     accumulator::trivial_accumulator,
     circuit::IvcCircuitData,
     state::{Global, State, Witness},
     types::{CertificateProofBytes, IvcProofBytes},
+};
+use crate::circuits::halo2_ivc::{IVC_VERIFICATION_KEY_NAME, keys::RecursiveCircuitVerifyingKey};
+use crate::circuits::{
+    halo2::keys::NonRecursiveCircuitVerifyingKey, halo2_ivc::CERTIFICATE_VERIFICATION_KEY_NAME,
 };
 
 pub(crate) use super::generators::{
@@ -91,8 +92,6 @@ pub(crate) struct RecursiveMockProverSetup {
     pub(crate) combined_fixed_bases: BTreeMap<String, EmulatedCurve>,
     /// Verifier-side view of the shared universal KZG parameters.
     pub(crate) universal_verifier_params: ParamsVerifierKZG<PairingEngine>,
-    /// The verifier-side `s_g2` element used for accumulator checks.
-    pub(crate) verifier_tau_in_g2: <PairingEngine as Engine>::G2Affine,
 }
 
 /// Builds the shared recursive circuit context needed by MockProver-based golden tests.
@@ -104,7 +103,6 @@ pub(crate) fn build_recursive_mock_prover_setup(
     setup: &AssetGenerationSetup,
 ) -> RecursiveMockProverSetup {
     let context = build_shared_recursive_context(setup);
-    let verifier_tau_in_g2 = context.universal_kzg_parameters.s_g2().into();
     let (certificate_fixed_bases, recursive_fixed_bases, combined_fixed_bases) =
         build_recursive_fixed_bases(
             &context.certificate_verifying_key,
@@ -126,7 +124,6 @@ pub(crate) fn build_recursive_mock_prover_setup(
         recursive_fixed_bases,
         combined_fixed_bases,
         universal_verifier_params: context.universal_verifier_params,
-        verifier_tau_in_g2,
     }
 }
 
@@ -135,12 +132,8 @@ pub(crate) fn assert_recursive_mock_prover_rejects(
     ivc_circuit_data: IvcCircuitData,
     public_inputs: Vec<NativeField>,
 ) {
-    let prover = MockProver::run(
-        RECURSIVE_CIRCUIT_DEGREE,
-        &ivc_circuit_data,
-        vec![vec![], public_inputs],
-    )
-    .expect("recursive MockProver setup should succeed");
+    let prover = MockProver::run(&ivc_circuit_data, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
     prover
         .verify()
         .expect_err("recursive MockProver should reject the provided circuit and public inputs");
@@ -153,12 +146,8 @@ pub(crate) fn assert_recursive_mock_prover_accepts_with_label(
     public_inputs: Vec<NativeField>,
     label: &str,
 ) {
-    let prover = MockProver::run(
-        RECURSIVE_CIRCUIT_DEGREE,
-        &ivc_circuit_data,
-        vec![vec![], public_inputs],
-    )
-    .expect("recursive MockProver setup should succeed");
+    let prover = MockProver::run(&ivc_circuit_data, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
     prover.verify().unwrap_or_else(|errors| {
         panic!(
             "MockProver should accept the circuit and public inputs — case: {label}\n\
@@ -174,12 +163,8 @@ pub(crate) fn assert_recursive_mock_prover_rejects_with_label(
     public_inputs: Vec<NativeField>,
     label: &str,
 ) {
-    let prover = MockProver::run(
-        RECURSIVE_CIRCUIT_DEGREE,
-        &ivc_circuit_data,
-        vec![vec![], public_inputs],
-    )
-    .expect("recursive MockProver setup should succeed");
+    let prover = MockProver::run(&ivc_circuit_data, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
     assert!(
         prover.verify().is_err(),
         "MockProver should reject the circuit and public inputs — case: {label}"
@@ -213,8 +198,12 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
         "stored previous recursive proof should verify before the normal step check"
     );
 
-    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> = previous_dual_msm.into();
-    previous_proof_accumulator.extract_fixed_bases(&setup.recursive_fixed_bases);
+    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> =
+        Accumulator::from_dual_msm(
+            previous_dual_msm,
+            IVC_VERIFICATION_KEY_NAME,
+            &setup.recursive_fixed_bases,
+        );
     previous_proof_accumulator.collapse();
     previous_proof_accumulator
 }
@@ -239,7 +228,10 @@ pub(crate) fn compute_expected_next_accumulator(
     ]);
     next_accumulator.collapse();
     assert!(
-        next_accumulator.check(&setup.verifier_tau_in_g2, &setup.combined_fixed_bases),
+        next_accumulator.check(
+            &setup.universal_verifier_params,
+            &setup.combined_fixed_bases
+        ),
         "expected next accumulator should verify before the normal step check"
     );
     next_accumulator
@@ -272,8 +264,11 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
         "stored step certificate proof should verify before the chained-flow check"
     );
 
-    let mut certificate_accumulator: Accumulator<RecursiveEmulation> = certificate_dual_msm.into();
-    certificate_accumulator.extract_fixed_bases(&setup.certificate_fixed_bases);
+    let mut certificate_accumulator: Accumulator<RecursiveEmulation> = Accumulator::from_dual_msm(
+        certificate_dual_msm,
+        CERTIFICATE_VERIFICATION_KEY_NAME,
+        &setup.certificate_fixed_bases,
+    );
     certificate_accumulator.collapse();
     certificate_accumulator
 }
@@ -323,7 +318,7 @@ pub(crate) fn build_mock_prover_public_inputs(
 pub(crate) fn build_unextracted_certificate_accumulator_from_assets() -> (
     Accumulator<RecursiveEmulation>,
     BTreeMap<String, EmulatedCurve>,
-    <PairingEngine as Engine>::G2Affine,
+    ParamsVerifierKZG<PairingEngine>,
 ) {
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
@@ -342,17 +337,20 @@ pub(crate) fn build_unextracted_certificate_accumulator_from_assets() -> (
         &recursive_step_output.next_state,
     );
 
-    let accumulator: Accumulator<RecursiveEmulation> = verify_prepare_poseidon_recursive_proof(
-        verification_context.certificate_verifying_key.as_ref(),
-        recursive_step_output.certificate_proof.as_bytes(),
-        &certificate_public_inputs,
-    )
-    .into();
+    let accumulator: Accumulator<RecursiveEmulation> = Accumulator::from_dual_msm(
+        verify_prepare_poseidon_recursive_proof(
+            verification_context.certificate_verifying_key.as_ref(),
+            recursive_step_output.certificate_proof.as_bytes(),
+            &certificate_public_inputs,
+        ),
+        CERTIFICATE_VERIFICATION_KEY_NAME,
+        &certificate_fixed_bases,
+    );
 
     (
         accumulator,
         certificate_fixed_bases,
-        verification_context.verifier_tau_in_g2,
+        verification_context.verifier_params,
     )
 }
 
@@ -382,12 +380,15 @@ pub(crate) fn build_unextracted_recursive_proof_accumulator_from_assets() -> (
     ]
     .concat();
 
-    let accumulator: Accumulator<RecursiveEmulation> = verify_prepare_poseidon_recursive_proof(
-        verification_context.recursive_verifying_key.as_ref(),
-        recursive_chain_state.ivc_proof.as_bytes(),
-        &public_inputs,
-    )
-    .into();
+    let accumulator: Accumulator<RecursiveEmulation> = Accumulator::from_dual_msm(
+        verify_prepare_poseidon_recursive_proof(
+            verification_context.recursive_verifying_key.as_ref(),
+            recursive_chain_state.ivc_proof.as_bytes(),
+            &public_inputs,
+        ),
+        IVC_VERIFICATION_KEY_NAME,
+        &recursive_fixed_bases,
+    );
 
     (accumulator, recursive_fixed_bases)
 }

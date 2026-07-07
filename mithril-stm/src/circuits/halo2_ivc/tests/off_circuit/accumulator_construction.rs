@@ -1,13 +1,19 @@
 //! Tests that `trivial_accumulator` has the expected structure, verifiable through
 //! its public-input encoding.
 
-use midnight_circuits::types::Instantiable;
+use midnight_circuits::{types::Instantiable, verifier::Accumulator};
 
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
     accumulator::trivial_accumulator,
-    tests::common::asset_readers::{
-        load_embedded_genesis_step_output_asset, load_embedded_verification_context_asset,
+    midnight_backend::RecursiveEmulation,
+    tests::common::{
+        asset_readers::{
+            load_embedded_genesis_step_output_asset, load_embedded_recursive_chain_state_asset,
+            load_embedded_verification_context_asset,
+        },
+        generators::build_recursive_fixed_bases,
+        helpers::verify_prepare_poseidon_recursive_proof,
     },
 };
 
@@ -50,5 +56,38 @@ fn trivial_acc_public_input_length_scales_with_fixed_base_name_count() {
         encoding_length_with_three_names,
         empty_accumulator_encoding_length + 3,
         "each fixed-base name should add exactly one field element to the public-input encoding"
+    );
+}
+
+#[test]
+#[should_panic(
+    expected = "Creation of an accumulator from a dual MSM with a bad prefix should panic."
+)]
+fn wrong_prefix_for_fixed_bases_fails_accumulator_creation() {
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
+        .expect("recursive chain state asset should load");
+
+    let (_, recursive_fixed_bases, _) = build_recursive_fixed_bases(
+        &verification_context.certificate_verifying_key,
+        &verification_context.recursive_verifying_key,
+    );
+
+    let public_inputs = [
+        verification_context.global_field_elements.clone(),
+        recursive_chain_state.state.as_public_input(),
+        AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
+    ]
+    .concat();
+
+    let _accumulator: Accumulator<RecursiveEmulation> = Accumulator::from_dual_msm(
+        verify_prepare_poseidon_recursive_proof(
+            verification_context.recursive_verifying_key.as_ref(),
+            recursive_chain_state.ivc_proof.as_bytes(),
+            &public_inputs,
+        ),
+        "wrong_prefix",
+        &recursive_fixed_bases,
     );
 }

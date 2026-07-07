@@ -26,8 +26,8 @@ fn extract_fixed_bases_reduces_public_input_length_by_n_times_field_elements_per
     //
     // field_elements_per_base_point is derived from trivial_accumulator, which has exactly one base
     // and one scalar per side (left-hand side and right-hand side) with no fixed-base entries:
-    //   trivial_accumulator(&[]).len() == 2 * (field_elements_per_base_point + 1)
-    let (mut accumulator, recursive_fixed_bases) =
+    //   trivial_acc(&[]).len() == 2 * (field_elements_per_base_point + 1)
+    let (accumulator, recursive_fixed_bases) =
         build_unextracted_recursive_proof_accumulator_from_assets();
 
     let fixed_base_count = recursive_fixed_bases.len();
@@ -37,7 +37,6 @@ fn extract_fixed_bases_reduces_public_input_length_by_n_times_field_elements_per
 
     let encoding_length_before_extraction =
         AssignedAccumulator::as_public_input(&accumulator).len();
-    accumulator.extract_fixed_bases(&recursive_fixed_bases);
     let encoding_length_after_extraction = AssignedAccumulator::as_public_input(&accumulator).len();
 
     assert_eq!(
@@ -51,10 +50,8 @@ fn extract_fixed_bases_reduces_public_input_length_by_n_times_field_elements_per
 fn extracted_fixed_base_scalars_are_non_trivial() {
     // The scalars moved into the fixed-base slot are KZG challenge-derived values;
     // at least one must be non-zero, confirming real values were reclassified.
-    let (mut accumulator, recursive_fixed_bases) =
+    let (accumulator, recursive_fixed_bases) =
         build_unextracted_recursive_proof_accumulator_from_assets();
-
-    accumulator.extract_fixed_bases(&recursive_fixed_bases);
 
     let public_input_encoding = AssignedAccumulator::as_public_input(&accumulator);
     let fixed_base_count = recursive_fixed_bases.len();
@@ -75,12 +72,11 @@ fn extracted_fixed_base_scalars_are_non_trivial() {
 fn extract_fixed_bases_does_not_affect_lhs() {
     // extract_fixed_bases only touches rhs (right-hand side); the lhs (left-hand side)
     // MSM encoding must be identical before and after the call.
-    let (mut accumulator, recursive_fixed_bases) =
+    let (accumulator, _recursive_fixed_bases) =
         build_unextracted_recursive_proof_accumulator_from_assets();
 
     let lhs_encoding_before_extraction =
         AssignedMsm::<RecursiveEmulation>::as_public_input(&accumulator.lhs());
-    accumulator.extract_fixed_bases(&recursive_fixed_bases);
     let lhs_encoding_after_extraction =
         AssignedMsm::<RecursiveEmulation>::as_public_input(&accumulator.lhs());
 
@@ -101,6 +97,6 @@ fn extracting_same_fixed_bases_twice_panics() {
     // extract_fixed_bases is changed to return a Result.
     let (mut accumulator, recursive_fixed_bases) =
         build_unextracted_recursive_proof_accumulator_from_assets();
-    accumulator.extract_fixed_bases(&recursive_fixed_bases);
-    accumulator.extract_fixed_bases(&recursive_fixed_bases);
+    accumulator.resolve_fixed_bases(&recursive_fixed_bases);
+    accumulator.resolve_fixed_bases(&recursive_fixed_bases);
 }

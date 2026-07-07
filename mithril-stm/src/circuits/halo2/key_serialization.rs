@@ -85,9 +85,8 @@ mod tests {
         let merkle_tree_depth = 4;
         let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth)
             .expect("certificate circuit should build");
-        let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
-        let mut srs = ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(42));
-        zk::downsize_srs_for_relation(&mut srs, &circuit);
+        let circuit_degree = MidnightCircuit::from_relation(&circuit, None).k();
+        let srs = ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(42));
         let verifying_key = zk::setup_vk(&srs, &circuit);
         let proving_key = zk::setup_pk(&circuit, &verifying_key);
 

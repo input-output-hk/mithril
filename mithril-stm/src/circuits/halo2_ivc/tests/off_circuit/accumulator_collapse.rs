@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use midnight_curves::pairing::Engine;
+use midnight_proofs::poly::kzg::params::ParamsVerifierKZG;
 
 use crate::circuits::halo2_ivc::{
     Accumulator, EmulatedCurve, PairingEngine, RecursiveEmulation,
@@ -19,12 +19,11 @@ use crate::circuits::halo2_ivc::{
 fn build_extracted_certificate_accumulator() -> (
     Accumulator<RecursiveEmulation>,
     BTreeMap<String, EmulatedCurve>,
-    <PairingEngine as Engine>::G2Affine,
+    ParamsVerifierKZG<PairingEngine>,
 ) {
-    let (mut accumulator, certificate_fixed_bases, tau_in_g2) =
+    let (accumulator, certificate_fixed_bases, verif_params) =
         build_unextracted_certificate_accumulator_from_assets();
-    accumulator.extract_fixed_bases(&certificate_fixed_bases);
-    (accumulator, certificate_fixed_bases, tau_in_g2)
+    (accumulator, certificate_fixed_bases, verif_params)
 }
 
 #[test]
@@ -32,11 +31,11 @@ fn certificate_accumulator_passes_check_after_extraction_before_collapse() {
     // After extract_fixed_bases the accumulator is in the right shape for the
     // pairing check: fixed-base terms are in fixed_base_scalars, variable-base
     // terms remain. accumulator.check must pass on a valid certificate proof.
-    let (accumulator, certificate_fixed_bases, tau_in_g2) =
+    let (accumulator, certificate_fixed_bases, verif_params) =
         build_extracted_certificate_accumulator();
 
     assert!(
-        accumulator.check(&tau_in_g2, &certificate_fixed_bases),
+        accumulator.check(&verif_params, &certificate_fixed_bases),
         "certificate accumulator should pass accumulator.check after extraction, before collapse"
     );
 }
@@ -45,13 +44,13 @@ fn certificate_accumulator_passes_check_after_extraction_before_collapse() {
 fn certificate_accumulator_passes_check_after_collapse() {
     // collapse reduces the variable-base MSM to a single (point, 1) term without
     // changing the mathematical value. accumulator.check must still pass afterwards.
-    let (mut accumulator, certificate_fixed_bases, tau_in_g2) =
+    let (mut accumulator, certificate_fixed_bases, verif_params) =
         build_extracted_certificate_accumulator();
 
     accumulator.collapse();
 
     assert!(
-        accumulator.check(&tau_in_g2, &certificate_fixed_bases),
+        accumulator.check(&verif_params, &certificate_fixed_bases),
         "certificate accumulator should pass accumulator.check after collapse"
     );
 }

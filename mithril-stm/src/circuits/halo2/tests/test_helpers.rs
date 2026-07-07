@@ -37,9 +37,10 @@ pub(crate) fn prove_and_verify_relation<R>(
 ) -> Result<()>
 where
     R: Relation,
+    <R as Relation>::Error: std::error::Error + Send + Sync + 'static,
 {
-    let circuit = MidnightCircuit::from_relation(relation);
-    let srs = ParamsKZG::<Bls12>::unsafe_setup(circuit.min_k(), ChaCha20Rng::seed_from_u64(42));
+    let circuit = MidnightCircuit::from_relation(relation, None);
+    let srs = ParamsKZG::<Bls12>::unsafe_setup(circuit.k(), ChaCha20Rng::seed_from_u64(42));
     let vk = zk::setup_vk(&srs, relation);
     let pk = zk::setup_pk(relation, &vk);
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -113,6 +114,7 @@ macro_rules! impl_focused_test_relation {
         struct $name;
 
         impl midnight_zk_stdlib::Relation for $name {
+            type Error = midnight_proofs::plonk::Error;
             type Instance = ();
             type Witness = $witness;
 

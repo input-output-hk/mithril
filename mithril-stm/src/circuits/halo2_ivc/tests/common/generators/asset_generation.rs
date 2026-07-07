@@ -16,6 +16,7 @@ use super::transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,
     build_next_certificate_asset_data, build_same_epoch_certificate_asset_data,
 };
+use crate::circuits::halo2_ivc::IVC_VERIFICATION_KEY_NAME;
 use crate::circuits::halo2_ivc::tests::common::asset_readers::{
     FirstCertificateInEpochAsset, FollowingCertificateInEpochAsset, GenesisStepOutputAsset,
     NextEpochStepOutputAsset, RecursiveChainStateAsset, VerificationContextAsset,
@@ -158,9 +159,8 @@ fn build_recursive_chain_snapshot(
             &public_inputs,
         );
         assert!(dual_msm.clone().check(&context.universal_verifier_params));
-
-        let mut proof_accumulator: Accumulator<RecursiveEmulation> = dual_msm.into();
-        proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
+        let mut proof_accumulator: Accumulator<RecursiveEmulation> =
+            Accumulator::from_dual_msm(dual_msm, IVC_VERIFICATION_KEY_NAME, recursive_fixed_bases);
         proof_accumulator.collapse();
 
         println!(
@@ -183,7 +183,7 @@ fn build_recursive_chain_snapshot(
             accumulated_accumulator.collapse();
             assert!(
                 accumulated_accumulator.check(
-                    &context.universal_kzg_parameters.s_g2().into(),
+                    &context.universal_kzg_parameters.verifier_params(),
                     combined_fixed_bases,
                 ),
                 "recursive accumulator verification failed at step {i}"
@@ -271,8 +271,12 @@ fn build_next_recursive_step_inputs(
         &previous_public_inputs,
     );
     assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
-    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> = previous_dual_msm.into();
-    previous_proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
+    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> =
+        Accumulator::from_dual_msm(
+            previous_dual_msm,
+            IVC_VERIFICATION_KEY_NAME,
+            recursive_fixed_bases,
+        );
     previous_proof_accumulator.collapse();
 
     let mut next_accumulator = Accumulator::accumulate(&[
@@ -283,7 +287,7 @@ fn build_next_recursive_step_inputs(
     next_accumulator.collapse();
     assert!(
         next_accumulator.check(
-            &context.universal_kzg_parameters.s_g2().into(),
+            &context.universal_kzg_parameters.verifier_params(),
             combined_fixed_bases,
         ),
         "next accumulator check failed"
@@ -445,7 +449,6 @@ pub(crate) fn generate_verification_context_asset(
         recursive_verifying_key: context.recursive_verifying_key.clone(),
         combined_fixed_bases,
         verifier_params: context.universal_verifier_params,
-        verifier_tau_in_g2: context.universal_kzg_parameters.s_g2().into(),
         certificate_verifying_key: context.certificate_verifying_key,
     };
     store_verification_context_asset(&paths.verification_context, &asset)
@@ -665,8 +668,12 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         previous_dual_msm.clone().check(&context.universal_verifier_params),
         "previous chain state proof verification failed"
     );
-    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> = previous_dual_msm.into();
-    previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
+    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> =
+        Accumulator::from_dual_msm(
+            previous_dual_msm,
+            IVC_VERIFICATION_KEY_NAME,
+            &recursive_fixed_bases,
+        );
     previous_proof_accumulator.collapse();
 
     let mut next_accumulator = Accumulator::accumulate(&[
@@ -677,7 +684,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     next_accumulator.collapse();
     assert!(
         next_accumulator.check(
-            &context.universal_kzg_parameters.s_g2().into(),
+            &context.universal_kzg_parameters.verifier_params(),
             &combined_fixed_bases,
         ),
         "same-epoch next accumulator check failed"

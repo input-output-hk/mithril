@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 use std::ops::Neg;
 
 use ff::Field;
-use midnight_curves::pairing::Engine;
+use midnight_proofs::poly::kzg::params::ParamsVerifierKZG;
 
 use crate::circuits::halo2_ivc::{
     Accumulator, EmulatedCurve, Msm, PairingEngine, RecursiveEmulation,
@@ -43,16 +43,14 @@ fn build_proof_accumulators_from_stored_step_assets() -> (
     Accumulator<RecursiveEmulation>,
     Accumulator<RecursiveEmulation>,
     BTreeMap<String, EmulatedCurve>,
-    <PairingEngine as Engine>::G2Affine,
+    ParamsVerifierKZG<PairingEngine>,
 ) {
-    let (mut certificate_accumulator, certificate_fixed_bases, tau_in_g2) =
+    let (mut certificate_accumulator, certificate_fixed_bases, verif_params) =
         build_unextracted_certificate_accumulator_from_assets();
-    certificate_accumulator.extract_fixed_bases(&certificate_fixed_bases);
     certificate_accumulator.collapse();
 
     let (mut previous_proof_accumulator, recursive_fixed_bases) =
         build_unextracted_recursive_proof_accumulator_from_assets();
-    previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
     previous_proof_accumulator.collapse();
 
     let combined_fixed_bases: BTreeMap<String, EmulatedCurve> = certificate_fixed_bases
@@ -64,7 +62,7 @@ fn build_proof_accumulators_from_stored_step_assets() -> (
         certificate_accumulator,
         previous_proof_accumulator,
         combined_fixed_bases,
-        tau_in_g2,
+        verif_params,
     )
 }
 
@@ -73,11 +71,11 @@ fn build_proof_accumulators_from_stored_step_assets() -> (
 fn build_next_accumulator_from_stored_step_assets() -> (
     Accumulator<RecursiveEmulation>,
     BTreeMap<String, EmulatedCurve>,
-    <PairingEngine as Engine>::G2Affine,
+    ParamsVerifierKZG<PairingEngine>,
 ) {
     let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
-    let (certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, tau_in_g2) =
+    let (certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, verif_params) =
         build_proof_accumulators_from_stored_step_assets();
 
     let mut next_accumulator = Accumulator::accumulate(&[
@@ -87,7 +85,7 @@ fn build_next_accumulator_from_stored_step_assets() -> (
     ]);
     next_accumulator.collapse();
 
-    (next_accumulator, combined_fixed_bases, tau_in_g2)
+    (next_accumulator, combined_fixed_bases, verif_params)
 }
 
 #[test]

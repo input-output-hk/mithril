@@ -570,12 +570,12 @@ pub(crate) fn setup_stm_circuit_env(
     validate_relation_for_setup(&relation)?;
 
     {
-        let stm_circuit = MidnightCircuit::from_relation(&relation);
+        let stm_circuit = MidnightCircuit::from_relation(&relation, None);
         println!("\n=== STM circuit case: {case_name} ===");
         println!("circuit degree (selected) {circuit_degree}");
         println!("k {k}");
-        println!("min_k {:?}", stm_circuit.min_k());
-        println!("{:?}", zk::cost_model(&relation));
+        println!("min_k {:?}", stm_circuit.k());
+        println!("{:?}", zk::cost_model(&relation, None));
     }
 
     let config = StmCircuitConfig {
@@ -756,7 +756,7 @@ pub(crate) fn compute_unsafe_circuit_verification_key(
 ) -> Vec<u8> {
     const RNG_SEED: u64 = 42;
     let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth).unwrap();
-    let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
+    let circuit_degree = MidnightCircuit::from_relation(&circuit, None).k();
     let srs: ParamsKZG<Bls12> =
         ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(RNG_SEED));
 

@@ -160,6 +160,7 @@ impl StmCertificateCircuit {
 }
 
 impl Relation for StmCertificateCircuit {
+    type Error = Error;
     type Instance = CircuitInstance;
     type Witness = CircuitWitness;
 
@@ -293,6 +294,8 @@ impl Relation for StmCertificateCircuit {
             nr_pow2range_cols: 2,
             automaton: false,
             blake2b: false,
+            curve25519: false,
+            p256: false,
         }
     }
 
@@ -480,12 +483,12 @@ mod non_recursive_circuit_degree_correctness {
         let merkle_tree_depth = 10;
 
         let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth).unwrap();
-        let circuit_cost = zk::cost_model(&circuit);
+        let circuit_cost = zk::cost_model(&circuit, None);
 
         assert_eq!(circuit_cost.k, SMALL_CERTIFICATE_CIRCUIT_DEGREE);
 
         let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth + 1).unwrap();
-        let circuit_cost = zk::cost_model(&circuit);
+        let circuit_cost = zk::cost_model(&circuit, None);
         assert_eq!(circuit_cost.k, SMALL_CERTIFICATE_CIRCUIT_DEGREE + 1);
     }
 
@@ -497,7 +500,7 @@ mod non_recursive_circuit_degree_correctness {
         .unwrap();
 
         assert_eq!(
-            non_recursive_circuit_verifying_key.circuit_degree() as u32,
+            non_recursive_circuit_verifying_key.circuit_degree(),
             NON_RECURSIVE_CIRCUIT_DEGREE
         );
     }

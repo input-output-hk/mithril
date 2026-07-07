@@ -112,8 +112,11 @@ impl IvcSnarkProverSetup {
         &self,
         dual_msm: DualMSM<Bls12>,
     ) -> Accumulator<BlstrsEmulation> {
-        let mut accumulator: Accumulator<BlstrsEmulation> = dual_msm.into();
-        accumulator.extract_fixed_bases(&self.certificate_fixed_bases);
+        let mut accumulator: Accumulator<BlstrsEmulation> = Accumulator::from_dual_msm(
+            dual_msm,
+            CERTIFICATE_VERIFICATION_KEY_NAME,
+            &self.certificate_fixed_bases,
+        );
         accumulator.collapse();
         accumulator
     }
@@ -133,8 +136,8 @@ impl IvcSnarkProverSetup {
             self.ivc_verifying_key.as_ref(),
             &verifier_params,
         )?;
-        let mut accumulator: Accumulator<BlstrsEmulation> = dual_msm.into();
-        accumulator.extract_fixed_bases(&self.ivc_fixed_bases);
+        let mut accumulator: Accumulator<BlstrsEmulation> =
+            Accumulator::from_dual_msm(dual_msm, IVC_VERIFICATION_KEY_NAME, &self.ivc_fixed_bases);
         accumulator.collapse();
         Ok(accumulator)
     }

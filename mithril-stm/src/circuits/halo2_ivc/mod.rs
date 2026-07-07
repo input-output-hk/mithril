@@ -14,7 +14,9 @@ pub(crate) use crate::circuits::CircuitCurve;
 pub(crate) use midnight_circuits::{
     ecc::{
         curves::CircuitCurve as CircuitCurveTrait,
-        foreign::{ForeignEccChip, ForeignEccConfig, nb_foreign_ecc_chip_columns},
+        foreign::weierstrass_chip::{
+            ForeignWeierstrassEccChip, ForeignWeierstrassEccConfig, nb_foreign_ecc_chip_columns,
+        },
         native::{EccChip, EccConfig, NB_EDWARDS_COLS},
     },
     field::{

@@ -6,7 +6,6 @@ use std::{
 };
 
 use anyhow::{Context, anyhow};
-use midnight_curves::pairing::Engine;
 use midnight_proofs::{
     poly::kzg::params::ParamsVerifierKZG,
     utils::{SerdeFormat, helpers::ProcessedSerdeObject},
@@ -57,8 +56,6 @@ pub(crate) struct VerificationContextAsset {
     pub(crate) combined_fixed_bases: BTreeMap<String, EmulatedCurve>,
     /// Shared verifier-side KZG parameters.
     pub(crate) verifier_params: ParamsVerifierKZG<PairingEngine>,
-    /// The verifier-side `s_g2` element extracted from the stored params.
-    pub(crate) verifier_tau_in_g2: <PairingEngine as Engine>::G2Affine,
     /// Stored certificate verifying key, enabling MockProver tests to skip SRS generation.
     pub(crate) certificate_verifying_key: NonRecursiveCircuitVerifyingKey,
 }
@@ -393,16 +390,6 @@ fn load_verification_context_asset_from_reader<R: Read>(
         SerdeFormat::RawBytesUnchecked,
     )?;
 
-    // `ParamsVerifierKZG` does not expose `s_g2()` in this path, so we re-read
-    // the raw verifier-param bytes and rely on the current upstream raw
-    // serialization layout where the first serialized G2 element is `s_g2`.
-    let mut verifier_tau_reader = Cursor::new(&verifier_param_bytes);
-    let verifier_tau_in_g2 = <PairingEngine as Engine>::G2::read(
-        &mut verifier_tau_reader,
-        SerdeFormat::RawBytesUnchecked,
-    )?
-    .into();
-
     let certificate_verification_key_bytes = read_length_prefixed_proof(reader)?;
     let certificate_verifying_key = MidnightVK::read(
         &mut certificate_verification_key_bytes.as_slice(),
@@ -414,7 +401,6 @@ fn load_verification_context_asset_from_reader<R: Read>(
         recursive_verifying_key: RecursiveCircuitVerifyingKey::new(recursive_verifying_key),
         combined_fixed_bases,
         verifier_params,
-        verifier_tau_in_g2,
         certificate_verifying_key: NonRecursiveCircuitVerifyingKey::new(certificate_verifying_key),
     })
 }
