@@ -12,7 +12,7 @@ use super::{
     PoseidonChip, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation,
     VerifierGadget, ZeroInstructions,
     config::IvcConfig,
-    gadgets::{GenesisSchnorrSignatureInputs, verify_genesis_signature},
+    gadgets::{GenesisSchnorrSignatureInputs, combine_bytes, verify_genesis_signature},
     state::{AssignedGlobal, AssignedState, AssignedWitness},
 };
 
@@ -127,22 +127,6 @@ impl IvcGadget {
         Ok(pi)
     }
 
-    fn combine_bytes(
-        &self,
-        layouter: &mut impl Layouter<NativeField>,
-        bytes: impl IntoIterator<Item = impl Into<AssignedNative<NativeField>>>,
-        bases: &[NativeField],
-    ) -> Result<AssignedNative<NativeField>, Error> {
-        let items: Vec<_> = bytes
-            .into_iter()
-            .zip(bases.iter())
-            .map(|(v, base)| (*base, v.into()))
-            .collect();
-
-        self.native_gadget
-            .linear_combination(layouter, &items, NativeField::ZERO)
-    }
-
     pub fn transition(
         &self,
         layouter: &mut impl Layouter<NativeField>,
@@ -183,7 +167,7 @@ impl IvcGadget {
 
         {
             // Compare message and hash
-            let hash_native = self.combine_bytes(layouter, &hash, &bases)?;
+            let hash_native = combine_bytes(&self.native_gadget, layouter, &hash, &bases)?;
             self.native_gadget.assert_equal(layouter, &message, &hash_native)?;
         }
 
@@ -207,11 +191,20 @@ impl IvcGadget {
 
         // Get the field elements by linearly combining the bytes
         let (next_merkle_tree_commitment, next_protocol_parameters, current_epoch) = {
-            let next_merkle_tree_commitment =
-                self.combine_bytes(layouter, next_merkle_tree_commitment_bytes, &bases)?;
-            let next_protocol_parameters =
-                self.combine_bytes(layouter, next_protocol_parameters_bytes, &bases)?;
-            let current_epoch = self.combine_bytes(layouter, current_epoch_bytes, &bases)?;
+            let next_merkle_tree_commitment = combine_bytes(
+                &self.native_gadget,
+                layouter,
+                next_merkle_tree_commitment_bytes,
+                &bases,
+            )?;
+            let next_protocol_parameters = combine_bytes(
+                &self.native_gadget,
+                layouter,
+                next_protocol_parameters_bytes,
+                &bases,
+            )?;
+            let current_epoch =
+                combine_bytes(&self.native_gadget, layouter, current_epoch_bytes, &bases)?;
             (
                 next_merkle_tree_commitment,
                 next_protocol_parameters,

@@ -18,6 +18,10 @@ pub enum IvcCircuitError {
     #[error("IvcGadget: expected {expected} assigned values, got {actual}")]
     AssignedValueCountMismatch { expected: usize, actual: usize },
 
+    /// `combine_bytes` received more bytes than base weights, which would silently truncate.
+    #[error("combine_bytes received {bytes} bytes but only {bases} base weights")]
+    ByteCountExceedsBaseCount { bytes: usize, bases: usize },
+
     /// Not enough advice columns were allocated to satisfy chip requirements.
     #[error(
         "IvcCircuitData::validate_column_counts failed: need {needed} advice columns, only {available} allocated"
