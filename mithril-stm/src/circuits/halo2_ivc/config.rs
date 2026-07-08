@@ -49,7 +49,10 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<NativeField>) -> IvcCon
 
     let advice_columns: Vec<_> = (0..nb_advice_cols).map(|_| meta.advice_column()).collect();
     let fixed_columns: Vec<_> = (0..nb_fixed_cols).map(|_| meta.fixed_column()).collect();
+    // Committed-instance column: reserved for committed public inputs; this circuit leaves it empty
+    // and places its entire public statement in the plaintext instance column below.
     let committed_instance_column = meta.instance_column();
+    // Instance column: carries this circuit's public statement (global, state, accumulator).
     let instance_column = meta.instance_column();
 
     let native_config = NativeChip::configure(

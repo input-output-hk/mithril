@@ -10,6 +10,8 @@ use super::{
     PairingEngine, RecursiveEmulation, VerifyingKey, verifier,
 };
 
+/// Builds the trivial accumulator (the default that satisfies the accumulation invariant) for the
+/// given fixed-base names.
 pub(crate) fn trivial_accumulator(fixed_base_names: &[String]) -> Accumulator<RecursiveEmulation> {
     Accumulator::<RecursiveEmulation>::new(
         Msm::new(
@@ -28,6 +30,8 @@ pub(crate) fn trivial_accumulator(fixed_base_names: &[String]) -> Accumulator<Re
     )
 }
 
+/// Returns the fixed bases of a verifying key (including the `com_instance` entry) together with
+/// their names.
 pub(crate) fn fixed_bases_and_names(
     vk_name: &str,
     vk: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
@@ -39,6 +43,7 @@ pub(crate) fn fixed_bases_and_names(
     (fixed_bases, fixed_base_names)
 }
 
+/// Returns the fixed-base names of a verifying key, derived from its constraint system.
 pub(crate) fn fixed_base_names(vk_name: &str, cs: &ConstraintSystem<NativeField>) -> Vec<String> {
     let mut fixed_base_names = vec![String::from("com_instance")];
     fixed_base_names.extend(verifier::fixed_base_names::<RecursiveEmulation>(

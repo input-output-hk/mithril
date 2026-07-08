@@ -15,6 +15,7 @@ use super::{
     state::{AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness},
 };
 
+/// Assigns the global root-of-trust as public input and returns its in-circuit form.
 pub(crate) fn assign_global_as_public_input(
     builder: &IvcConstraintBuilder,
     layouter: &mut impl Layouter<NativeField>,
@@ -91,6 +92,7 @@ pub(crate) fn assign_global_as_public_input(
     })
 }
 
+/// Assigns the circuit state values into the layouter.
 pub(crate) fn assign_state(
     builder: &IvcConstraintBuilder,
     layouter: &mut impl Layouter<NativeField>,
@@ -143,6 +145,7 @@ pub(crate) fn assign_state(
     })
 }
 
+/// Constrains the assigned next state as public input.
 pub(crate) fn constrain_state_as_public_input(
     builder: &IvcConstraintBuilder,
     layouter: &mut impl Layouter<NativeField>,
@@ -163,6 +166,8 @@ pub(crate) fn constrain_state_as_public_input(
     Ok(())
 }
 
+/// Assigns the step witness (genesis signature, certificate fields, and message preimage) into the
+/// layouter.
 pub(crate) fn assign_witness(
     builder: &IvcConstraintBuilder,
     layouter: &mut impl Layouter<NativeField>,

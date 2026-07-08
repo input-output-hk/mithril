@@ -1,3 +1,9 @@
+//! In-circuit constraint builder for one recursive IVC step.
+//!
+//! `IvcConstraintBuilder` owns the chips the recursive circuit needs and exposes the constraint
+//! logic driven by `IvcCircuitData::synthesize`: genesis-signature gating, the state transition, and
+//! accumulator/proof verification. Reusable sub-gadgets live in the `gadgets` module.
+
 use ff::Field;
 use group::Group;
 use midnight_circuits::hash::sha256::Sha256Chip;
@@ -24,6 +30,10 @@ type DecodedProtocolMessageFields = (
     AssignedNative<NativeField>,
 );
 
+/// Owns the chips for the recursive IVC circuit and builds its in-circuit constraints.
+///
+/// Constructed once per synthesis from an [`IvcConfig`]; its methods emit the constraints for a
+/// single IVC step.
 #[derive(Debug, Clone)]
 pub struct IvcConstraintBuilder {
     pub(crate) core_decomp_chip: P2RDecompositionChip<NativeField>,
@@ -37,6 +47,7 @@ pub struct IvcConstraintBuilder {
 }
 
 impl IvcConstraintBuilder {
+    /// Builds the circuit's chips from the circuit configuration.
     pub fn new(config: &IvcConfig) -> Self {
         let native_chip = <NativeChip<NativeField> as ComposableChip<NativeField>>::new(
             &config.native_config,
@@ -66,6 +77,7 @@ impl IvcConstraintBuilder {
         }
     }
 
+    /// Returns a bit that is true when the state is the genesis state (step counter zero).
     pub fn is_genesis(
         &self,
         layouter: &mut impl Layouter<NativeField>,
@@ -95,6 +107,7 @@ impl IvcConstraintBuilder {
         )
     }
 
+    /// Enforces a valid genesis Schnorr signature, skipping the check on non-genesis steps.
     pub fn assert_genesis(
         &self,
         layouter: &mut impl Layouter<NativeField>,
@@ -115,6 +128,7 @@ impl IvcConstraintBuilder {
             .assert_equal_to_fixed(layouter, &check_genesis, true)
     }
 
+    /// Flattens the assigned global root-of-trust into its public-input field elements.
     pub fn global_as_public_input(
         &self,
         layouter: &mut impl Layouter<NativeField>,
@@ -135,6 +149,8 @@ impl IvcConstraintBuilder {
         Ok(pi)
     }
 
+    /// Verifies the certificate-chain link between the last aggregated certificate and the new one,
+    /// and returns the next state.
     pub fn transition(
         &self,
         layouter: &mut impl Layouter<NativeField>,
@@ -422,6 +438,8 @@ impl IvcConstraintBuilder {
         self.native_gadget.assert_equal_to_fixed(layouter, &is_valid, true)
     }
 
+    /// Verifies the certificate proof and the previous IVC proof in-circuit and folds them into the
+    /// next accumulator.
     #[allow(clippy::too_many_arguments)]
     pub fn verify_prepare(
         &self,
