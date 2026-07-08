@@ -9,9 +9,8 @@ use mithril_common::entities::{Epoch, TimePoint};
 use mithril_common::logging::LoggerExtensions;
 
 use crate::AggregatorConfig;
-use crate::entities::OpenMessage;
+use crate::entities::{CertificateEpochGap, OpenMessage};
 use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
-use crate::services::CertifierServiceError;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
@@ -439,15 +438,16 @@ impl AggregatorRuntime {
         chain_validity_result: StdResult<()>,
     ) -> Result<AggregatorState, RuntimeError> {
         if let Err(error) = chain_validity_result {
-            match error.downcast_ref::<CertifierServiceError>() {
-                Some(CertifierServiceError::CertificateEpochGap {
-                    certificate_epoch, ..
-                }) => {
-                    info!(self.logger, "→ Epoch gap detected, transitioning to Blocked(epoch-gap)"; "epoch_of_last_certificate" => ?certificate_epoch);
+            match error.downcast_ref::<CertificateEpochGap>() {
+                Some(epoch_gap_error) => {
+                    info!(
+                        self.logger, "→ Epoch gap detected, transitioning to Blocked(epoch-gap)";
+                        "epoch_of_last_certificate" => ?epoch_gap_error.certificate_epoch
+                    );
                     Ok(AggregatorState::Blocked(BlockedState {
                         blocked_since_time_point: last_time_point,
                         reason: BlockedReason::EpochGap {
-                            epoch_of_last_certificate: *certificate_epoch,
+                            epoch_of_last_certificate: epoch_gap_error.certificate_epoch,
                         },
                     }))
                 }
@@ -705,7 +705,7 @@ mod tests {
                 .returning(|| Ok(Some(Epoch(9))));
             runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner.expect_is_certificate_chain_valid().once().returning(|_| {
-                Err(anyhow!(CertifierServiceError::CertificateEpochGap {
+                Err(anyhow!(CertificateEpochGap {
                     certificate_epoch: Epoch(999),
                     current_epoch: Epoch(111),
                 }))

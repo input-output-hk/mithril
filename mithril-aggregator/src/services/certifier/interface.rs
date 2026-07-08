@@ -39,18 +39,6 @@ pub enum CertifierServiceError {
     /// No genesis certificate could be found, the certificate chain is not initialized.
     #[error("No genesis certificate could be found, the certificate chain is not initialized.")]
     NoGenesisCertificateFound,
-
-    /// No certificate for this epoch
-    #[error(
-        "There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?}). A leader aggregator must be re-genesis by the owner of the genesis keys, a follower aggregator will automatically catchup with the leader's certificate chain."
-    )]
-    CertificateEpochGap {
-        /// Epoch of the last issued certificate
-        certificate_epoch: Epoch,
-
-        /// Given current epoch
-        current_epoch: Epoch,
-    },
 }
 
 /// Status of a successful registration of a single signature.
