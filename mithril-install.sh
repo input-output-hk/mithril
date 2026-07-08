@@ -9,6 +9,8 @@ usage() {
   echo "  -c node          : Mithril node to install or upgrade (mithril-signer, mithril-aggregator, mithril-client)"
   echo "  -d distribution  : Distribution to upgrade to (latest, unstable or distribution version e.g '2445.0')"
   echo "  -p path          : Path to install the component"
+  echo "Environment variables:"
+  echo "  GITHUB_TOKEN     : Optional GitHub token used to raise the GitHub API rate limit"
   exit 1
 }
 
@@ -32,6 +34,46 @@ check_glibc_min_version() {
   if [ "$(echo "$glibc_version" | grep -cE -e "2\.[0-2][0-9]" -e "2\.3[0-4]")" -gt 0 ]; then
     error_exit "Error: Your GLIBC version is $glibc_version, but the minimum required version is 2.35."
   fi
+}
+
+# Function to fetch the release information, with retries on transient errors and accurate error reporting
+fetch_release_information() {
+  release_url=$1
+  destination_file=$2
+  max_attempts=3
+  retry_delay=3
+
+  attempt=1
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if [ -n "$GITHUB_TOKEN" ]; then
+      http_code=$(curl -sL -o "$destination_file" -w '%{http_code}' -H "Authorization: Bearer $GITHUB_TOKEN" "$release_url") || http_code="000"
+    else
+      http_code=$(curl -sL -o "$destination_file" -w '%{http_code}' "$release_url") || http_code="000"
+    fi
+
+    case "$http_code" in
+      2*)
+        return 0
+        ;;
+      403 | 429)
+        error_exit "Error: GitHub API rate limit exceeded. Retry later or set the 'GITHUB_TOKEN' environment variable to raise the limit."
+        ;;
+      404)
+        error_exit "Error: The distribution '$DISTRIBUTION' does not exist."
+        ;;
+      4*)
+        error_exit "Error: Failed to fetch the release information (HTTP status $http_code)."
+        ;;
+    esac
+
+    if [ "$attempt" -lt "$max_attempts" ]; then
+      echo "Attempt $attempt to fetch the release information failed (HTTP status $http_code). Retrying in $retry_delay seconds..." 1>&2
+      sleep "$retry_delay"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  error_exit "Error: Failed to fetch the release information after $max_attempts attempts (last HTTP status $http_code)."
 }
 
 # --- MAIN execution ---
@@ -117,7 +159,7 @@ fi
 
 # Fetch the release information
 echo "Fetching release information from $RELEASE_URL..."
-curl --fail -sL -o "$TEMP_FILE" "$RELEASE_URL" || error_exit "Error: Failed to fetch the release information. This probably means that the distribution you provided does not exist."
+fetch_release_information "$RELEASE_URL" "$TEMP_FILE"
 
 # Find valid binary for the node
 ASSETS_DOWNLOAD_URL=$(jq -r --arg os_code "$OS_CODE" --arg arch_name "$ARCH_NAME" '.assets[] | select(.name | contains($os_code)) | select(.name | contains($arch_name)) | .browser_download_url' < "$TEMP_FILE")
