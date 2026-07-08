@@ -33,7 +33,7 @@ use mithril_common::entities::{Certificate, Epoch, SignedEntityType};
 use mithril_common::logging::LoggerExtensions;
 
 use crate::EpochSettingsStorer;
-use crate::entities::OpenMessage;
+use crate::entities::{CertificateEpochGap, OpenMessage};
 
 use super::{
     CertificateChainSynchronizer, OpenMessageStorer, RemoteCertificateRetriever,
@@ -164,7 +164,7 @@ impl MithrilCertificateChainSynchronizer {
 impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
     async fn synchronize_certificate_chain(
         &self,
-        _current_epoch: Epoch,
+        current_epoch: Epoch,
         force: bool,
     ) -> StdResult<()> {
         debug!(self.logger, ">> synchronize_certificate_chain"; "force" => force);
@@ -186,12 +186,20 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
             .await
             .with_context(|| "Failed to retrieve latest remote certificate details")?
         {
+            Some(certificate) if current_epoch.has_gap_with(&certificate.epoch) => {
+                return Err(CertificateEpochGap {
+                    certificate_epoch: certificate.epoch,
+                    current_epoch,
+                }
+                .into());
+            }
             Some(certificate) => certificate,
             None => {
                 info!(self.logger, "Remote certificate chain is empty"; "sync_state" => ?sync_state);
                 return Ok(());
             }
         };
+
         let remote_certificate_chain = self
             .retrieve_and_validate_remote_certificate_chain(starting_point)
             .await
@@ -698,7 +706,7 @@ mod tests {
                             .returning(move || Ok(Some(genesis.clone())));
                         let latest = remote_chain.latest_certificate().clone();
                         mock.expect_get_latest_certificate_details()
-                            .return_once(move || Ok(Some(latest)));
+                            .returning(move || Ok(Some(latest.clone())));
                     }),
                 certificate_verifier: fake_verifier(
                     remote_chain,
@@ -772,6 +780,40 @@ mod tests {
 
             // Force true - will sync
             synchronizer.synchronize_certificate_chain(epoch, true).await.unwrap();
+
+            let mut expected =
+                remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
+            expected.reverse();
+            assert_eq!(expected, storer.stored_certificates());
+        }
+
+        #[tokio::test]
+        async fn check_and_raise_epoch_gap_error() {
+            let remote_chain = CertificateChainBuilder::default()
+                .with_certificates_per_epoch(3)
+                .with_total_certificates(8)
+                .build();
+            let epoch = remote_chain.latest_certificate().epoch;
+            let storer = Arc::new(DumbCertificateStorer::default());
+            let synchronizer = build_synchronizer(&remote_chain, storer.clone());
+
+            let error = synchronizer
+                .synchronize_certificate_chain(epoch + 2, false)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                Some(&CertificateEpochGap {
+                    certificate_epoch: epoch,
+                    current_epoch: epoch + 2,
+                }),
+                error.downcast_ref::<CertificateEpochGap>()
+            );
+
+            // Can still sync if the gap is only one
+            synchronizer
+                .synchronize_certificate_chain(epoch + 1, false)
+                .await
+                .unwrap();
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
