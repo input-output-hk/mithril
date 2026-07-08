@@ -15,6 +15,7 @@ use super::{
     nb_foreign_ecc_chip_columns,
     state::{Global, State, Witness},
     types::{CertificateProofBytes, IvcProofBytes},
+    witness_assignments,
 };
 
 /// Data required to run one step of the IVC (Incrementally Verifiable Computation) circuit.
@@ -201,16 +202,18 @@ impl Circuit<NativeField> for IvcCircuitData {
         let ivc_gadget = IvcGadget::new(&config);
 
         // Assign global and constraint it as public input
-        let global = ivc_gadget.assign_global_as_public_input(
+        let global = witness_assignments::assign_global_as_public_input(
+            &ivc_gadget,
             &mut layouter,
             &self.global,
             &self.certificate_circuit_domain_and_constraint_system,
             &self.ivc_circuit_domain_and_constraint_system,
         )?;
         // Assign previous state
-        let state = ivc_gadget.assign_state(&mut layouter, &self.state)?;
+        let state = witness_assignments::assign_state(&ivc_gadget, &mut layouter, &self.state)?;
         // Assign witness for the new certificate to be aggregated
-        let witness = ivc_gadget.assign_witness(&mut layouter, &self.witness)?;
+        let witness =
+            witness_assignments::assign_witness(&ivc_gadget, &mut layouter, &self.witness)?;
 
         // If state.step_counter = 0, we are aggregating the genesis certificate
         let is_genesis = ivc_gadget.is_genesis(&mut layouter, &state)?;
@@ -229,7 +232,11 @@ impl Circuit<NativeField> for IvcCircuitData {
             &witness,
         )?;
         // Constrain the next state as public input
-        ivc_gadget.constrain_state_as_public_input(&mut layouter, &next_state)?;
+        witness_assignments::constrain_state_as_public_input(
+            &ivc_gadget,
+            &mut layouter,
+            &next_state,
+        )?;
 
         // Verify (prepare) certificate_proof and previous ivc_proof and update accumulator
         let next_acc = ivc_gadget.verify_prepare(

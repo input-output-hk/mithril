@@ -63,6 +63,7 @@ pub(crate) mod keys;
 pub(crate) mod protocol_message;
 pub(crate) mod state;
 pub(crate) mod types;
+pub(crate) mod witness_assignments;
 
 #[cfg(test)]
 pub(crate) mod tests;

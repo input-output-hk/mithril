@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use ff::Field;
 use group::Group;
 use midnight_circuits::hash::sha256::Sha256Chip;
@@ -9,18 +7,15 @@ use crate::signature_scheme::DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE;
 use super::{
     Accumulator, ArithInstructions, AssertionInstructions, AssignedAccumulator, AssignedBit,
     AssignedForeignPoint, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-    AssignedVk, AssignmentInstructions, BinaryInstructions, CERTIFICATE_VERIFICATION_KEY_NAME,
-    CircuitCurve, CircuitCurveTrait, CircuitValue, ComposableChip, ConstraintSystem,
-    ControlFlowInstructions, ConversionInstructions, EccChip, EccInstructions, EmulatedCurve,
-    EqualityInstructions, Error, EvaluationDomain, ForeignEccChip, HashInstructions,
-    IVC_VERIFICATION_KEY_NAME, IvcNativeGadget, Layouter, NativeChip, NativeField, NativeGadget,
-    P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
+    AssignmentInstructions, BinaryInstructions, CircuitCurve, CircuitCurveTrait, CircuitValue,
+    ComposableChip, ControlFlowInstructions, ConversionInstructions, EccChip, EccInstructions,
+    EmulatedCurve, EqualityInstructions, Error, ForeignEccChip, HashInstructions, IvcNativeGadget,
+    Layouter, NativeChip, NativeField, NativeGadget, P2RDecompositionChip,
+    PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PoseidonChip, PublicInputInstructions,
     RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation, VerifierGadget, ZeroInstructions,
-    accumulator::fixed_base_names,
     config::IvcConfig,
-    errors::{IvcCircuitError, to_synthesis_error},
-    state::{AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness},
+    state::{AssignedGlobal, AssignedState, AssignedWitness},
 };
 
 #[derive(Debug, Clone)]
@@ -63,208 +58,6 @@ impl IvcGadget {
             bls12_381_chip,
             verifier_gadget,
         }
-    }
-
-    pub fn assign_global_as_public_input(
-        &self,
-        layouter: &mut impl Layouter<NativeField>,
-        global: &CircuitValue<Global>,
-        certificate_circuit_domain_and_constraint_system: &(
-            EvaluationDomain<NativeField>,
-            ConstraintSystem<NativeField>,
-        ),
-        ivc_circuit_domain_and_constraint_system: &(
-            EvaluationDomain<NativeField>,
-            ConstraintSystem<NativeField>,
-        ),
-    ) -> Result<AssignedGlobal, Error> {
-        let genesis_message: AssignedNative<_> = self.native_gadget.assign_as_public_input(
-            layouter,
-            global.clone().map(|gl| gl.genesis_message.as_field()),
-        )?;
-        let genesis_verification_key: AssignedNativePoint<_> =
-            self.jubjub_chip.assign_as_public_input(
-                layouter,
-                global
-                    .clone()
-                    .map(|gl| *gl.genesis_verification_key.as_jubjub_subgroup()),
-            )?;
-
-        let (certificate_circuit_domain, certificate_circuit_constraint_system) =
-            &certificate_circuit_domain_and_constraint_system;
-        let certificate_verification_key: AssignedVk<RecursiveEmulation> =
-            self.verifier_gadget.assign_vk_as_public_input(
-                layouter,
-                CERTIFICATE_VERIFICATION_KEY_NAME,
-                certificate_circuit_domain,
-                certificate_circuit_constraint_system,
-                global
-                    .clone()
-                    .map(|gl| gl.certificate_circuit_verification_key_representation.as_field()),
-            )?;
-
-        // Assign for IVC proof verification
-        let (ivc_circuit_domain, ivc_circuit_constraint_system) =
-            &ivc_circuit_domain_and_constraint_system;
-        let ivc_verification_key: AssignedVk<RecursiveEmulation> =
-            self.verifier_gadget.assign_vk_as_public_input(
-                layouter,
-                IVC_VERIFICATION_KEY_NAME,
-                ivc_circuit_domain,
-                ivc_circuit_constraint_system,
-                global
-                    .clone()
-                    .map(|gl| gl.ivc_circuit_verification_key_representation.as_field()),
-            )?;
-
-        let fixed_base_names = {
-            let mut names = fixed_base_names(
-                CERTIFICATE_VERIFICATION_KEY_NAME,
-                certificate_circuit_constraint_system,
-            );
-            names.extend(fixed_base_names(
-                IVC_VERIFICATION_KEY_NAME,
-                ivc_circuit_constraint_system,
-            ));
-            // Remove repeated names for committed_instance and the generator
-            let mut seen = HashSet::new();
-            names.retain(|x| seen.insert(x.clone()));
-            names
-        };
-
-        Ok(AssignedGlobal {
-            genesis_message,
-            genesis_verification_key,
-            certificate_verification_key,
-            ivc_verification_key,
-            fixed_base_names,
-        })
-    }
-
-    pub fn assign_state(
-        &self,
-        layouter: &mut impl Layouter<NativeField>,
-        state: &CircuitValue<State>,
-    ) -> Result<AssignedState, Error> {
-        let values = state
-            .clone()
-            .map(|s| {
-                vec![
-                    s.step_counter.as_field(),
-                    s.message.as_field(),
-                    s.merkle_tree_commitment.as_field(),
-                    s.next_merkle_tree_commitment.as_field(),
-                    s.protocol_parameters.as_field(),
-                    s.next_protocol_parameters.as_field(),
-                    s.current_epoch.as_field(),
-                ]
-            })
-            .transpose_vec(7);
-
-        let [
-            step_counter,
-            message,
-            merkle_tree_commitment,
-            next_merkle_tree_commitment,
-            protocol_parameters,
-            next_protocol_parameters,
-            current_epoch,
-        ]: [AssignedNative<_>; 7] = {
-            self.native_gadget
-                .assign_many(layouter, &values)?
-                .try_into()
-                .map_err(|v: Vec<_>| {
-                    to_synthesis_error(IvcCircuitError::AssignedValueCountMismatch {
-                        expected: 7,
-                        actual: v.len(),
-                    })
-                })?
-        };
-
-        Ok(AssignedState {
-            step_counter,
-            message,
-            merkle_tree_commitment,
-            next_merkle_tree_commitment,
-            protocol_parameters,
-            next_protocol_parameters,
-            current_epoch,
-        })
-    }
-
-    pub fn constrain_state_as_public_input(
-        &self,
-        layouter: &mut impl Layouter<NativeField>,
-        state: &AssignedState,
-    ) -> Result<(), Error> {
-        for value in [
-            &state.step_counter,
-            &state.message,
-            &state.merkle_tree_commitment,
-            &state.next_merkle_tree_commitment,
-            &state.protocol_parameters,
-            &state.next_protocol_parameters,
-            &state.current_epoch,
-        ] {
-            self.native_gadget.constrain_as_public_input(layouter, value)?;
-        }
-
-        Ok(())
-    }
-
-    pub fn assign_witness(
-        &self,
-        layouter: &mut impl Layouter<NativeField>,
-        witness: &CircuitValue<Witness>,
-    ) -> Result<AssignedWitness, Error> {
-        let genesis_signature = {
-            let s: AssignedScalarOfNativeCurve<_> = self.jubjub_chip.assign(
-                layouter,
-                witness.clone().map(|w| w.genesis_signature.response.0),
-            )?;
-            let c: AssignedNative<_> = self.native_gadget.assign(
-                layouter,
-                witness.clone().map(|w| w.genesis_signature.challenge.0),
-            )?;
-            (s, c)
-        };
-
-        let [certificate_message, certificate_merkle_tree_commitment]: [AssignedNative<NativeField>;
-            2] = {
-            let values = witness
-                .clone()
-                .map(|w| {
-                    vec![
-                        w.certificate_message.as_field(),
-                        w.certificate_merkle_tree_commitment.as_field(),
-                    ]
-                })
-                .transpose_vec(2);
-            self.native_gadget
-                .assign_many(layouter, &values)?
-                .try_into()
-                .map_err(|v: Vec<_>| {
-                    to_synthesis_error(IvcCircuitError::AssignedValueCountMismatch {
-                        expected: 2,
-                        actual: v.len(),
-                    })
-                })?
-        };
-
-        let message_preimage = {
-            let preimage = witness
-                .clone()
-                .map(|w| w.message_preimage.into_inner())
-                .transpose_array();
-            self.native_gadget.assign_many(layouter, &preimage)?
-        };
-
-        Ok(AssignedWitness {
-            genesis_signature,
-            certificate_message,
-            certificate_merkle_tree_commitment,
-            message_preimage,
-        })
     }
 
     pub fn is_genesis(
