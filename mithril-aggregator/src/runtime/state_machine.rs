@@ -268,7 +268,7 @@ impl AggregatorRuntime {
 
         let force_sync = chain_validity_result.is_err();
         self.runner
-            .synchronize_follower_aggregator_certificate_chain(force_sync)
+            .synchronize_follower_aggregator_certificate_chain(&last_time_point, force_sync)
             .await?;
         // Refetch last genesis certificate epoch after synchronization
         let last_genesis_certificate_epoch = self.runner.last_genesis_certificate_epoch().await?;
@@ -1251,8 +1251,8 @@ mod tests {
             runner
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
-                .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| Ok(()));
+                .with(eq(time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -1338,8 +1338,8 @@ mod tests {
             runner
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
-                .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| Ok(()));
+                .with(eq(new_time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -1383,8 +1383,8 @@ mod tests {
             runner
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
-                .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| Ok(()));
+                .with(eq(new_time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -1433,8 +1433,8 @@ mod tests {
             runner
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
-                .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| Ok(()));
+                .with(eq(new_time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()

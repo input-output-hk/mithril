@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use mithril_common::StdResult;
-use mithril_common::entities::Certificate;
+use mithril_common::entities::{Certificate, Epoch};
 
 use crate::entities::OpenMessage;
 
@@ -13,7 +13,11 @@ pub trait CertificateChainSynchronizer: Send + Sync {
     ///
     /// If `force` is true, the chain will always be synchronized, else it will only synchronize
     /// if the remote source has started a new chain with a new Genesis.
-    async fn synchronize_certificate_chain(&self, force: bool) -> StdResult<()>;
+    async fn synchronize_certificate_chain(
+        &self,
+        current_epoch: Epoch,
+        force: bool,
+    ) -> StdResult<()>;
 }
 
 /// Define how to retrieve remote certificate details

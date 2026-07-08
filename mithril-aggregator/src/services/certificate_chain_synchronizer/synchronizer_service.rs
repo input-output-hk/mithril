@@ -29,7 +29,7 @@ use std::sync::Arc;
 
 use mithril_common::StdResult;
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::entities::{Certificate, SignedEntityType};
+use mithril_common::entities::{Certificate, Epoch, SignedEntityType};
 use mithril_common::logging::LoggerExtensions;
 
 use crate::EpochSettingsStorer;
@@ -162,7 +162,11 @@ impl MithrilCertificateChainSynchronizer {
 
 #[async_trait]
 impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
-    async fn synchronize_certificate_chain(&self, force: bool) -> StdResult<()> {
+    async fn synchronize_certificate_chain(
+        &self,
+        _current_epoch: Epoch,
+        force: bool,
+    ) -> StdResult<()> {
         debug!(self.logger, ">> synchronize_certificate_chain"; "force" => force);
 
         let sync_state = self.check_sync_state(force).await.with_context(|| {
@@ -728,11 +732,15 @@ mod tests {
                 .with_certificates_per_epoch(3)
                 .with_total_certificates(8)
                 .build();
+            let epoch = remote_chain.latest_certificate().epoch;
             let storer = Arc::new(DumbCertificateStorer::default());
             let synchronizer = build_synchronizer(&remote_chain, storer.clone());
 
             // Will sync even if force is false
-            synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            synchronizer
+                .synchronize_certificate_chain(epoch, false)
+                .await
+                .unwrap();
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
@@ -746,6 +754,7 @@ mod tests {
                 .with_certificates_per_epoch(1)
                 .with_total_certificates(8)
                 .build();
+            let epoch = remote_chain.latest_certificate().epoch;
             let existing_certificates =
                 remote_chain.certificate_path_to_genesis(&remote_chain[5].hash);
             let storer = Arc::new(DumbCertificateStorer::new(
@@ -755,11 +764,14 @@ mod tests {
             let synchronizer = build_synchronizer(&remote_chain, storer.clone());
 
             // Force false - won't sync
-            synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            synchronizer
+                .synchronize_certificate_chain(epoch, false)
+                .await
+                .unwrap();
             assert_eq!(&existing_certificates, &storer.stored_certificates());
 
             // Force true - will sync
-            synchronizer.synchronize_certificate_chain(true).await.unwrap();
+            synchronizer.synchronize_certificate_chain(epoch, true).await.unwrap();
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
@@ -773,11 +785,15 @@ mod tests {
                 .with_certificates_per_epoch(1)
                 .with_total_certificates(5)
                 .build();
+            let epoch = remote_chain.latest_certificate().epoch;
             let storer = Arc::new(DumbCertificateStorer::default());
             let synchronizer =
                 build_synchronizer_with_epoch_settings(&remote_chain, storer.clone(), false);
 
-            synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            synchronizer
+                .synchronize_certificate_chain(epoch, false)
+                .await
+                .unwrap();
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
@@ -800,7 +816,10 @@ mod tests {
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
 
-            synchronizer.synchronize_certificate_chain(false).await.unwrap();
+            synchronizer
+                .synchronize_certificate_chain(Epoch(9999), false)
+                .await
+                .unwrap();
             assert_eq!(Vec::<Certificate>::new(), storer.stored_certificates());
         }
 
@@ -817,7 +836,10 @@ mod tests {
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
 
-            synchronizer.synchronize_certificate_chain(true).await.unwrap();
+            synchronizer
+                .synchronize_certificate_chain(Epoch(9999), true)
+                .await
+                .unwrap();
             assert_eq!(Vec::<Certificate>::new(), storer.stored_certificates());
         }
     }
