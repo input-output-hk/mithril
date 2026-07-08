@@ -77,6 +77,7 @@ cargo test -p mithril-stm --features future_snark --release generate_same_epoch_
 cargo test -p mithril-stm --features future_snark --release generate_recursive_step_output_only -- --ignored --nocapture
 cargo test -p mithril-stm --features future_snark --release generate_first_step_cert_only -- --ignored --nocapture
 cargo test -p mithril-stm --features future_snark --release generate_recursive_step_output_accumulator_bytes_only -- --ignored --nocapture
+cargo test -p mithril-stm --features future_snark --release generate_recursive_proof_accumulator_bytes_only -- --ignored --nocapture
 ```
 
 These commands intentionally use `--release` because asset generation is a
