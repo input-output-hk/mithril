@@ -101,7 +101,7 @@ impl RelaySigner {
     }
 
     pub fn endpoint(&self) -> String {
-        format!("http://localhost:{}", &self.server_port)
+        format!("http://localhost:{}", self.server_port)
     }
 
     /// Get the version of the mithril-relay binary.

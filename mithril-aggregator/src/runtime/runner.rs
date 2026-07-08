@@ -211,7 +211,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         for signed_entity_type in signed_entity_types {
             let current_open_message = self.get_current_open_message_for_signed_entity_type(&signed_entity_type)
                 .await
-                .with_context(|| format!("AggregatorRunner can not get current open message for signed entity type: '{}'", &signed_entity_type))?;
+                .with_context(|| format!("AggregatorRunner can not get current open message for signed entity type: '{}'", signed_entity_type))?;
             match current_open_message {
                 None => {
                     let protocol_message = self.compute_protocol_message(&signed_entity_type).await.with_context(|| format!("AggregatorRunner can not compute protocol message for signed_entity_type: '{signed_entity_type}'"))?;
@@ -468,7 +468,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 &open_message_signed_entity_type,
             )
             .await
-            .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &open_message_signed_entity_type))?;
+            .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", open_message_signed_entity_type))?;
         let is_expired_open_message =
             current_open_message.as_ref().map(|om| om.is_expired).unwrap_or(false);
 

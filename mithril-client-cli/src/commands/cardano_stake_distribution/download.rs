@@ -73,7 +73,7 @@ impl CardanoStakeDistributionDownloadCommand {
             .with_context(|| {
                 format!(
                     "Can not fetch Cardano stake distribution from unique identifier: '{}'",
-                    &self.unique_identifier
+                    self.unique_identifier
                 )
             })?;
 
@@ -88,7 +88,7 @@ impl CardanoStakeDistributionDownloadCommand {
             .with_context(|| {
                 format!(
                     "Can not verify the certificate chain from certificate_hash: '{}'",
-                    &cardano_stake_distribution.certificate_hash
+                    cardano_stake_distribution.certificate_hash
                 )
             })?;
 

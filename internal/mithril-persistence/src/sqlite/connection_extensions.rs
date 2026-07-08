@@ -72,7 +72,7 @@ fn prepare_statement<'conn>(
     sqlite_connection.prepare(sql).with_context(|| {
         format!(
             "Prepare query error: SQL=`{}`",
-            &sql.replace('\n', " ").trim()
+            sql.replace('\n', " ").trim()
         )
     })
 }

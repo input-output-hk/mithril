@@ -329,7 +329,7 @@ impl<K: MKMapKey> MKMapProof<K> {
     /// Check if the merkelized map proof contains a leaf
     pub fn contains(&self, leaf: &MKTreeNode) -> StdResult<()> {
         let contains_leaf = {
-            self.master_proof.contains(&[leaf.to_owned()]).is_ok()
+            self.master_proof.contains(std::slice::from_ref(leaf)).is_ok()
                 || self.sub_proofs.iter().any(|(_k, p)| p.contains(leaf).is_ok())
         };
 

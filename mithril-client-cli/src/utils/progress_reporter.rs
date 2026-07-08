@@ -444,8 +444,8 @@ mod tests {
             seconds_elapsed * 3.0 - delta < seconds_left
                 && seconds_left < seconds_elapsed * 3.0 + delta,
             "seconds_left should be close to 3*{} but it's {}.",
-            &seconds_elapsed,
-            &seconds_left
+            seconds_elapsed,
+            seconds_left
         );
 
         let duration_left = Duration::from_secs_f64(seconds_left);

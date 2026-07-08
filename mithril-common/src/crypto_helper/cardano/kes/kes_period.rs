@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn test_display() {
         assert_eq!(format!("{}", KesPeriod(72)), "72");
-        assert_eq!(format!("{}", &KesPeriod(13224)), "13224");
+        assert_eq!(format!("{}", KesPeriod(13224)), "13224");
     }
 
     #[test]

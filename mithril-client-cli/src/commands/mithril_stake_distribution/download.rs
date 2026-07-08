@@ -103,7 +103,7 @@ impl MithrilStakeDistributionDownloadCommand {
             .with_context(|| {
                 format!(
                     "Can not verify the certificate chain from certificate_hash: '{}'",
-                    &mithril_stake_distribution.certificate_hash
+                    mithril_stake_distribution.certificate_hash
                 )
             })?;
 

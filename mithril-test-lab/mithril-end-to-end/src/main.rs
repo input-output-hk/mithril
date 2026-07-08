@@ -297,7 +297,7 @@ async fn main_exec() -> StdResult<()> {
         std::path::absolute(&dir).with_context(|| {
             format!(
                 "Failed to resolve absolute work directory path: {}",
-                &dir.display()
+                dir.display()
             )
         })?
     };

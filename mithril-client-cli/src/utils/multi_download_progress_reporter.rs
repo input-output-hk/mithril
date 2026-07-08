@@ -111,7 +111,7 @@ impl MultiDownloadProgressReporter {
     /// Finish all child bars and the main progress bar and prints a message.
     pub async fn finish_all(&self, message: &str) {
         let mut reporters = self.dl_reporters.write().await;
-        for (_name, reporter) in reporters.iter() {
+        for reporter in reporters.values() {
             reporter.finish_and_clear();
             self.parent_container.remove(reporter.inner_progress_bar());
         }

@@ -165,7 +165,7 @@ impl GenerateDocCommands {
                 if write!(buffer, "\n{doc}").is_err() {
                     return Err(format!("Error writing in {output}"));
                 }
-                println!("Documentation generated in file `{}`", &output);
+                println!("Documentation generated in file `{}`", output);
             }
             _ => return Err(format!("Could not create {output}")),
         };

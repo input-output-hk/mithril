@@ -58,7 +58,7 @@ impl EraEpochToken {
     /// software.
     pub fn get_current_supported_era(&self) -> StdResult<SupportedEra> {
         SupportedEra::from_str(&self.current_era.name)
-            .with_context(|| format!("Unsupported era '{}'.", &self.current_era.name))
+            .with_context(|| format!("Unsupported era '{}'.", self.current_era.name))
     }
 
     /// Return the [EraMarker] of the current Era.
@@ -79,7 +79,7 @@ impl EraEpochToken {
         match self.next_era.as_ref() {
             Some(marker) => Ok(Some(
                 SupportedEra::from_str(&marker.name)
-                    .with_context(|| format!("Unsupported era '{}'.", &marker.name))?,
+                    .with_context(|| format!("Unsupported era '{}'.", marker.name))?,
             )),
             None => Ok(None),
         }
@@ -142,7 +142,7 @@ impl EraReader {
             .read()
             .await
             .map_err(|e| EraReaderError::AdapterFailure {
-                message: format!("Reading from EraReader adapter raised an error: '{}'.", &e),
+                message: format!("Reading from EraReader adapter raised an error: '{e}'."),
                 error: e,
             })?;
 
