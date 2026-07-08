@@ -15,7 +15,7 @@ pub enum IvcCircuitError {
     IvcVerificationKeyDegreeMismatch { expected: u32, actual: u32 },
 
     /// `assign_many` returned a different number of values than expected.
-    #[error("IvcGadget: expected {expected} assigned values, got {actual}")]
+    #[error("IvcConstraintBuilder: expected {expected} assigned values, got {actual}")]
     AssignedValueCountMismatch { expected: usize, actual: usize },
 
     /// `combine_bytes` received more bytes than base weights, which would silently truncate.

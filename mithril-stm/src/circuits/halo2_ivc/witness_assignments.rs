@@ -1,6 +1,6 @@
 //! Assignment helpers that turn IVC circuit witness values into assigned layouter values.
 //!
-//! These free functions prepare assigned inputs for the circuit; `IvcGadget` owns the constraint logic.
+//! These free functions prepare assigned inputs for the circuit; `IvcConstraintBuilder` owns the constraint logic.
 
 use std::collections::HashSet;
 
@@ -10,13 +10,13 @@ use super::{
     Error, EvaluationDomain, IVC_VERIFICATION_KEY_NAME, Layouter, NativeField,
     PublicInputInstructions, RecursiveEmulation,
     accumulator::fixed_base_names,
+    constraint_builder::IvcConstraintBuilder,
     errors::{IvcCircuitError, to_synthesis_error},
-    gadget::IvcGadget,
     state::{AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness},
 };
 
 pub(crate) fn assign_global_as_public_input(
-    gadget: &IvcGadget,
+    builder: &IvcConstraintBuilder,
     layouter: &mut impl Layouter<NativeField>,
     global: &CircuitValue<Global>,
     certificate_circuit_domain_and_constraint_system: &(
@@ -28,12 +28,12 @@ pub(crate) fn assign_global_as_public_input(
         ConstraintSystem<NativeField>,
     ),
 ) -> Result<AssignedGlobal, Error> {
-    let genesis_message: AssignedNative<_> = gadget.native_gadget.assign_as_public_input(
+    let genesis_message: AssignedNative<_> = builder.native_gadget.assign_as_public_input(
         layouter,
         global.clone().map(|gl| gl.genesis_message.as_field()),
     )?;
     let genesis_verification_key: AssignedNativePoint<_> =
-        gadget.jubjub_chip.assign_as_public_input(
+        builder.jubjub_chip.assign_as_public_input(
             layouter,
             global
                 .clone()
@@ -43,7 +43,7 @@ pub(crate) fn assign_global_as_public_input(
     let (certificate_circuit_domain, certificate_circuit_constraint_system) =
         &certificate_circuit_domain_and_constraint_system;
     let certificate_verification_key: AssignedVk<RecursiveEmulation> =
-        gadget.verifier_gadget.assign_vk_as_public_input(
+        builder.verifier_gadget.assign_vk_as_public_input(
             layouter,
             CERTIFICATE_VERIFICATION_KEY_NAME,
             certificate_circuit_domain,
@@ -57,7 +57,7 @@ pub(crate) fn assign_global_as_public_input(
     let (ivc_circuit_domain, ivc_circuit_constraint_system) =
         &ivc_circuit_domain_and_constraint_system;
     let ivc_verification_key: AssignedVk<RecursiveEmulation> =
-        gadget.verifier_gadget.assign_vk_as_public_input(
+        builder.verifier_gadget.assign_vk_as_public_input(
             layouter,
             IVC_VERIFICATION_KEY_NAME,
             ivc_circuit_domain,
@@ -92,7 +92,7 @@ pub(crate) fn assign_global_as_public_input(
 }
 
 pub(crate) fn assign_state(
-    gadget: &IvcGadget,
+    builder: &IvcConstraintBuilder,
     layouter: &mut impl Layouter<NativeField>,
     state: &CircuitValue<State>,
 ) -> Result<AssignedState, Error> {
@@ -120,7 +120,7 @@ pub(crate) fn assign_state(
         next_protocol_parameters,
         current_epoch,
     ]: [AssignedNative<_>; 7] = {
-        gadget
+        builder
             .native_gadget
             .assign_many(layouter, &values)?
             .try_into()
@@ -144,7 +144,7 @@ pub(crate) fn assign_state(
 }
 
 pub(crate) fn constrain_state_as_public_input(
-    gadget: &IvcGadget,
+    builder: &IvcConstraintBuilder,
     layouter: &mut impl Layouter<NativeField>,
     state: &AssignedState,
 ) -> Result<(), Error> {
@@ -157,23 +157,23 @@ pub(crate) fn constrain_state_as_public_input(
         &state.next_protocol_parameters,
         &state.current_epoch,
     ] {
-        gadget.native_gadget.constrain_as_public_input(layouter, value)?;
+        builder.native_gadget.constrain_as_public_input(layouter, value)?;
     }
 
     Ok(())
 }
 
 pub(crate) fn assign_witness(
-    gadget: &IvcGadget,
+    builder: &IvcConstraintBuilder,
     layouter: &mut impl Layouter<NativeField>,
     witness: &CircuitValue<Witness>,
 ) -> Result<AssignedWitness, Error> {
     let genesis_signature = {
-        let s: AssignedScalarOfNativeCurve<_> = gadget.jubjub_chip.assign(
+        let s: AssignedScalarOfNativeCurve<_> = builder.jubjub_chip.assign(
             layouter,
             witness.clone().map(|w| w.genesis_signature.response.0),
         )?;
-        let c: AssignedNative<_> = gadget.native_gadget.assign(
+        let c: AssignedNative<_> = builder.native_gadget.assign(
             layouter,
             witness.clone().map(|w| w.genesis_signature.challenge.0),
         )?;
@@ -191,7 +191,7 @@ pub(crate) fn assign_witness(
                 ]
             })
             .transpose_vec(2);
-        gadget
+        builder
             .native_gadget
             .assign_many(layouter, &values)?
             .try_into()
@@ -208,7 +208,7 @@ pub(crate) fn assign_witness(
             .clone()
             .map(|w| w.message_preimage.into_inner())
             .transpose_array();
-        gadget.native_gadget.assign_many(layouter, &preimage)?
+        builder.native_gadget.assign_many(layouter, &preimage)?
     };
 
     Ok(AssignedWitness {

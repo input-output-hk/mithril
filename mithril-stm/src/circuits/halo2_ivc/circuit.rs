@@ -10,8 +10,8 @@ use super::{
     NB_SHA256_ADVICE_COLS, NB_SHA256_FIXED_COLS, NativeField, PublicInputInstructions,
     RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation, SimpleFloorPlanner,
     config::{IvcConfig, configure_ivc_circuit, ivc_column_pool_sizes},
+    constraint_builder::IvcConstraintBuilder,
     errors::IvcCircuitError,
-    gadget::IvcGadget,
     nb_foreign_ecc_chip_columns,
     state::{Global, State, Witness},
     types::{CertificateProofBytes, IvcProofBytes},
@@ -199,31 +199,30 @@ impl Circuit<NativeField> for IvcCircuitData {
         config: Self::Config,
         mut layouter: impl Layouter<NativeField>,
     ) -> Result<(), Error> {
-        let ivc_gadget = IvcGadget::new(&config);
+        let builder = IvcConstraintBuilder::new(&config);
 
         // Assign global and constraint it as public input
         let global = witness_assignments::assign_global_as_public_input(
-            &ivc_gadget,
+            &builder,
             &mut layouter,
             &self.global,
             &self.certificate_circuit_domain_and_constraint_system,
             &self.ivc_circuit_domain_and_constraint_system,
         )?;
         // Assign previous state
-        let state = witness_assignments::assign_state(&ivc_gadget, &mut layouter, &self.state)?;
+        let state = witness_assignments::assign_state(&builder, &mut layouter, &self.state)?;
         // Assign witness for the new certificate to be aggregated
-        let witness =
-            witness_assignments::assign_witness(&ivc_gadget, &mut layouter, &self.witness)?;
+        let witness = witness_assignments::assign_witness(&builder, &mut layouter, &self.witness)?;
 
         // If state.step_counter = 0, we are aggregating the genesis certificate
-        let is_genesis = ivc_gadget.is_genesis(&mut layouter, &state)?;
-        let is_not_genesis = ivc_gadget.native_gadget.not(&mut layouter, &is_genesis)?;
+        let is_genesis = builder.is_genesis(&mut layouter, &state)?;
+        let is_not_genesis = builder.native_gadget.not(&mut layouter, &is_genesis)?;
 
         // Verify genesis certificate
-        ivc_gadget.assert_genesis(&mut layouter, &is_not_genesis, &global, &witness)?;
+        builder.assert_genesis(&mut layouter, &is_not_genesis, &global, &witness)?;
 
         // Verify certificate chain link between the last aggregated certificate and the new certificate to obtain the next state
-        let next_state = ivc_gadget.transition(
+        let next_state = builder.transition(
             &mut layouter,
             &is_genesis,
             &is_not_genesis,
@@ -232,14 +231,10 @@ impl Circuit<NativeField> for IvcCircuitData {
             &witness,
         )?;
         // Constrain the next state as public input
-        witness_assignments::constrain_state_as_public_input(
-            &ivc_gadget,
-            &mut layouter,
-            &next_state,
-        )?;
+        witness_assignments::constrain_state_as_public_input(&builder, &mut layouter, &next_state)?;
 
         // Verify (prepare) certificate_proof and previous ivc_proof and update accumulator
-        let next_acc = ivc_gadget.verify_prepare(
+        let next_acc = builder.verify_prepare(
             &mut layouter,
             &global,
             &is_not_genesis,
@@ -250,12 +245,12 @@ impl Circuit<NativeField> for IvcCircuitData {
             &self.acc,
         )?;
         // Constrain the next accumulator as public input
-        ivc_gadget
+        builder
             .verifier_gadget
             .constrain_as_public_input(&mut layouter, &next_acc)?;
 
-        ivc_gadget.core_decomp_chip.load(&mut layouter)?;
-        ivc_gadget.sha2_256_chip.load(&mut layouter)
+        builder.core_decomp_chip.load(&mut layouter)?;
+        builder.sha2_256_chip.load(&mut layouter)
     }
 }
 

@@ -25,7 +25,7 @@ type DecodedProtocolMessageFields = (
 );
 
 #[derive(Debug, Clone)]
-pub struct IvcGadget {
+pub struct IvcConstraintBuilder {
     pub(crate) core_decomp_chip: P2RDecompositionChip<NativeField>,
     pub(crate) native_gadget: IvcNativeGadget,
     pub(crate) jubjub_chip: EccChip<CircuitCurve>,
@@ -36,7 +36,7 @@ pub struct IvcGadget {
     pub(crate) verifier_gadget: VerifierGadget<RecursiveEmulation>,
 }
 
-impl IvcGadget {
+impl IvcConstraintBuilder {
     pub fn new(config: &IvcConfig) -> Self {
         let native_chip = <NativeChip<NativeField> as ComposableChip<NativeField>>::new(
             &config.native_config,
@@ -55,7 +55,7 @@ impl IvcGadget {
         let verifier_gadget: VerifierGadget<RecursiveEmulation> =
             VerifierGadget::new(&bls12_381_chip, &native_gadget, &poseidon_chip);
 
-        IvcGadget {
+        IvcConstraintBuilder {
             core_decomp_chip,
             native_gadget,
             jubjub_chip,
