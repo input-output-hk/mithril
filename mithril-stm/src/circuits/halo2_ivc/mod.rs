@@ -54,6 +54,7 @@ pub(crate) mod circuit;
 pub(crate) mod config;
 pub(crate) mod errors;
 pub(crate) mod gadget;
+pub(crate) mod gadgets;
 pub(crate) mod io;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod key_serialization;

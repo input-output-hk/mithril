@@ -2,19 +2,17 @@ use ff::Field;
 use group::Group;
 use midnight_circuits::hash::sha256::Sha256Chip;
 
-use crate::signature_scheme::DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE;
-
 use super::{
     Accumulator, ArithInstructions, AssertionInstructions, AssignedAccumulator, AssignedBit,
-    AssignedForeignPoint, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-    AssignmentInstructions, BinaryInstructions, CircuitCurve, CircuitCurveTrait, CircuitValue,
-    ComposableChip, ControlFlowInstructions, ConversionInstructions, EccChip, EccInstructions,
-    EmulatedCurve, EqualityInstructions, Error, ForeignEccChip, HashInstructions, IvcNativeGadget,
-    Layouter, NativeChip, NativeField, NativeGadget, P2RDecompositionChip,
-    PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
-    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PoseidonChip, PublicInputInstructions,
-    RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation, VerifierGadget, ZeroInstructions,
+    AssignedForeignPoint, AssignedNative, AssignmentInstructions, BinaryInstructions, CircuitCurve,
+    CircuitValue, ComposableChip, ControlFlowInstructions, EccChip, EccInstructions, EmulatedCurve,
+    EqualityInstructions, Error, ForeignEccChip, HashInstructions, IvcNativeGadget, Layouter,
+    NativeChip, NativeField, NativeGadget, P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES,
+    PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
+    PoseidonChip, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation,
+    VerifierGadget, ZeroInstructions,
     config::IvcConfig,
+    gadgets::{GenesisSchnorrSignatureInputs, verify_genesis_signature},
     state::{AssignedGlobal, AssignedState, AssignedWitness},
 };
 
@@ -68,54 +66,25 @@ impl IvcGadget {
         self.native_gadget.is_zero(layouter, &state.step_counter)
     }
 
-    /// Verifies the genesis Schnorr signature in-circuit.
-    ///
-    /// Reconstructs the challenge via Poseidon hash over the genesis verification key,
-    /// the reconstructed nonce commitment, and the genesis message, then checks
-    /// equality against the committed challenge scalar from `witness.genesis_signature`.
-    /// Returns an `AssignedBit` that is `true` when the signature is valid.
+    /// Verifies the genesis Schnorr signature in-circuit (delegates to the `schnorr_signature` gadget).
     pub fn is_genesis_signature_valid(
         &self,
         layouter: &mut impl Layouter<NativeField>,
         global: &AssignedGlobal,
         witness: &AssignedWitness,
     ) -> Result<AssignedBit<NativeField>, Error> {
-        let s = witness.genesis_signature.0.clone();
-        let c_native = witness.genesis_signature.1.clone();
-        let c: AssignedScalarOfNativeCurve<_> = self.jubjub_chip.convert(layouter, &c_native)?;
-
-        let dst_signature: AssignedNative<_> = self
-            .native_gadget
-            .assign_fixed(layouter, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE.0)?;
-        let generator: AssignedNativePoint<_> = self.jubjub_chip.assign_fixed(
+        verify_genesis_signature(
+            &self.jubjub_chip,
+            &self.native_gadget,
+            &self.poseidon_chip,
             layouter,
-            <CircuitCurve as CircuitCurveTrait>::CryptographicGroup::generator(),
-        )?;
-
-        let cap_r = self.jubjub_chip.msm(
-            layouter,
-            &[s, c.clone()],
-            &[generator.clone(), global.genesis_verification_key.clone()],
-        )?;
-
-        let vk_x = self.jubjub_chip.x_coordinate(&global.genesis_verification_key);
-        let vk_y = self.jubjub_chip.y_coordinate(&global.genesis_verification_key);
-        let cap_r_x = self.jubjub_chip.x_coordinate(&cap_r);
-        let cap_r_y = self.jubjub_chip.y_coordinate(&cap_r);
-
-        let c_prime = self.poseidon_chip.hash(
-            layouter,
-            &[
-                dst_signature.clone(),
-                vk_x,
-                vk_y,
-                cap_r_x,
-                cap_r_y,
-                global.genesis_message.clone(),
-            ],
-        )?;
-
-        self.native_gadget.is_equal(layouter, &c_prime, &c_native)
+            GenesisSchnorrSignatureInputs {
+                verification_key: &global.genesis_verification_key,
+                message: &global.genesis_message,
+                response: &witness.genesis_signature.0,
+                challenge: &witness.genesis_signature.1,
+            },
+        )
     }
 
     pub fn assert_genesis(
