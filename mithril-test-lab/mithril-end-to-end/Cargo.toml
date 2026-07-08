@@ -23,6 +23,7 @@ rustls = ["reqwest/rustls"]
 [dependencies]
 anyhow = { workspace = true }
 async-recursion = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true }
 indicatif = { version = "0.18.6", features = ["tokio"] }
 mithril-cardano-node-chain = { path = "../../internal/cardano-node/mithril-cardano-node-chain" }
@@ -41,4 +42,4 @@ slog-async = { workspace = true }
 slog-scope = "4.4.1"
 slog-term = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "process", "signal"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "process", "signal", "time"] }

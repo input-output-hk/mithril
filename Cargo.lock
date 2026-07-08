@@ -4507,6 +4507,7 @@ version = "0.5.6"
 dependencies = [
  "anyhow",
  "async-recursion",
+ "async-trait",
  "clap",
  "indicatif",
  "mithril-cardano-node-chain",

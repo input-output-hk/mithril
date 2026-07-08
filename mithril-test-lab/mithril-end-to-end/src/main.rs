@@ -5,7 +5,7 @@ use slog_scope::{error, info};
 use std::{
     collections::BTreeMap,
     fmt,
-    fs::{self, OpenOptions},
+    fs::{self, File},
     path::{Path, PathBuf},
     process::{ExitCode, Termination},
     sync::Arc,
@@ -276,6 +276,10 @@ fn main() -> AppResult {
 async fn main_exec() -> StdResult<()> {
     let args = Cli::parse();
 
+    if let Some(ScenarioArgs::GenerateDoc(cmd)) = &args.scenario {
+        return cmd.execute(&mut Cli::command()).map_err(|message| anyhow!(message));
+    }
+
     let work_dir = {
         let dir = match &args.work_directory {
             Some(path) => path.to_owned(),
@@ -300,10 +304,6 @@ async fn main_exec() -> StdResult<()> {
         &args,
         &work_dir.join("mithril-end-to-end.log"),
     ));
-
-    if let Some(ScenarioArgs::GenerateDoc(cmd)) = &args.scenario {
-        return cmd.execute(&mut Cli::command()).map_err(|message| anyhow!(message));
-    }
 
     info!("Starting Mithril End-to-End test suite"; "args" => #?args);
 
@@ -611,11 +611,7 @@ fn build_logger(args: &Cli, log_file: &Path) -> Logger {
     };
 
     let file_drain = {
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_file)
-            .expect("failed to open log file at {log_file}");
+        let file = File::create(log_file).expect("failed to open log file at {log_file}");
         let decorator = slog_term::PlainSyncDecorator::new(file);
         let drain = slog_term::FullFormat::new(decorator).build().fuse();
         let drain = slog::LevelFilter::new(drain, args.log_level()).fuse();

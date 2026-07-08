@@ -10,7 +10,7 @@ use tokio::process::Command;
 use mithril_common::StdResult;
 use mithril_common::entities::{BlockHash, PartyId, TransactionHash};
 
-use crate::utils::file_utils;
+use crate::utils::{ChildLoggerExt, file_utils};
 
 #[derive(Error, Debug, PartialEq, Eq)]
 #[error("Retryable devnet error: `{0}`")]
@@ -80,6 +80,16 @@ pub struct DevnetBootstrapArgs {
 }
 
 impl Devnet {
+    fn build_command(&self, script_path: &Path) -> StdResult<Command> {
+        let mut command = Command::new(script_path);
+        command
+            .current_dir(&self.artifacts_dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        Ok(command)
+    }
+
     pub async fn bootstrap(bootstrap_args: &DevnetBootstrapArgs) -> StdResult<Devnet> {
         let bootstrap_script = "devnet-mkfiles.sh";
         let bootstrap_script_path =
@@ -251,17 +261,16 @@ impl Devnet {
     }
 
     pub async fn run(&self) -> StdResult<()> {
-        let run_script = "start-cardano.sh";
-        let run_script_path = self.artifacts_dir.join(run_script);
-        let mut run_command = Command::new(&run_script_path);
-        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
+        let script_name = "start-cardano.sh";
+        let run_script_path = self.artifacts_dir.join(script_name);
+        let mut run_command = self.build_command(&run_script_path)?;
 
         info!("Starting the Cardano devnet"; "script" => &run_script_path.display());
 
         let status = run_command
             .spawn()
             .with_context(|| "Failed to start the Cardano devnet")?
-            .wait()
+            .wait_forwarding_output_to_slog_scope(script_name)
             .await
             .with_context(|| "Error while starting the Cardano devnet")?;
         match status.code() {
@@ -276,15 +285,14 @@ impl Devnet {
     pub async fn run_dmq(&self) -> StdResult<()> {
         let run_script = "start-dmq.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
-        let mut run_command = Command::new(&run_script_path);
-        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
+        let mut run_command = self.build_command(&run_script_path)?;
 
         info!("Starting the DMQ devnet"; "script" => &run_script_path.display());
 
         let status = run_command
             .spawn()
             .with_context(|| "Failed to start the DMQ devnet")?
-            .wait()
+            .wait_forwarding_output_to_slog_scope(run_script)
             .await
             .with_context(|| "Error while starting the DMQ devnet")?;
         match status.code() {
@@ -299,15 +307,14 @@ impl Devnet {
     pub async fn stop(&self) -> StdResult<()> {
         let stop_script = "stop.sh";
         let stop_script_path = self.artifacts_dir.join(stop_script);
-        let mut stop_command = Command::new(&stop_script_path);
-        stop_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
+        let mut stop_command = self.build_command(&stop_script_path)?;
 
         info!("Stopping the Devnet"; "script" => &stop_script_path.display());
 
         let exit_status = stop_command
             .spawn()
             .with_context(|| "Failed to stop the devnet")?
-            .wait()
+            .wait_forwarding_output_to_slog_scope(stop_script)
             .await
             .with_context(|| "Error while stopping the devnet")?;
         match exit_status.code() {
@@ -320,8 +327,7 @@ impl Devnet {
     pub async fn delegate_stakes(&self, delegation_round: u16) -> StdResult<()> {
         let run_script = "delegate.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
-        let mut run_command = Command::new(&run_script_path);
-        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
+        let mut run_command = self.build_command(&run_script_path)?;
         run_command.env("DELEGATION_ROUND", delegation_round.to_string());
 
         info!("Delegating stakes to the pools"; "script" => &run_script_path.display());
@@ -329,7 +335,7 @@ impl Devnet {
         let status = run_command
             .spawn()
             .with_context(|| "Failed to delegate stakes to the pools")?
-            .wait()
+            .wait_forwarding_output_to_slog_scope(run_script)
             .await
             .with_context(|| "Error while delegating stakes to the pools")?;
         match status.code() {
@@ -344,8 +350,7 @@ impl Devnet {
     pub async fn write_era_marker(&self, target_path: &Path) -> StdResult<()> {
         let run_script = "era-mithril.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
-        let mut run_command = Command::new(&run_script_path);
-        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
+        let mut run_command = self.build_command(&run_script_path)?;
         run_command.env("DATUM_FILE", target_path.to_str().unwrap());
 
         info!("Writing era marker on chain"; "script" => &run_script_path.display());
@@ -353,7 +358,7 @@ impl Devnet {
         let status = run_command
             .spawn()
             .with_context(|| "Failed to write era marker on chain")?
-            .wait()
+            .wait_forwarding_output_to_slog_scope(run_script)
             .await
             .with_context(|| "Error while writing era marker on chain")?;
         match status.code() {
@@ -368,8 +373,7 @@ impl Devnet {
     pub async fn transfer_funds(&self) -> StdResult<()> {
         let run_script = "payment-mithril.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
-        let mut run_command = Command::new(&run_script_path);
-        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
+        let mut run_command = self.build_command(&run_script_path)?;
         run_command.env("PAYMENT_ITERATIONS", "5");
 
         info!("Transferring some funds on chain"; "script" => &run_script_path.display());
@@ -377,7 +381,7 @@ impl Devnet {
         let status = run_command
             .spawn()
             .with_context(|| "Failed to transfer funds on chain")?
-            .wait()
+            .wait_forwarding_output_to_slog_scope(run_script)
             .await
             .with_context(|| "Error while to transferring funds on chain")?;
         match status.code() {
