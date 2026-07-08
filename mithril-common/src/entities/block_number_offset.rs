@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn test_display() {
         assert_eq!(format!("{}", BlockNumberOffset(72)), "72");
-        assert_eq!(format!("{}", &BlockNumberOffset(13224)), "13224");
+        assert_eq!(format!("{}", BlockNumberOffset(13224)), "13224");
     }
 
     #[test]

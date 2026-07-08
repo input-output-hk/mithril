@@ -124,7 +124,7 @@ mod tests {
         let archive = create_fake_archive(&source_dir, archive_name);
         let expected_location = format!(
             "http://test.com:8080/base-root/{}",
-            &archive.file_name().unwrap().to_string_lossy()
+            archive.file_name().unwrap().to_string_lossy()
         );
 
         let url_prefix =
@@ -219,7 +219,7 @@ mod tests {
 
         let expected_location = format!(
             "http://test.com:8080/base-root/{}",
-            &archive.file_name().unwrap().to_string_lossy()
+            archive.file_name().unwrap().to_string_lossy()
         );
         assert_eq!(FileUri(expected_location), location);
     }

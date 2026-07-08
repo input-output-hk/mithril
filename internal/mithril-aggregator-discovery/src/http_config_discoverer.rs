@@ -80,7 +80,7 @@ impl AggregatorDiscoverer<AggregatorEndpoint> for HttpConfigAggregatorDiscoverer
             .with_context(|| {
                 format!(
                     "AggregatorDiscovererHttpConfig failed retrieving configuration file from {}",
-                    &self.configuration_file_url
+                    self.configuration_file_url
                 )
             })?
             .json::<NetworksConfigMessage>()
@@ -88,7 +88,7 @@ impl AggregatorDiscoverer<AggregatorEndpoint> for HttpConfigAggregatorDiscoverer
             .with_context(|| {
                 format!(
                     "AggregatorDiscovererHttpConfig failed parsing configuration file from {}",
-                    &self.configuration_file_url
+                    self.configuration_file_url
                 )
             })?;
         let aggregator_endpoints = networks_configuration_response

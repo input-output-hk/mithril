@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_display() {
         assert_eq!(format!("{}", KesEvolutions(72)), "72");
-        assert_eq!(format!("{}", &KesEvolutions(13224)), "13224");
+        assert_eq!(format!("{}", KesEvolutions(13224)), "13224");
     }
 
     #[test]

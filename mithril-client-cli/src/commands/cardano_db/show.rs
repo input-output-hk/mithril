@@ -69,10 +69,10 @@ impl CardanoDbShowCommand {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
         } else {
             let mut cardano_db_table = vec![
-                vec!["Epoch".cell(), format!("{}", &cardano_db_message.beacon.epoch).cell()],
+                vec!["Epoch".cell(), format!("{}", cardano_db_message.beacon.epoch).cell()],
                 vec![
                     "Immutable File Number".cell(),
-                    format!("{}", &cardano_db_message.beacon.immutable_file_number).cell(),
+                    format!("{}", cardano_db_message.beacon.immutable_file_number).cell(),
                 ],
                 vec!["Hash".cell(), cardano_db_message.hash.cell()],
                 vec!["Merkle root".cell(), cardano_db_message.merkle_root.cell()],

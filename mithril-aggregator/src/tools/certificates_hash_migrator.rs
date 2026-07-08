@@ -77,7 +77,7 @@ impl CertificatesHashMigrator {
                     .get(&certificate.previous_hash)
                     .with_context(|| format!(
                         "Could not migrate certificate previous_hash: The hash '{}' doesn't exist in the certificate table",
-                        &certificate.previous_hash
+                        certificate.previous_hash
                     ))?.clone_into(&mut certificate.previous_hash);
 
                 old_previous_hash

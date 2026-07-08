@@ -118,7 +118,7 @@ impl ConcatenationClerk {
         let mut dedup_sigs: HashSet<SingleSignatureWithRegisteredParty> = HashSet::new();
         let mut count: u64 = 0;
 
-        for (_, &sig_reg) in sig_by_index.iter() {
+        for &sig_reg in sig_by_index.values() {
             if dedup_sigs.contains(sig_reg) {
                 continue;
             }

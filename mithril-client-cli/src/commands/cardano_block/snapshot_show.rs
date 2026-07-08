@@ -67,14 +67,14 @@ impl CardanoBlocksSnapshotShowCommand {
             println!("{}", serde_json::to_string(&snapshot)?);
         } else {
             let snapshot_sets_table = vec![
-                vec!["Epoch".cell(), format!("{}", &snapshot.epoch).cell()],
+                vec!["Epoch".cell(), format!("{}", snapshot.epoch).cell()],
                 vec![
                     "Block Number Signed".cell(),
-                    format!("{}", &snapshot.block_number_signed).cell(),
+                    format!("{}", snapshot.block_number_signed).cell(),
                 ],
                 vec![
                     "Block Number Tip".cell(),
-                    format!("{}", &snapshot.block_number_tip).cell(),
+                    format!("{}", snapshot.block_number_tip).cell(),
                 ],
                 vec!["Merkle Root".cell(), snapshot.merkle_root.to_string().cell()],
                 vec![

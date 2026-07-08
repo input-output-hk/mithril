@@ -241,7 +241,7 @@ impl Aggregator {
     }
 
     pub fn endpoint(&self) -> String {
-        format!("http://localhost:{}/aggregator", &self.server_port)
+        format!("http://localhost:{}/aggregator", self.server_port)
     }
 
     pub fn db_directory(&self) -> &Path {

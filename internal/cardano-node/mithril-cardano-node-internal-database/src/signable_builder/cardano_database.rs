@@ -45,7 +45,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoDatabaseSignableBuilder {
             .with_context(|| {
                 format!(
                     "Cardano Database Signable Builder can not compute merkle tree of '{}'",
-                    &self.dirpath.display()
+                    self.dirpath.display()
                 )
             })?;
 

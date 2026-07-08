@@ -211,7 +211,7 @@ impl Configuration {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic).with_context(|| {
             format!(
                 "Could not read Network '{}' from configuration.",
-                &self.network
+                self.network
             )
         })
     }
@@ -221,7 +221,7 @@ impl Configuration {
         DmqNetwork::from_code(self.network.clone(), self.dmq_network_magic).with_context(|| {
             format!(
                 "Could not read DMQ Network '{}' from configuration.",
-                &self.network
+                self.network
             )
         })
     }
@@ -256,7 +256,7 @@ impl Configuration {
         .with_context(|| {
             format!(
                 "Configuration: can not create era reader for adapter '{}'.",
-                &self.era_reader_adapter_type
+                self.era_reader_adapter_type
             )
         })
     }
