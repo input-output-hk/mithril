@@ -1,6 +1,6 @@
 use anyhow::Context;
 use chrono::Local;
-use slog::{Logger, info, trace};
+use slog::{Logger, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
 
@@ -264,12 +264,17 @@ impl AggregatorRuntime {
                 &last_time_point,
                 last_genesis_certificate_epoch,
             )
-            .await?;
+            .await
+            .inspect_err(|err| {
+                warn!(self.logger, " ⋅ Epoch gap detected, forcing follower synchronization"; "error" => ?err);
+            })?;
 
         let force_sync = chain_validity_result.is_err();
-        self.runner
+        // Synchronization also checks the remote certificate chain (to avoid storing an invalid chain)
+        let chain_validity_result = self
+            .runner
             .synchronize_follower_aggregator_certificate_chain(&last_time_point, force_sync)
-            .await?;
+            .await;
         // Refetch last genesis certificate epoch after synchronization
         let last_genesis_certificate_epoch = self.runner.last_genesis_certificate_epoch().await?;
 
@@ -1450,6 +1455,56 @@ mod tests {
             runtime.cycle().await.unwrap();
 
             assert_eq!("blocked-genesis-epoch", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_no_genesis_sync_leader_with_epoch_gap() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            let new_time_point = TimePoint {
+                epoch: time_point.epoch + 1,
+                ..time_point.clone()
+            };
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &new_time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .times(2)
+                .returning(|| Ok(None));
+            runner
+                .expect_is_follower_aggregator_at_same_epoch_as_leader()
+                .once()
+                .returning(|_| Ok(true));
+            runner
+                .expect_synchronize_follower_aggregator_signer_registration()
+                .once()
+                .returning(|| Ok(()));
+            runner.expect_is_certificate_chain_valid().never();
+            runner
+                .expect_synchronize_follower_aggregator_certificate_chain()
+                .once()
+                .with(eq(new_time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| {
+                    Err(anyhow!(CertificateEpochGap {
+                        certificate_epoch: Epoch(999),
+                        current_epoch: Epoch(111),
+                    }))
+                });
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: Some(time_point),
+                })),
+                runner,
+                true,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-epoch-gap", runtime.state_label());
         }
     }
 }
