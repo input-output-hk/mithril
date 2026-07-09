@@ -53,7 +53,7 @@ macro_rules! cycle {
             runtime_tester.get_runtime_cycle_success_and_total_since_startup_metrics();
 
         runtime_tester.cycle().await.unwrap();
-        assert_eq!($expected_state, runtime_tester.runtime.get_state());
+        assert_eq!($expected_state, runtime_tester.runtime.state_label());
 
         assert_metrics_eq!(
             runtime_tester.metrics_verifier,
@@ -78,7 +78,7 @@ macro_rules! cycle_err {
             .await
             .expect_err("cycle tick should have returned an error");
         slog_scope::info!("cycle_err result: {err:?}");
-        assert_eq!($expected_state, runtime_tester.runtime.get_state());
+        assert_eq!($expected_state, runtime_tester.runtime.state_label());
 
         assert_metrics_eq!(
             runtime_tester.metrics_verifier,
@@ -674,7 +674,7 @@ impl RuntimeTester {
         async_wait!(
             max_iter:100, sleep_ms:1,
             condition: !self.observer.is_last_signed_entity(signed_entity_type_expected).await?,
-            error_msg: "Signed entity not found: {signed_entity_type_expected}"
+            error_msg: "Signed entity not found: {signed_entity_type_expected:?}"
         )
     }
 

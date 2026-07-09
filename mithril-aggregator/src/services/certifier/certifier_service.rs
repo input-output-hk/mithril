@@ -24,7 +24,7 @@ use crate::database::repository::{
     CertificateRepository, OpenMessageRepository, SingleSignatureRepository,
 };
 use crate::dependency_injection::EpochServiceWrapper;
-use crate::entities::OpenMessage;
+use crate::entities::{CertificateEpochGap, OpenMessage};
 use crate::services::{CertifierService, CertifierServiceError, SignatureRegistrationStatus};
 
 /// Mithril CertifierService implementation
@@ -427,7 +427,7 @@ impl CertifierService for MithrilCertifierService {
             .first()
         {
             if epoch.has_gap_with(&certificate.epoch) {
-                return Err(CertifierServiceError::CertificateEpochGap {
+                return Err(CertificateEpochGap {
                     certificate_epoch: certificate.epoch,
                     current_epoch: epoch,
                 }
@@ -441,7 +441,7 @@ impl CertifierService for MithrilCertifierService {
 
             Ok(())
         } else {
-            Err(CertifierServiceError::CouldNotFindLastCertificate.into())
+            Err(CertifierServiceError::NoGenesisCertificateFound.into())
         }
     }
 }
@@ -912,14 +912,18 @@ mod tests {
         let certifier_service = setup_certifier_service(temp_dir!(), &builder.build(), epoch).await;
         certifier_service
             .certificate_repository
-            .create_certificate(certificate)
+            .create_certificate(certificate.clone())
             .await
             .unwrap();
         let error = certifier_service.verify_certificate_chain(epoch).await.unwrap_err();
 
-        if let Some(err) = error.downcast_ref::<CertifierServiceError>() {
-            assert!(
-                matches!(err, CertifierServiceError::CertificateEpochGap {certificate_epoch: _, current_epoch} if *current_epoch == epoch)
+        if let Some(err) = error.downcast_ref::<CertificateEpochGap>() {
+            assert_eq!(
+                &CertificateEpochGap {
+                    certificate_epoch: certificate.epoch,
+                    current_epoch: epoch,
+                },
+                err,
             );
         } else {
             panic!("Unexpected error {error:?}");
@@ -939,14 +943,10 @@ mod tests {
             .unwrap();
         let error = certifier_service.verify_certificate_chain(epoch).await.unwrap_err();
 
-        if let Some(err) = error.downcast_ref::<CertifierServiceError>() {
-            assert!(!matches!(
-                err,
-                CertifierServiceError::CertificateEpochGap {
-                    certificate_epoch: _,
-                    current_epoch: _
-                }
-            ));
-        }
+        assert_eq!(
+            None,
+            error.downcast_ref::<CertificateEpochGap>(),
+            "Unexpected error: {error:?}"
+        );
     }
 }

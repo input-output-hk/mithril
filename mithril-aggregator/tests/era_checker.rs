@@ -1,4 +1,5 @@
 mod test_extensions;
+
 use mithril_aggregator::{RuntimeError, ServeCommandConfiguration};
 use mithril_common::{
     entities::{
@@ -11,9 +12,6 @@ use mithril_era::EraMarker;
 
 use test_extensions::{RuntimeTester, utilities::get_test_dir};
 
-// NOTE: Due to the shared nature of the Logger, there cannot be two methods in
-// the same test file. Because the logger is wiped of memory when the first
-// methods terminates it also removes the other method's logger from memory.
 #[tokio::test]
 async fn testing_eras() {
     let protocol_parameters = ProtocolParameters {
@@ -76,7 +74,7 @@ async fn testing_eras() {
     tester.increase_immutable_number().await.unwrap();
 
     comment!("start the runtime state machine");
-    cycle!(tester, "ready");
+    cycle!(tester, "blocked-genesis-epoch");
 
     // reach unsupported Epoch
     let current_epoch = tester.chain_observer.next_epoch().await.unwrap();

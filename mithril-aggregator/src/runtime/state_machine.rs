@@ -1,19 +1,45 @@
 use anyhow::Context;
 use chrono::Local;
-use slog::{Logger, info, trace};
+use slog::{Logger, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
 
-use mithril_common::entities::TimePoint;
+use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, TimePoint};
 use mithril_common::logging::LoggerExtensions;
 
 use crate::AggregatorConfig;
-use crate::entities::OpenMessage;
+use crate::entities::{CertificateEpochGap, OpenMessage};
 use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
     current_time_point: Option<TimePoint>,
+}
+
+impl IdleState {
+    pub fn should_run_epoch_initialization_tasks(&self, new_time_point: &TimePoint) -> bool {
+        self.current_time_point
+            .as_ref()
+            .is_none_or(|time_point| time_point.epoch < new_time_point.epoch)
+    }
+}
+
+/// State when the state machine can't proceed to the next state before the next epoch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockedState {
+    blocked_since_time_point: TimePoint,
+    reason: BlockedReason,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BlockedReason {
+    /// No genesis certificate has been issued yet.
+    NoGenesis,
+    /// The genesis certificate has been issued in the current epoch.
+    GenesisEpoch,
+    /// There's an epoch gap between the current epoch and the one of the last certificate.
+    EpochGap { epoch_of_last_certificate: Epoch },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -30,6 +56,7 @@ pub struct SigningState {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AggregatorState {
     Idle(IdleState),
+    Blocked(BlockedState),
     Ready(ReadyState),
     Signing(SigningState),
 }
@@ -37,14 +64,33 @@ pub enum AggregatorState {
 impl Display for AggregatorState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AggregatorState::Idle(state) => write!(
-                f,
-                "Idle - {}",
-                match &state.current_time_point {
-                    None => "No TimePoint".to_string(),
-                    Some(time_point) => time_point.to_string(),
+            AggregatorState::Idle(state) => match &state.current_time_point {
+                None => write!(f, "Idle - No TimePoint"),
+                Some(time_point) => write!(f, "Idle - {time_point}"),
+            },
+            AggregatorState::Blocked(state) => match state.reason {
+                BlockedReason::NoGenesis => {
+                    write!(
+                        f,
+                        "Blocked - No Genesis - {}",
+                        state.blocked_since_time_point
+                    )
                 }
-            ),
+                BlockedReason::GenesisEpoch => {
+                    write!(
+                        f,
+                        "Blocked - Genesis Epoch - {}",
+                        state.blocked_since_time_point
+                    )
+                }
+                BlockedReason::EpochGap {
+                    epoch_of_last_certificate,
+                } => write!(
+                    f,
+                    "Blocked - Epoch Gap [{epoch_of_last_certificate}] - {}",
+                    state.blocked_since_time_point
+                ),
+            },
             AggregatorState::Ready(state) => write!(f, "Ready - {}", state.current_time_point),
             AggregatorState::Signing(state) => write!(f, "Signing - {}", state.current_time_point),
         }
@@ -92,12 +138,17 @@ impl AggregatorRuntime {
         })
     }
 
-    /// Return the actual state of the state machine.
-    pub fn get_state(&self) -> String {
-        match self.state {
-            AggregatorState::Idle(_) => "idle".to_string(),
-            AggregatorState::Ready(_) => "ready".to_string(),
-            AggregatorState::Signing(_) => "signing".to_string(),
+    /// Return the label of the actual state of the state machine.
+    pub fn state_label(&self) -> &'static str {
+        match &self.state {
+            AggregatorState::Idle(_) => "idle",
+            AggregatorState::Blocked(state) => match state.reason {
+                BlockedReason::NoGenesis => "blocked-no-genesis",
+                BlockedReason::GenesisEpoch => "blocked-genesis-epoch",
+                BlockedReason::EpochGap { .. } => "blocked-epoch-gap",
+            },
+            AggregatorState::Ready(_) => "ready",
+            AggregatorState::Signing(_) => "signing",
         }
     }
 
@@ -137,169 +188,311 @@ impl AggregatorRuntime {
 
         self.runner.increment_runtime_cycle_total_since_startup_counter();
 
-        match self.state.clone() {
-            AggregatorState::Idle(state) => {
-                let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
-                    || "AggregatorRuntime in the state IDLE can not get current time point from chain",
-                )?;
+        let next_state = match &self.state {
+            AggregatorState::Idle(state) => self.cycle_idle(state).await?,
+            AggregatorState::Blocked(state) => self.cycle_blocked(state).await?,
+            AggregatorState::Ready(state) => self.cycle_ready(state).await?,
+            AggregatorState::Signing(state) => self.cycle_signing(state).await?,
+        };
 
-                info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
-
-                let can_try_transition_from_idle_to_ready = if self.config.is_follower {
-                    self.runner
-                        .is_follower_aggregator_at_same_epoch_as_leader(&last_time_point)
-                        .await?
-                } else {
-                    true
-                };
-                if can_try_transition_from_idle_to_ready {
-                    self.try_transition_from_idle_to_ready(
-                        state.current_time_point,
-                        last_time_point.clone(),
-                    )
-                    .await?;
-                    self.state = AggregatorState::Ready(ReadyState {
-                        current_time_point: last_time_point,
-                    });
-                }
-            }
-            AggregatorState::Ready(state) => {
-                let last_time_point: TimePoint = self
-                    .runner
-                    .get_time_point_from_chain()
-                    .await
-                    .with_context(|| {
-                        "AggregatorRuntime in the state READY can not get current time point from chain"
-                    })?;
-
-                if state.current_time_point.epoch < last_time_point.epoch {
-                    // transition READY > IDLE
-                    info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
-                    self.state = AggregatorState::Idle(IdleState {
-                        current_time_point: Some(state.current_time_point),
-                    });
-                } else if let Some(open_message) = self
-                    .runner
-                    .get_current_non_certified_open_message(&last_time_point)
-                    .await
-                    .with_context(|| "AggregatorRuntime can not get the current open message")?
-                {
-                    // transition READY > SIGNING
-                    info!(self.logger, "→ Transitioning to SIGNING");
-                    let new_state = self
-                        .transition_from_ready_to_signing(last_time_point.clone(), open_message.clone())
-                        .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
-                    self.state = AggregatorState::Signing(new_state);
-                } else {
-                    // READY > READY
-                    info!(
-                        self.logger, " ⋅ No open message to certify, waiting…";
-                        "time_point" => ?state.current_time_point
-                    );
-                    self.state = AggregatorState::Ready(ReadyState {
-                        current_time_point: last_time_point,
-                    });
-                }
-            }
-            AggregatorState::Signing(state) => {
-                let last_time_point: TimePoint =
-                    self.runner.get_time_point_from_chain().await.with_context(|| {
-                        "AggregatorRuntime in the state SIGNING can not get current time point from chain"
-                    })?;
-
-                let is_outdated = self
-                    .runner
-                    .is_open_message_outdated(
-                        state.open_message.signed_entity_type.clone(),
-                        &last_time_point,
-                    )
-                    .await?;
-
-                if state.current_time_point.epoch < last_time_point.epoch {
-                    // SIGNING > IDLE
-                    info!(self.logger, "→ Epoch changed, transitioning to IDLE");
-                    let new_state = self.transition_from_signing_to_idle(state).await?;
-                    self.state = AggregatorState::Idle(new_state);
-                } else if is_outdated {
-                    // SIGNING > READY
-                    info!(
-                        self.logger,
-                        "→ Open message changed, transitioning to READY"
-                    );
-                    let new_state =
-                        self.transition_from_signing_to_ready_new_open_message(state).await?;
-                    self.state = AggregatorState::Ready(new_state);
-                } else {
-                    // SIGNING > READY
-                    let new_state =
-                        self.transition_from_signing_to_ready_multisignature(state).await?;
-                    info!(
-                        self.logger,
-                        "→ A multi-signature has been created, build an artifact & a certificate and transitioning back to READY"
-                    );
-                    self.state = AggregatorState::Ready(new_state);
-                }
-            }
-        }
-
+        self.state = next_state;
         self.runner.increment_runtime_cycle_success_since_startup_counter();
 
         Ok(())
     }
 
-    /// Perform a transition from `IDLE` state to `READY` state when
-    /// the certificate chain is valid.
-    async fn try_transition_from_idle_to_ready(
-        &mut self,
-        maybe_current_time_point: Option<TimePoint>,
-        new_time_point: TimePoint,
-    ) -> Result<(), RuntimeError> {
-        trace!(self.logger, "Trying transition from IDLE to READY state");
+    async fn cycle_idle(&self, state: &IdleState) -> Result<AggregatorState, RuntimeError> {
+        let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
+            || "AggregatorRuntime in the state IDLE can not get current time point from chain",
+        )?;
+        let last_genesis_certificate_epoch = self.runner.last_genesis_certificate_epoch().await?;
 
-        if maybe_current_time_point.is_none()
-            || maybe_current_time_point.as_ref().unwrap().epoch < new_time_point.epoch
-        {
-            self.runner.close_signer_registration_round().await?;
-            self.runner
-                .update_era_checker(new_time_point.epoch)
+        info!(
+            self.logger,
+            "→ Trying to transition to READY";
+            "last_time_point" => ?last_time_point, "last_genesis_certificate_epoch" => ?last_genesis_certificate_epoch
+        );
+
+        if self.config.is_follower {
+            self.cycle_idle_follower(state, last_time_point, last_genesis_certificate_epoch)
                 .await
-                .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner.update_stake_distribution(&new_time_point).await?;
-            self.runner.inform_new_epoch(new_time_point.epoch).await?;
-            self.runner.upkeep(new_time_point.epoch).await?;
-            self.runner.open_signer_registration_round(&new_time_point).await?;
-            if self.config.is_follower {
-                self.runner
-                    .synchronize_follower_aggregator_signer_registration()
-                    .await?;
-            }
-            self.runner.precompute_epoch_data().await?;
+        } else {
+            self.cycle_idle_leader(state, last_time_point, last_genesis_certificate_epoch)
+                .await
+        }
+    }
+
+    async fn cycle_idle_leader(
+        &self,
+        state: &IdleState,
+        last_time_point: TimePoint,
+        last_genesis_certificate_epoch: Option<Epoch>,
+    ) -> Result<AggregatorState, RuntimeError> {
+        let chain_validity_result = self
+            .run_common_idle_transition_tasks(
+                state,
+                &last_time_point,
+                last_genesis_certificate_epoch,
+            )
+            .await?;
+
+        self.transition_from_idle(
+            last_time_point,
+            last_genesis_certificate_epoch,
+            chain_validity_result,
+        )
+    }
+
+    async fn cycle_idle_follower(
+        &self,
+        state: &IdleState,
+        last_time_point: TimePoint,
+        last_genesis_certificate_epoch: Option<Epoch>,
+    ) -> Result<AggregatorState, RuntimeError> {
+        let can_transition_from_idle_to_ready = self
+            .runner
+            .is_follower_aggregator_at_same_epoch_as_leader(&last_time_point)
+            .await?;
+
+        if !can_transition_from_idle_to_ready {
+            return Ok(AggregatorState::Idle(state.clone()));
         }
 
         let chain_validity_result = self
-            .runner
-            .is_certificate_chain_valid(&new_time_point)
+            .run_common_idle_transition_tasks(
+                state,
+                &last_time_point,
+                last_genesis_certificate_epoch,
+            )
             .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: "certificate chain is invalid".to_string(),
-                nested_error: e.into(),
-            });
+            .inspect_err(|err| {
+                warn!(self.logger, " ⋅ Epoch gap detected, forcing follower synchronization"; "error" => ?err);
+            })?;
+
+        let force_sync = chain_validity_result.is_err();
+        // Synchronization also checks the remote certificate chain (to avoid storing an invalid chain)
+        let chain_validity_result = self
+            .runner
+            .synchronize_follower_aggregator_certificate_chain(&last_time_point, force_sync)
+            .await;
+        // Refetch last genesis certificate epoch after synchronization
+        let last_genesis_certificate_epoch = self.runner.last_genesis_certificate_epoch().await?;
+
+        self.transition_from_idle(
+            last_time_point,
+            last_genesis_certificate_epoch,
+            chain_validity_result,
+        )
+    }
+
+    async fn cycle_blocked(&self, state: &BlockedState) -> Result<AggregatorState, RuntimeError> {
+        let last_time_point: TimePoint =
+            self.runner.get_time_point_from_chain().await.with_context(
+                || "AggregatorRuntime in the state BLOCKED can not get current time point from chain",
+            )?;
+
+        if state.blocked_since_time_point.epoch < last_time_point.epoch {
+            // transition Blocked > IDLE
+            info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
+
+            Ok(AggregatorState::Idle(IdleState {
+                current_time_point: Some(state.blocked_since_time_point.clone()),
+            }))
+        } else {
+            Ok(AggregatorState::Blocked(state.clone()))
+        }
+    }
+
+    async fn cycle_ready(&self, state: &ReadyState) -> Result<AggregatorState, RuntimeError> {
+        let last_time_point: TimePoint =
+            self.runner.get_time_point_from_chain().await.with_context(
+                || "AggregatorRuntime in the state READY can not get current time point from chain",
+            )?;
+
+        if state.current_time_point.epoch < last_time_point.epoch {
+            // transition READY > IDLE
+            info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
+
+            // Keep the time point from the previous epoch so the next IDLE cycle detects
+            // the epoch change and runs epoch initialization tasks.
+            Ok(AggregatorState::Idle(IdleState {
+                current_time_point: Some(state.current_time_point.clone()),
+            }))
+        } else if let Some(open_message) = self
+            .runner
+            .get_current_non_certified_open_message(&last_time_point)
+            .await
+            .with_context(|| "AggregatorRuntime can not get the current open message")?
+        {
+            // transition READY > SIGNING
+            info!(self.logger, "→ Transitioning to SIGNING");
+            let new_state = self
+                .transition_from_ready_to_signing(last_time_point.clone(), open_message.clone())
+                .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
+
+            Ok(AggregatorState::Signing(new_state))
+        } else {
+            // READY > READY
+            info!(
+                self.logger, " ⋅ No open message to certify, waiting…";
+                "time_point" => ?state.current_time_point
+            );
+
+            Ok(AggregatorState::Ready(ReadyState {
+                current_time_point: last_time_point,
+            }))
+        }
+    }
+
+    async fn cycle_signing(&self, state: &SigningState) -> Result<AggregatorState, RuntimeError> {
+        let last_time_point: TimePoint =
+            self.runner.get_time_point_from_chain().await.with_context(|| {
+                "AggregatorRuntime in the state SIGNING can not get current time point from chain"
+            })?;
+
+        let is_outdated = self
+            .runner
+            .is_open_message_outdated(
+                state.open_message.signed_entity_type.clone(),
+                &last_time_point,
+            )
+            .await?;
+
+        if state.current_time_point.epoch < last_time_point.epoch {
+            // SIGNING > IDLE
+            info!(self.logger, "→ Epoch changed, transitioning to IDLE");
+            let new_state = self.transition_from_signing_to_idle(state).await?;
+            Ok(AggregatorState::Idle(new_state))
+        } else if is_outdated {
+            // SIGNING > READY
+            info!(
+                self.logger,
+                "→ Open message changed, transitioning to READY"
+            );
+            let new_state = self.transition_from_signing_to_ready_new_open_message(state).await?;
+            Ok(AggregatorState::Ready(new_state))
+        } else {
+            // SIGNING > READY
+            let new_state = self.transition_from_signing_to_ready_multisignature(state).await?;
+            info!(
+                self.logger,
+                "→ A multi-signature has been created, build an artifact & a certificate and transitioning back to READY"
+            );
+            Ok(AggregatorState::Ready(new_state))
+        }
+    }
+
+    /// Execute tasks that must be run once in an epoch.
+    async fn execute_epoch_initialization_tasks(
+        &self,
+        new_time_point: &TimePoint,
+    ) -> Result<(), RuntimeError> {
+        trace!(self.logger, "Trying transition from IDLE to READY state");
+
+        self.runner.close_signer_registration_round().await?;
+        self.runner
+            .update_era_checker(new_time_point.epoch)
+            .await
+            .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
+        self.runner.update_stake_distribution(new_time_point).await?;
+        self.runner.inform_new_epoch(new_time_point.epoch).await?;
+        self.runner.upkeep(new_time_point.epoch).await?;
+        self.runner.open_signer_registration_round(new_time_point).await?;
         if self.config.is_follower {
-            let force_sync = chain_validity_result.is_err();
             self.runner
-                .synchronize_follower_aggregator_certificate_chain(force_sync)
+                .synchronize_follower_aggregator_signer_registration()
                 .await?;
         }
-        chain_validity_result?;
 
         Ok(())
     }
 
-    /// Perform a transition from `SIGNING` state to `READY` state when a new
-    /// multi-signature is issued.
+    /// Run tasks for the idle transition shared by the leader and the follower
+    ///
+    /// Returns the result of the chain validity check.
+    async fn run_common_idle_transition_tasks(
+        &self,
+        state: &IdleState,
+        last_time_point: &TimePoint,
+        last_genesis_certificate_epoch: Option<Epoch>,
+    ) -> Result<StdResult<()>, RuntimeError> {
+        if state.should_run_epoch_initialization_tasks(last_time_point) {
+            self.execute_epoch_initialization_tasks(last_time_point).await?;
+
+            // We can't precompute epoch data if there's no genesis yet or the genesis was issued in
+            // the actual epoch
+            if last_genesis_certificate_epoch
+                .is_some_and(|genesis_epoch| genesis_epoch < last_time_point.epoch)
+            {
+                self.runner.precompute_epoch_data().await?;
+            }
+        }
+
+        if last_genesis_certificate_epoch.is_none() {
+            // No genesis means no chain to validate
+            Ok(Ok(()))
+        } else {
+            Ok(self.runner.is_certificate_chain_valid(last_time_point).await)
+        }
+    }
+
+    fn transition_from_idle(
+        &self,
+        last_time_point: TimePoint,
+        last_genesis_certificate_epoch: Option<Epoch>,
+        chain_validity_result: StdResult<()>,
+    ) -> Result<AggregatorState, RuntimeError> {
+        if let Err(error) = chain_validity_result {
+            match error.downcast_ref::<CertificateEpochGap>() {
+                Some(epoch_gap_error) => {
+                    info!(
+                        self.logger, "→ Epoch gap detected, transitioning to Blocked(epoch-gap)";
+                        "epoch_of_last_certificate" => ?epoch_gap_error.certificate_epoch
+                    );
+                    Ok(AggregatorState::Blocked(BlockedState {
+                        blocked_since_time_point: last_time_point,
+                        reason: BlockedReason::EpochGap {
+                            epoch_of_last_certificate: epoch_gap_error.certificate_epoch,
+                        },
+                    }))
+                }
+                _ => Err(RuntimeError::keep_state(
+                    "certificate chain is invalid",
+                    Some(error),
+                )),
+            }
+        } else if let Some(genesis_epoch) = last_genesis_certificate_epoch
+            && genesis_epoch == last_time_point.epoch
+        {
+            info!(
+                self.logger,
+                "→ Still in the epoch of the genesis certificate, transitioning to Blocked(genesis-epoch)"
+            );
+            Ok(AggregatorState::Blocked(BlockedState {
+                blocked_since_time_point: last_time_point,
+                reason: BlockedReason::GenesisEpoch,
+            }))
+        } else if last_genesis_certificate_epoch.is_none() {
+            info!(
+                self.logger,
+                "→ No genesis certificate detected, transitioning to Blocked(no-genesis)"
+            );
+            Ok(AggregatorState::Blocked(BlockedState {
+                blocked_since_time_point: last_time_point,
+                reason: BlockedReason::NoGenesis,
+            }))
+        } else {
+            Ok(AggregatorState::Ready(ReadyState {
+                current_time_point: last_time_point,
+            }))
+        }
+    }
+
+    /// Perform a transition from the ` SIGNING ` state to the ` READY ` state when
+    /// a new multi-signature is issued.
     async fn transition_from_signing_to_ready_multisignature(
         &self,
-        state: SigningState,
+        state: &SigningState,
     ) -> Result<ReadyState, RuntimeError> {
         trace!(
             self.logger,
@@ -323,31 +516,33 @@ impl AggregatorRuntime {
             })?;
 
         Ok(ReadyState {
-            current_time_point: state.current_time_point,
+            current_time_point: state.current_time_point.clone(),
         })
     }
 
-    /// Perform a transition from `SIGNING` state to `IDLE` state when a new
-    /// epoch is detected.
+    /// Perform a transition from the ` SIGNING ` state to the ` IDLE ` state when
+    /// a new epoch is detected.
     async fn transition_from_signing_to_idle(
         &self,
-        state: SigningState,
+        state: &SigningState,
     ) -> Result<IdleState, RuntimeError> {
         trace!(
             self.logger,
             "Launching transition from SIGNING to IDLE state"
         );
 
+        // Keep the time point from the previous epoch so the next IDLE cycle detects
+        // the epoch change and runs epoch initialization tasks.
         Ok(IdleState {
-            current_time_point: Some(state.current_time_point),
+            current_time_point: Some(state.current_time_point.clone()),
         })
     }
 
-    /// Perform a transition from `SIGNING` state to `READY` state when a new
-    /// open message is detected.
+    /// Perform a transition from the ` SIGNING ` state to the ` READY ` state when
+    /// a new open message is detected.
     async fn transition_from_signing_to_ready_new_open_message(
         &self,
-        state: SigningState,
+        state: &SigningState,
     ) -> Result<ReadyState, RuntimeError> {
         trace!(
             self.logger,
@@ -355,14 +550,14 @@ impl AggregatorRuntime {
         );
 
         Ok(ReadyState {
-            current_time_point: state.current_time_point,
+            current_time_point: state.current_time_point.clone(),
         })
     }
 
-    /// Perform a transition from `READY` state to `SIGNING` state when a new
-    /// open message is opened.
+    /// Perform a transition from the ` READY ` state to the ` SIGNING ` state when
+    /// a new open message is opened.
     async fn transition_from_ready_to_signing(
-        &mut self,
+        &self,
         new_time_point: TimePoint,
         open_message: OpenMessage,
     ) -> Result<SigningState, RuntimeError> {
@@ -386,6 +581,7 @@ mod tests {
     use mockall::predicate;
     use std::time::Duration;
 
+    use mithril_common::entities::ImmutableFileNumber;
     use mithril_common::test::double::{Dummy, fake_data};
 
     use crate::entities::OpenMessage;
@@ -393,6 +589,14 @@ mod tests {
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
+
+    fn time_point(epoch: Epoch, immutable_file_number: ImmutableFileNumber) -> TimePoint {
+        TimePoint {
+            epoch,
+            immutable_file_number,
+            ..Dummy::dummy()
+        }
+    }
 
     async fn init_runtime(
         init_state: Option<AggregatorState>,
@@ -409,53 +613,73 @@ mod tests {
         .unwrap()
     }
 
+    fn configure_get_time_point_from_chain(
+        runner: &mut MockAggregatorRunner,
+        time_point: &TimePoint,
+    ) {
+        let time_point = time_point.clone();
+        runner
+            .expect_get_time_point_from_chain()
+            .once()
+            .returning(move || Ok(time_point.clone()));
+    }
+
+    fn configure_runner_for_epoch_initialization_tasks(
+        runner: &mut MockAggregatorRunner,
+        time_point: &TimePoint,
+    ) {
+        runner
+            .expect_update_stake_distribution()
+            .with(predicate::eq(time_point.clone()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_close_signer_registration_round()
+            .once()
+            .returning(|| Ok(()));
+        runner
+            .expect_open_signer_registration_round()
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_era_checker()
+            .with(predicate::eq(time_point.epoch))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_inform_new_epoch()
+            .with(predicate::eq(time_point.epoch))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_upkeep()
+            .with(predicate::eq(time_point.epoch))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+    }
+
     mod leader {
         use super::*;
 
         #[tokio::test]
         pub async fn idle_check_certificate_chain_is_not_valid() {
             let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
             runner
-                .expect_get_time_point_from_chain()
+                .expect_last_genesis_certificate_epoch()
                 .once()
-                .returning(|| Ok(TimePoint::dummy()));
-            runner
-                .expect_update_stake_distribution()
-                .with(predicate::eq(TimePoint::dummy()))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_close_signer_registration_round()
-                .once()
-                .returning(|| Ok(()));
-            runner
-                .expect_open_signer_registration_round()
-                .once()
-                .returning(|_| Ok(()));
+                .returning(|| Ok(Some(Epoch(9))));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
                 .returning(|_| Err(anyhow!("error")));
-            runner
-                .expect_update_era_checker()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_inform_new_epoch()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
-            runner
-                .expect_upkeep()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_increment_runtime_cycle_total_since_startup_counter()
-                .once()
-                .returning(|| ());
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .never();
@@ -471,53 +695,26 @@ mod tests {
             let err = runtime.cycle().await.unwrap_err();
             assert!(matches!(err, RuntimeError::KeepState { .. }));
 
-            assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("idle", runtime.state_label());
         }
 
         #[tokio::test]
-        pub async fn idle_check_certificate_chain_is_valid() {
+        pub async fn idle_check_certificate_chain_epoch_gap() {
             let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
             runner
-                .expect_get_time_point_from_chain()
+                .expect_last_genesis_certificate_epoch()
                 .once()
-                .returning(|| Ok(TimePoint::dummy()));
-            runner
-                .expect_update_stake_distribution()
-                .with(predicate::eq(TimePoint::dummy()))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_close_signer_registration_round()
-                .once()
-                .returning(|| Ok(()));
-            runner
-                .expect_open_signer_registration_round()
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_is_certificate_chain_valid()
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_update_era_checker()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_inform_new_epoch()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
+                .returning(|| Ok(Some(Epoch(9))));
             runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
-            runner
-                .expect_upkeep()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_increment_runtime_cycle_total_since_startup_counter()
-                .once()
-                .returning(|| ());
+            runner.expect_is_certificate_chain_valid().once().returning(|_| {
+                Err(anyhow!(CertificateEpochGap {
+                    certificate_epoch: Epoch(999),
+                    current_epoch: Epoch(111),
+                }))
+            });
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -533,7 +730,220 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("blocked-epoch-gap", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_check_missing_genesis_certificate() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(None));
+            runner.expect_precompute_epoch_data().never();
+            runner.expect_is_certificate_chain_valid().never();
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-no-genesis", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_check_epoch_is_same_as_genesis_certificate() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(10))));
+            runner.expect_precompute_epoch_data().never();
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-genesis-epoch", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_remain_if_genesis_epoch_but_chain_verification_fail() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(10))));
+            runner.expect_precompute_epoch_data().never();
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Err(anyhow!("error")));
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .never();
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            let err = runtime.cycle().await.unwrap_err();
+            assert!(matches!(err, RuntimeError::KeepState { .. }));
+
+            assert_eq!("idle", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_check_certificate_chain_is_valid() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(9))));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("ready", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn blocked_new_epoch_detected() {
+            for reason in [
+                BlockedReason::NoGenesis,
+                BlockedReason::GenesisEpoch,
+                BlockedReason::EpochGap {
+                    epoch_of_last_certificate: Epoch(999),
+                },
+            ] {
+                let mut runner = MockAggregatorRunner::new();
+                let time_point = TimePoint::dummy();
+                let new_time_point = TimePoint {
+                    epoch: time_point.epoch + 1,
+                    ..time_point.clone()
+                };
+                configure_get_time_point_from_chain(&mut runner, &new_time_point);
+                runner
+                    .expect_increment_runtime_cycle_total_since_startup_counter()
+                    .once()
+                    .returning(|| ());
+                runner
+                    .expect_increment_runtime_cycle_success_since_startup_counter()
+                    .once()
+                    .returning(|| ());
+
+                let mut runtime = init_runtime(
+                    Some(AggregatorState::Blocked(BlockedState {
+                        blocked_since_time_point: time_point,
+                        reason,
+                    })),
+                    runner,
+                    false,
+                )
+                .await;
+                runtime.cycle().await.unwrap();
+
+                assert_eq!("idle", runtime.state_label());
+            }
+        }
+
+        #[tokio::test]
+        pub async fn blocked_state_remains_if_no_epoch_change() {
+            for reason in [
+                BlockedReason::NoGenesis,
+                BlockedReason::GenesisEpoch,
+                BlockedReason::EpochGap {
+                    epoch_of_last_certificate: Epoch(999),
+                },
+            ] {
+                let mut runner = MockAggregatorRunner::new();
+                let time_point = TimePoint::dummy();
+                let new_time_point = TimePoint {
+                    immutable_file_number: time_point.immutable_file_number + 1,
+                    ..time_point.clone()
+                };
+                configure_get_time_point_from_chain(&mut runner, &new_time_point);
+                runner
+                    .expect_increment_runtime_cycle_total_since_startup_counter()
+                    .once()
+                    .returning(|| ());
+                runner
+                    .expect_increment_runtime_cycle_success_since_startup_counter()
+                    .once()
+                    .returning(|| ());
+
+                let mut runtime = init_runtime(
+                    Some(AggregatorState::Blocked(BlockedState {
+                        blocked_since_time_point: time_point,
+                        reason,
+                    })),
+                    runner,
+                    false,
+                )
+                .await;
+                runtime.cycle().await.unwrap();
+
+                assert!(
+                    runtime.state_label().starts_with("blocked-"),
+                    "state label: {}",
+                    runtime.state_label()
+                );
+            }
         }
 
         #[tokio::test]
@@ -544,10 +954,7 @@ mod tests {
                 epoch: time_point.epoch + 1,
                 ..time_point.clone()
             };
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(move || Ok(new_time_point.clone()));
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
             runner
                 .expect_increment_runtime_cycle_total_since_startup_counter()
                 .once()
@@ -566,22 +973,19 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("idle", runtime.state_label());
         }
 
         #[tokio::test]
         pub async fn ready_open_message_not_exist() {
             let mut runner = MockAggregatorRunner::new();
-            let time_point = TimePoint::dummy();
+            let time_point = time_point(Epoch(10), 100);
             let next_time_point = TimePoint {
                 immutable_file_number: time_point.immutable_file_number + 1,
                 ..time_point.clone()
             };
             let expected_time_point = next_time_point.clone();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(move || Ok(next_time_point.clone()));
+            configure_get_time_point_from_chain(&mut runner, &next_time_point);
             runner
                 .expect_get_current_non_certified_open_message()
                 .once()
@@ -604,7 +1008,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
             assert_eq!(
                 AggregatorState::Ready(ReadyState {
                     current_time_point: expected_time_point,
@@ -616,10 +1020,8 @@ mod tests {
         #[tokio::test]
         pub async fn ready_certificate_does_not_exist_for_time_point() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_get_current_non_certified_open_message()
                 .once()
@@ -641,7 +1043,7 @@ mod tests {
 
             let mut runtime = init_runtime(
                 Some(AggregatorState::Ready(ReadyState {
-                    current_time_point: TimePoint::dummy(),
+                    current_time_point: time_point,
                 })),
                 runner,
                 false,
@@ -649,16 +1051,14 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("signing".to_string(), runtime.get_state());
+            assert_eq!("signing", runtime.state_label());
         }
 
         #[tokio::test]
         async fn signing_changing_open_message_to_ready() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_is_open_message_outdated()
                 .once()
@@ -673,23 +1073,21 @@ mod tests {
                 .returning(|| ());
 
             let initial_state = AggregatorState::Signing(SigningState {
-                current_time_point: TimePoint::dummy(),
+                current_time_point: time_point,
                 open_message: OpenMessage::dummy(),
             });
 
             let mut runtime = init_runtime(Some(initial_state), runner, false).await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
         }
 
         #[tokio::test]
         async fn signing_certificate_is_not_created() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_is_open_message_outdated()
                 .once()
@@ -703,7 +1101,7 @@ mod tests {
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .never();
             let state = SigningState {
-                current_time_point: TimePoint::dummy(),
+                current_time_point: time_point,
                 open_message: OpenMessage::dummy(),
             };
             let mut runtime =
@@ -718,16 +1116,14 @@ mod tests {
                 _ => panic!("KeepState error expected, got {err:?}."),
             };
 
-            assert_eq!("signing".to_string(), runtime.get_state());
+            assert_eq!("signing", runtime.state_label());
         }
 
         #[tokio::test]
         async fn signing_artifact_not_created() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_is_open_message_outdated()
                 .once()
@@ -747,7 +1143,7 @@ mod tests {
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .never();
             let state = SigningState {
-                current_time_point: TimePoint::dummy(),
+                current_time_point: time_point,
                 open_message: OpenMessage::dummy(),
             };
             let mut runtime =
@@ -762,16 +1158,14 @@ mod tests {
                 _ => panic!("ReInit error expected, got {err:?}."),
             };
 
-            assert_eq!("signing".to_string(), runtime.get_state());
+            assert_eq!("signing", runtime.state_label());
         }
 
         #[tokio::test]
         async fn signing_certificate_is_created() {
             let mut runner = MockAggregatorRunner::new();
-            runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(|| Ok(TimePoint::dummy()));
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
                 .expect_is_open_message_outdated()
                 .once()
@@ -790,32 +1184,25 @@ mod tests {
                 .returning(|| ());
 
             let state = SigningState {
-                current_time_point: TimePoint::dummy(),
+                current_time_point: time_point,
                 open_message: OpenMessage::dummy(),
             };
             let mut runtime =
                 init_runtime(Some(AggregatorState::Signing(state)), runner, false).await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
         }
 
         #[tokio::test]
         pub async fn critical_error() {
             let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
             runner
-                .expect_get_time_point_from_chain()
+                .expect_last_genesis_certificate_epoch()
                 .once()
-                .returning(|| Ok(TimePoint::dummy()));
-            runner
-                .expect_update_era_checker()
-                .with(predicate::eq(TimePoint::dummy().epoch))
-                .once()
-                .returning(|_| Err(anyhow!("ERROR")));
-            runner
-                .expect_close_signer_registration_round()
-                .once()
-                .returning(|| Ok(()));
+                .returning(|| Err(anyhow!("ERROR")));
             runner
                 .expect_increment_runtime_cycle_total_since_startup_counter()
                 .once()
@@ -834,7 +1221,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap_err();
 
-            assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("idle", runtime.state_label());
         }
     }
 
@@ -844,17 +1231,63 @@ mod tests {
         use super::*;
 
         #[tokio::test]
+        pub async fn idle_no_epoch_and_leader_have_same_chain() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            configure_get_time_point_from_chain(&mut runner, &time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .times(2)
+                .returning(|| Ok(Some(Epoch(9))));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
+            runner
+                .expect_is_follower_aggregator_at_same_epoch_as_leader()
+                .once()
+                .returning(|_| Ok(true));
+            runner
+                .expect_synchronize_follower_aggregator_signer_registration()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_synchronize_follower_aggregator_certificate_chain()
+                .once()
+                .with(eq(time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                true,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("ready", runtime.state_label());
+        }
+
+        #[tokio::test]
         pub async fn idle_new_epoch_detected_and_leader_not_transitioned_to_epoch() {
             let mut runner = MockAggregatorRunner::new();
-            let time_point = TimePoint::dummy();
+            let time_point = time_point(Epoch(10), 100);
             let new_time_point = TimePoint {
                 epoch: time_point.epoch + 1,
                 ..time_point.clone()
             };
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
             runner
-                .expect_get_time_point_from_chain()
+                .expect_last_genesis_certificate_epoch()
                 .once()
-                .returning(move || Ok(new_time_point.clone()));
+                .returning(|| Ok(Some(Epoch(9))));
             runner
                 .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
@@ -877,43 +1310,32 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("idle", runtime.state_label());
         }
 
         #[tokio::test]
         pub async fn idle_new_epoch_detected_and_leader_has_transitioned_to_epoch() {
             let mut runner = MockAggregatorRunner::new();
-            let time_point = TimePoint::dummy();
+            let time_point = time_point(Epoch(10), 100);
             let new_time_point = TimePoint {
                 epoch: time_point.epoch + 1,
                 ..time_point.clone()
             };
-            let new_time_point_clone = new_time_point.clone();
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &new_time_point);
             runner
-                .expect_get_time_point_from_chain()
-                .once()
-                .returning(move || Ok(new_time_point.clone()));
+                .expect_last_genesis_certificate_epoch()
+                .times(2)
+                .returning(|| Ok(Some(Epoch(9))));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
                 .returning(|_| Ok(true));
             runner
-                .expect_update_stake_distribution()
-                .with(predicate::eq(new_time_point_clone.clone()))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_close_signer_registration_round()
-                .once()
-                .returning(|| Ok(()));
-            runner
                 .expect_synchronize_follower_aggregator_signer_registration()
                 .once()
                 .returning(|| Ok(()));
-            runner
-                .expect_open_signer_registration_round()
-                .once()
-                .returning(|_| Ok(()));
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
@@ -921,28 +1343,8 @@ mod tests {
             runner
                 .expect_synchronize_follower_aggregator_certificate_chain()
                 .once()
-                .with(eq(false)) // Certificate chain valid so force_sync must be false
-                .returning(|_| Ok(()));
-            runner
-                .expect_update_era_checker()
-                .with(predicate::eq(new_time_point_clone.clone().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_inform_new_epoch()
-                .with(predicate::eq(new_time_point_clone.clone().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
-            runner
-                .expect_upkeep()
-                .with(predicate::eq(new_time_point_clone.clone().epoch))
-                .once()
-                .returning(|_| Ok(()));
-            runner
-                .expect_increment_runtime_cycle_total_since_startup_counter()
-                .once()
-                .returning(|| ());
+                .with(eq(new_time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| Ok(()));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .once()
@@ -957,7 +1359,152 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_no_genesis_sync_leader_without_genesis() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            let new_time_point = TimePoint {
+                epoch: time_point.epoch + 1,
+                ..time_point.clone()
+            };
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &new_time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .times(2)
+                .returning(|| Ok(None));
+            runner
+                .expect_is_follower_aggregator_at_same_epoch_as_leader()
+                .once()
+                .returning(|_| Ok(true));
+            runner
+                .expect_synchronize_follower_aggregator_signer_registration()
+                .once()
+                .returning(|| Ok(()));
+            runner.expect_is_certificate_chain_valid().never();
+            runner
+                .expect_synchronize_follower_aggregator_certificate_chain()
+                .once()
+                .with(eq(new_time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: Some(time_point),
+                })),
+                runner,
+                true,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-no-genesis", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_no_genesis_sync_leader_with_genesis_at_current_epoch() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            let new_time_point = TimePoint {
+                epoch: time_point.epoch + 1,
+                ..time_point.clone()
+            };
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &new_time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(None));
+            // Second call used to check the synchronized genesis certificate epoch
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .once()
+                .returning(|| Ok(Some(Epoch(11))));
+            runner
+                .expect_is_follower_aggregator_at_same_epoch_as_leader()
+                .once()
+                .returning(|_| Ok(true));
+            runner
+                .expect_synchronize_follower_aggregator_signer_registration()
+                .once()
+                .returning(|| Ok(()));
+            runner.expect_is_certificate_chain_valid().never();
+            runner
+                .expect_synchronize_follower_aggregator_certificate_chain()
+                .once()
+                .with(eq(new_time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: Some(time_point),
+                })),
+                runner,
+                true,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-genesis-epoch", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_no_genesis_sync_leader_with_epoch_gap() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = time_point(Epoch(10), 100);
+            let new_time_point = TimePoint {
+                epoch: time_point.epoch + 1,
+                ..time_point.clone()
+            };
+            configure_get_time_point_from_chain(&mut runner, &new_time_point);
+            configure_runner_for_epoch_initialization_tasks(&mut runner, &new_time_point);
+            runner
+                .expect_last_genesis_certificate_epoch()
+                .times(2)
+                .returning(|| Ok(None));
+            runner
+                .expect_is_follower_aggregator_at_same_epoch_as_leader()
+                .once()
+                .returning(|_| Ok(true));
+            runner
+                .expect_synchronize_follower_aggregator_signer_registration()
+                .once()
+                .returning(|| Ok(()));
+            runner.expect_is_certificate_chain_valid().never();
+            runner
+                .expect_synchronize_follower_aggregator_certificate_chain()
+                .once()
+                .with(eq(new_time_point), eq(false)) // Certificate chain valid so force_sync must be false
+                .returning(|_, _| {
+                    Err(anyhow!(CertificateEpochGap {
+                        certificate_epoch: Epoch(999),
+                        current_epoch: Epoch(111),
+                    }))
+                });
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: Some(time_point),
+                })),
+                runner,
+                true,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-epoch-gap", runtime.state_label());
         }
     }
 }

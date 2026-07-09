@@ -60,7 +60,7 @@ async fn cardano_stake_distribution_verify_stakes() {
     );
 
     comment!("Start the runtime state machine and register signers");
-    cycle!(tester, "ready");
+    cycle!(tester, "blocked-genesis-epoch");
     tester.register_signers(signers).await.unwrap();
 
     comment!("Increase epoch and register signers with a different stake distribution");

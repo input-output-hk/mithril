@@ -57,16 +57,15 @@ async fn open_message_expiration() {
         )
     );
 
-    comment!("Increase immutable number");
-    tester.increase_immutable_number().await.unwrap();
+    comment!("Start the runtime state machine & register signers");
+    cycle!(tester, "blocked-genesis-epoch");
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
-    comment!("start the runtime state machine");
+    comment!("Increase epoch - state machine can now go to signing");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
     cycle!(tester, "signing");
-
-    comment!("register signers");
-    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
-    cycle_err!(tester, "signing");
 
     comment!(
         "Schedule the open message for MithrilStakeDistribution to expire, and wait until it does"
@@ -119,13 +118,13 @@ async fn open_message_expiration() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Epoch(1),
+            Epoch(2),
             &signers_for_immutables
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(2, 2)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );

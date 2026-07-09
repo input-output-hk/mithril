@@ -78,7 +78,13 @@ async fn leader_signed_entity_config_propagation() {
     comment!("Bootstrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
 
-    comment!("start the runtime state machine");
+    comment!("Start the runtime state machine & register signers");
+    cycle!(tester, "blocked-genesis-epoch");
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
+
+    comment!("Epoch 2 - state machine can now go to signing");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
 
     avoid_epoch_gap_in_upcoming_epoch(&mut tester, &fixture).await;
@@ -107,7 +113,7 @@ async fn leader_signed_entity_config_propagation() {
     );
     assert_signable_discriminants_eq!(tester, SignedEntityTypeDiscriminants::all());
 
-    comment!("Epoch 2 - the signed entity should still be enabled ");
+    comment!("Epoch 3 - the signed entity should still be enabled ");
     tester.increase_epoch().await.unwrap();
     cycle!(tester, "idle");
     cycle!(tester, "ready");
