@@ -268,8 +268,9 @@ impl IvcConstraintBuilder {
         witness: &AssignedWitness,
         bases: &[NativeField],
     ) -> Result<DecodedProtocolMessageFields, Error> {
-        // digest(6) | bytes(32) | next_aggregate_verification_key(31) | bytes(44) | next_protocol_parameters(24) | bytes(32) | current_epoch(13) | bytes(8)
-        // todo: check field keywords(?)
+        // The byte ranges index the rigid protocol-message preimage assembled by
+        // `mithril-common::ProtocolMessage::rigid_preimage` (label-prefixed value segments).
+        // The next Merkle-tree commitment is the first 32 bytes of the aggregate-verification-key value.
         let next_merkle_tree_commitment_bytes =
             witness.message_preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].to_vec();
         let next_protocol_parameters_bytes =

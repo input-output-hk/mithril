@@ -9,7 +9,7 @@ use super::{
     AssignmentInstructions, CERTIFICATE_VERIFICATION_KEY_NAME, CircuitValue, ConstraintSystem,
     Error, EvaluationDomain, IVC_VERIFICATION_KEY_NAME, Layouter, NativeField,
     PublicInputInstructions, RecursiveEmulation,
-    accumulator::fixed_base_names,
+    accumulator::fixed_base_names_from_constraint_system,
     constraint_builder::IvcConstraintBuilder,
     errors::{IvcCircuitError, to_synthesis_error},
     state::{AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness},
@@ -69,11 +69,11 @@ pub(crate) fn assign_global_as_public_input(
         )?;
 
     let fixed_base_names = {
-        let mut names = fixed_base_names(
+        let mut names = fixed_base_names_from_constraint_system(
             CERTIFICATE_VERIFICATION_KEY_NAME,
             certificate_circuit_constraint_system,
         );
-        names.extend(fixed_base_names(
+        names.extend(fixed_base_names_from_constraint_system(
             IVC_VERIFICATION_KEY_NAME,
             ivc_circuit_constraint_system,
         ));

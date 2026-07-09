@@ -32,7 +32,7 @@ pub(crate) fn trivial_accumulator(fixed_base_names: &[String]) -> Accumulator<Re
 
 /// Returns the fixed bases of a verifying key (including the `com_instance` entry) together with
 /// their names.
-pub(crate) fn fixed_bases_and_names(
+pub(crate) fn fixed_bases_and_names_from_verifying_key(
     vk_name: &str,
     vk: &VerifyingKey<NativeField, KZGCommitmentScheme<PairingEngine>>,
 ) -> (BTreeMap<String, EmulatedCurve>, Vec<String>) {
@@ -44,7 +44,10 @@ pub(crate) fn fixed_bases_and_names(
 }
 
 /// Returns the fixed-base names of a verifying key, derived from its constraint system.
-pub(crate) fn fixed_base_names(vk_name: &str, cs: &ConstraintSystem<NativeField>) -> Vec<String> {
+pub(crate) fn fixed_base_names_from_constraint_system(
+    vk_name: &str,
+    cs: &ConstraintSystem<NativeField>,
+) -> Vec<String> {
     let mut fixed_base_names = vec![String::from("com_instance")];
     fixed_base_names.extend(verifier::fixed_base_names::<RecursiveEmulation>(
         vk_name,

@@ -11,7 +11,7 @@ use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
 use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{CircuitMerkleTreeLeaf, CircuitWitnessEntry};
-use crate::circuits::halo2_ivc::accumulator::fixed_bases_and_names;
+use crate::circuits::halo2_ivc::accumulator::fixed_bases_and_names_from_verifying_key;
 use crate::circuits::halo2_ivc::protocol_message::{
     DynamicProtocolMessagePartKey, ProtocolMessage,
 };
@@ -184,7 +184,7 @@ fn build_certificate_asset_data_inner(
         certificate_relation,
         certificate_verifying_key.midnight_vk(),
     );
-    let (certificate_fixed_bases, _) = fixed_bases_and_names(
+    let (certificate_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
         CERTIFICATE_VERIFICATION_KEY_NAME,
         certificate_verifying_key.as_ref(),
     );
