@@ -38,8 +38,8 @@ impl NonRecursiveCircuitVerifyingKey {
 
     #[cfg(test)]
     /// Returns the circuit degree using the underlying `MidnightVK`
-    pub(crate) fn circuit_degree(&self) -> u8 {
-        self.midnight_vk().k()
+    pub(crate) fn circuit_degree(&self) -> u32 {
+        self.midnight_vk().vk().get_domain().k()
     }
 }
 

@@ -813,10 +813,16 @@ mod tests {
             &ctx.certificate_verifying_key,
             &ctx.recursive_verifying_key,
         );
+        // negate every fixed base: KZG opening check still passes, accumulator pairing breaks
+        let wrong_fixed_bases = ctx
+            .combined_fixed_bases
+            .into_iter()
+            .map(|(name, base)| (name, -base))
+            .collect();
         let verifier_setup = IvcVerifierSetup::from_parts(
             ctx.verifier_params,
             ctx.recursive_verifying_key,
-            ctx.combined_fixed_bases,
+            wrong_fixed_bases,
         );
 
         let proof = IvcProof::<blake2b_simd::State>::new(
@@ -827,11 +833,12 @@ mod tests {
 
         let err = proof
             .verify(&STEP_OUTPUT_MSG, &global, &verifier_setup)
-            .expect_err("wrong tau_g2 should cause the accumulator pairing check to fail");
+            .expect_err("wrong fixed bases should cause the accumulator pairing check to fail");
+
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
             Some(&IvcProofError::AccumulatorFailed),
-            "wrong tau_g2 must fail the accumulator check (not the KZG check), got: {err}"
+            "wrong fixed bases must fail the accumulator check (not the KZG check), got: {err}"
         );
     }
 

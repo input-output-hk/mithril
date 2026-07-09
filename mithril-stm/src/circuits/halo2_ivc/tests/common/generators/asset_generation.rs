@@ -899,3 +899,25 @@ fn generate_recursive_step_output_accumulator_bytes_only() {
         .unwrap_or_else(|e| panic!("failed to write accumulator bytes to {path:?}: {e}"));
     println!("wrote {} bytes to {path:?}", bytes.len());
 }
+
+#[test]
+#[ignore]
+fn generate_recursive_proof_accumulator_bytes_only() {
+    use crate::circuits::halo2_ivc::{
+        io::Write as IvcWrite,
+        tests::common::helpers::build_unextracted_recursive_proof_accumulator_from_assets,
+    };
+    use midnight_proofs::utils::SerdeFormat;
+
+    let (accumulator, _) = build_unextracted_recursive_proof_accumulator_from_assets();
+    let mut bytes = Vec::new();
+    accumulator
+        .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
+        .expect("accumulator serialization should succeed");
+    let path = AssetPaths::default()
+        .verification_context
+        .with_file_name("recursive_proof_accumulator_bytes.bin");
+    std::fs::write(&path, &bytes)
+        .unwrap_or_else(|e| panic!("failed to write accumulator bytes to {path:?}: {e}"));
+    println!("wrote {} bytes to {path:?}", bytes.len());
+}

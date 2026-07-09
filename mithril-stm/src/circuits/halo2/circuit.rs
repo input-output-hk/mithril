@@ -480,11 +480,10 @@ mod non_recursive_circuit_degree_correctness {
             m: 10,
             phi_f: 0.2,
         };
-        let merkle_tree_depth = 10;
+        let merkle_tree_depth = 11;
 
         let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth).unwrap();
         let circuit_cost = zk::cost_model(&circuit, None);
-
         assert_eq!(circuit_cost.k, SMALL_CERTIFICATE_CIRCUIT_DEGREE);
 
         let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth + 1).unwrap();
