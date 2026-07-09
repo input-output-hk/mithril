@@ -17,7 +17,7 @@ const config = {
   onBrokenLinks: "throw",
   markdown: {
     hooks: {
-      onBrokenMarkdownLinks: 'warn',
+      onBrokenMarkdownLinks: "warn",
     },
   },
   favicon: "img/mithril-logo.svg",
