@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.49 (07-10-2026)
+
+### Changed
+
+- Refactored the recursive (IVC) circuit for modularity: extracted reusable gadgets (genesis Schnorr, byte-combination) into a new `gadgets` module, moved the witness/public-input assignment and off-circuit accumulator helpers into dedicated modules, and decomposed the state transition into named helpers
+- Renamed the circuit's `IvcGadget` to `IvcConstraintBuilder`
+- Documented the recursive circuit's constraint builder, gadgets, and instance columns
+
 ## 0.10.47 (07-08-2026)
 
 ### Changed
