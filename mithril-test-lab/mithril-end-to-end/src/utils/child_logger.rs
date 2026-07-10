@@ -1,8 +1,10 @@
+use std::pin::Pin;
 use std::process::ExitStatus;
+use std::task::Poll;
 use std::time::Duration;
 
 use slog::{Logger, info};
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncRead, AsyncReadExt, ReadBuf};
 use tokio::process::Child;
 use tokio::time::timeout;
 
@@ -11,10 +13,12 @@ use mithril_common::StdResult;
 /// Timeout for joining the output forwarder thread, to avoid potential deadlocks.
 const OUTPUT_FORWARDER_JOIN_TIMEOUT: Duration = Duration::from_millis(500);
 
+const OUTPUT_READ_BUFFER_SIZE: usize = 8 * 1024;
+
 /// Extension trait over a spawned [tokio Child][Child] to forward its output to a [slog Logger][Logger].
 #[async_trait::async_trait]
 pub trait ChildLoggerExt {
-    /// Run the child to completion, forwarding its stdout/stderr to `logger` line by line.
+    /// Run the child to completion, forwarding its stdout/stderr to `logger`.
     ///
     /// The child must have been spawned with `stdout(Stdio::piped())` and `stderr(Stdio::piped())`,
     /// otherwise the corresponding stream is simply ignored.
@@ -27,7 +31,7 @@ pub trait ChildLoggerExt {
         context: &str,
     ) -> StdResult<ExitStatus>;
 
-    /// Run the child to completion, forwarding its stdout/stderr to `slog_scope` global logger line by line.
+    /// Run the child to completion, forwarding its stdout/stderr to `slog_scope` global logger.
     ///
     /// The child must have been spawned with `stdout(Stdio::piped())` and `stderr(Stdio::piped())`,
     /// otherwise the corresponding stream is simply ignored.
@@ -48,10 +52,7 @@ impl ChildLoggerExt for Child {
             let logger = logger.clone();
             let context = context.to_owned();
             tokio::spawn(async move {
-                let mut lines = BufReader::new(stdout).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    info!(logger, "{line}"; "context" => &context, "stream" => "stdout");
-                }
+                forward_output_to_slog(stdout, &logger, &context, "stdout").await;
             })
         });
 
@@ -59,10 +60,7 @@ impl ChildLoggerExt for Child {
             let logger = logger.clone();
             let context = context.to_owned();
             tokio::spawn(async move {
-                let mut lines = BufReader::new(stderr).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    info!(logger, "{line}"; "context" => &context, "stream" => "stderr");
-                }
+                forward_output_to_slog(stderr, &logger, &context, "stderr").await;
             })
         });
 
@@ -84,6 +82,73 @@ impl ChildLoggerExt for Child {
     async fn wait_forwarding_output_to_slog_scope(self, context: &str) -> StdResult<ExitStatus> {
         self.wait_forwarding_output_to_slog(&slog_scope::logger(), context)
             .await
+    }
+}
+
+/// Forward an asynchronous output stream to a slog logger.
+///
+/// The stream is read in batches:
+/// - waits for at least one chunk of data;
+/// - immediately drains any additional data already available;
+/// - logs the collected batch with the given `context` and `stream_name`.
+///
+/// The function stops when the stream reaches EOF or when a read error occurs.
+/// Read errors are ignored and are not logged.
+async fn forward_output_to_slog<R>(
+    mut stream: R,
+    logger: &Logger,
+    context: &str,
+    stream_name: &'static str,
+) where
+    R: AsyncRead + Unpin,
+{
+    let mut pending_logs: Vec<u8> = Vec::with_capacity(OUTPUT_READ_BUFFER_SIZE);
+    let mut first_chunk_buffer = vec![0; OUTPUT_READ_BUFFER_SIZE];
+    let mut immediate_buffer = vec![0; OUTPUT_READ_BUFFER_SIZE];
+
+    loop {
+        pending_logs.clear();
+
+        // Wait for the first chunk of the next burst.
+        let bytes_read: usize = match stream.read(&mut first_chunk_buffer).await {
+            Ok(0) => break,
+            Ok(bytes_read) => bytes_read,
+            Err(_) => break,
+        };
+
+        pending_logs.extend_from_slice(&first_chunk_buffer[..bytes_read]);
+
+        // Drain whatever is immediately available
+        loop {
+            let read_result = std::future::poll_fn(|cx| {
+                let mut read_buf = ReadBuf::new(&mut immediate_buffer);
+
+                match Pin::new(&mut stream).poll_read(cx, &mut read_buf) {
+                    Poll::Ready(Ok(())) => Poll::Ready(Ok(read_buf.filled().len())),
+                    Poll::Ready(Err(error)) => Poll::Ready(Err(error)),
+                    // No more data immediately available meaning the end of the current batch
+                    Poll::Pending => Poll::Ready(Ok(0)),
+                }
+            })
+            .await;
+
+            match read_result {
+                Ok(0) => break,
+                Ok(bytes_read) => pending_logs.extend_from_slice(&immediate_buffer[..bytes_read]),
+                Err(_) => break,
+            }
+        }
+
+        log_output_batch(logger, context, stream_name, &pending_logs);
+    }
+}
+
+fn log_output_batch(logger: &Logger, context: &str, stream_name: &'static str, output: &[u8]) {
+    let output = String::from_utf8_lossy(output);
+    let output = output.trim_end_matches(['\r', '\n']);
+
+    if !output.is_empty() {
+        info!(logger, "{output}"; "context" => context, "stream" => stream_name);
     }
 }
 

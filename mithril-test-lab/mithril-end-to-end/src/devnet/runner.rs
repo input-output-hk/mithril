@@ -146,7 +146,8 @@ impl Devnet {
 
         bootstrap_command
             .current_dir(&bootstrap_args.devnet_scripts_dir)
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .kill_on_drop(true);
 
         info!("Bootstrapping the Devnet"; "script" => &bootstrap_script_path.display());
@@ -154,7 +155,7 @@ impl Devnet {
         let exit_status = bootstrap_command
             .spawn()
             .with_context(|| format!("{bootstrap_script} failed to start"))?
-            .wait()
+            .wait_forwarding_output_to_slog_scope(bootstrap_script)
             .await
             .with_context(|| format!("{bootstrap_script} failed to run"))?;
         match exit_status.code() {
