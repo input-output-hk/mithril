@@ -178,7 +178,7 @@ pub(crate) mod tests {
         circuits::halo2_ivc::{
             PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
             PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PREIMAGE_SIZE,
-            state::trivial_acc,
+            accumulator::trivial_accumulator,
             types::{EpochNumber, IvcProofBytes, ProtocolParametersHash, StepCounter},
         },
         signature_scheme::{BaseFieldElement, SchnorrSigningKey, StandardSchnorrSignature},
@@ -212,7 +212,7 @@ pub(crate) mod tests {
                 current_epoch,
             ),
             IvcProofBytes::empty(),
-            trivial_acc(&[]),
+            trivial_accumulator(&[]),
             build_signature(),
         )
     }

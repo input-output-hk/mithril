@@ -13,8 +13,9 @@ use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, EmulatedCurve, NativeField, PairingEngine,
     RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation,
+    accumulator::trivial_accumulator,
     circuit::IvcCircuitData,
-    state::{Global, State, Witness, trivial_acc},
+    state::{Global, State, Witness},
     types::{CertificateProofBytes, IvcProofBytes},
 };
 
@@ -68,7 +69,7 @@ pub(crate) fn build_mock_prover_setup_from_assets(setup: &AssetGenerationSetup) 
         global,
         certificate_verifying_key: context.certificate_verifying_key,
         recursive_verifying_key: context.recursive_verifying_key,
-        trivial_accumulator: trivial_acc(&fixed_base_names),
+        trivial_accumulator: trivial_accumulator(&fixed_base_names),
     }
 }
 

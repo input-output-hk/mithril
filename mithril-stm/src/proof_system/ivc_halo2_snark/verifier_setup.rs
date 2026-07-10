@@ -17,7 +17,8 @@ use crate::{
         halo2::keys::NonRecursiveCircuitVerifyingKey,
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
-            keys::RecursiveCircuitVerifyingKey, state::fixed_bases_and_names, types::MessageHash,
+            accumulator::fixed_bases_and_names_from_verifying_key,
+            keys::RecursiveCircuitVerifyingKey, types::MessageHash,
         },
     },
     codec,
@@ -64,12 +65,14 @@ impl IvcVerifierSetup {
     ) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
 
-        let (certificate_fixed_bases, _) = fixed_bases_and_names(
+        let (certificate_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
             CERTIFICATE_VERIFICATION_KEY_NAME,
             certificate_verifying_key.as_ref(),
         );
-        let (ivc_fixed_bases, _) =
-            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key.as_ref());
+        let (ivc_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
+            IVC_VERIFICATION_KEY_NAME,
+            ivc_verifying_key.as_ref(),
+        );
         let mut combined_fixed_bases = certificate_fixed_bases;
         combined_fixed_bases.extend(ivc_fixed_bases);
 

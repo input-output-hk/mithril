@@ -14,8 +14,9 @@ use crate::{
         halo2::types::CircuitBase,
         halo2_ivc::{
             AssignedAccumulator, ProtocolMessagePreimage,
+            accumulator::trivial_accumulator,
             errors::{EpochTransitionErrorKind, IvcCircuitError},
-            state::{Global, State, trivial_acc},
+            state::{Global, State},
             types::{IvcProofBytes, StepCounter},
         },
     },
@@ -69,7 +70,7 @@ impl IvcRollingState {
         Self {
             state: State::genesis(),
             ivc_proof: IvcProofBytes::empty(),
-            accumulator: trivial_acc(fixed_base_names),
+            accumulator: trivial_accumulator(fixed_base_names),
             genesis_signature,
         }
     }

@@ -21,12 +21,12 @@ use crate::{
         halo2::{keys::NonRecursiveCircuitVerifyingKey, types::CircuitBase},
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, RECURSIVE_CIRCUIT_DEGREE,
+            accumulator::fixed_bases_and_names_from_verifying_key,
             certificate_proof::verify_and_prepare_accumulator,
             keys::{
                 RecursiveCircuitKeyGenerator, RecursiveCircuitProvingKey,
                 RecursiveCircuitVerifyingKey,
             },
-            state::fixed_bases_and_names,
         },
         key_provider::KeyProvider,
         trusted_setup::TrustedSetupProvider,
@@ -84,12 +84,14 @@ impl IvcSnarkProverSetup {
             recursive_key_provider.generator().certificate_verifying_key(&srs)?;
         let (ivc_verifying_key, ivc_proving_key) = recursive_key_provider.key_pair(&srs)?;
 
-        let (certificate_fixed_bases, _) = fixed_bases_and_names(
+        let (certificate_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
             CERTIFICATE_VERIFICATION_KEY_NAME,
             certificate_verifying_key.as_ref(),
         );
-        let (ivc_fixed_bases, _) =
-            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key.as_ref());
+        let (ivc_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
+            IVC_VERIFICATION_KEY_NAME,
+            ivc_verifying_key.as_ref(),
+        );
         let mut combined_fixed_bases = certificate_fixed_bases.clone();
         combined_fixed_bases.extend(ivc_fixed_bases.clone());
 

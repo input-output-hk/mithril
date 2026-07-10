@@ -48,11 +48,13 @@ pub(crate) use midnight_proofs::{
     poly::{EvaluationDomain, kzg::KZGCommitmentScheme},
 };
 
+pub(crate) mod accumulator;
 pub(crate) mod certificate_proof;
 pub(crate) mod circuit;
 pub(crate) mod config;
+pub(crate) mod constraint_builder;
 pub(crate) mod errors;
-pub(crate) mod gadget;
+pub(crate) mod gadgets;
 pub(crate) mod io;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod key_serialization;
@@ -62,6 +64,7 @@ pub(crate) mod keys;
 pub(crate) mod protocol_message;
 pub(crate) mod state;
 pub(crate) mod types;
+pub(crate) mod witness_assignments;
 
 #[cfg(test)]
 pub(crate) mod tests;

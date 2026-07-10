@@ -14,7 +14,7 @@ use ff::Field;
 use midnight_circuits::{types::Instantiable, verifier::AssignedMsm};
 
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, RecursiveEmulation, state::trivial_acc,
+    AssignedAccumulator, RecursiveEmulation, accumulator::trivial_accumulator,
     tests::common::helpers::build_unextracted_recursive_proof_accumulator_from_assets,
 };
 
@@ -24,15 +24,15 @@ fn extract_fixed_bases_reduces_public_input_length_by_n_times_field_elements_per
     // and one scalar from the variable-base part, then adds back only one scalar
     // as a fixed-base entry. Net reduction = field_elements_per_base_point per base.
     //
-    // field_elements_per_base_point is derived from trivial_acc, which has exactly one base
+    // field_elements_per_base_point is derived from trivial_accumulator, which has exactly one base
     // and one scalar per side (left-hand side and right-hand side) with no fixed-base entries:
-    //   trivial_acc(&[]).len() == 2 * (field_elements_per_base_point + 1)
+    //   trivial_accumulator(&[]).len() == 2 * (field_elements_per_base_point + 1)
     let (mut accumulator, recursive_fixed_bases) =
         build_unextracted_recursive_proof_accumulator_from_assets();
 
     let fixed_base_count = recursive_fixed_bases.len();
     let trivial_accumulator_encoding_length =
-        AssignedAccumulator::as_public_input(&trivial_acc(&[])).len();
+        AssignedAccumulator::as_public_input(&trivial_accumulator(&[])).len();
     let field_elements_per_base_point = trivial_accumulator_encoding_length / 2 - 1;
 
     let encoding_length_before_extraction =

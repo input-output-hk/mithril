@@ -1,7 +1,7 @@
 //! Tests that `accumulator.check` accepts valid stored folded accumulators and
 //! rejects tampered ones.
 //!
-//! The genesis `next_accumulator` is a `trivial_acc` clone (never folded) and is
+//! The genesis `next_accumulator` is a `trivial_accumulator` clone (never folded) and is
 //! excluded here — its structure is covered by C2.1 `accumulator_construction`.
 //! All accumulators tested here were produced by the full off-circuit folding
 //! pipeline and stored in binary assets.
