@@ -174,20 +174,6 @@ mithril_relay signer
 mithril_relay passive
 ```
 
-### Local image
-
-Build a local Docker image:
-
-```bash
-make docker-build
-```
-
-Run a local Docker container:
-
-```bash
-make docker-run
-```
-
 ## Subcommands
 
 Here are the subcommands available:

@@ -29,9 +29,6 @@ help:
 doc:
 	${CARGO} doc --no-deps --open
 
-docker-build:
-	cd ../ && docker build -t mithril/mithril-signer -f mithril-signer/Dockerfile .
-
 docker-build-ci: build
 	# Check that we are on Linux, then build
 	if [ "$$(uname -s)" != "Linux" ]; then \

@@ -451,20 +451,6 @@ If you wish to delve deeper and access several levels of logs from the Mithril a
 
 <CompiledBinaries  node="mithril-aggregator"/>
 
-## Build and run the Docker container
-
-Build a local Docker image:
-
-```bash
-make docker-build
-```
-
-Run a local Docker container:
-
-```bash
-make docker-run
-```
-
 ## Subcommands
 
 Here are the available subcommands:

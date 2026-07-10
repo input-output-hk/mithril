@@ -468,38 +468,6 @@ mithril_client cardano-stake-distribution list
 mithril_client cardano-stake-distribution download $UNIQUE_IDENTIFIER
 ```
 
-### Local image
-
-Build a local Docker image:
-
-<Tabs groupId="system" queryString>
-  <TabItem value="linux-mac" label="Linux / Mac">
-  ```bash
-  make docker-build
-  ```
-  </TabItem>
-  <TabItem value="windows" label="Windows">
-  ```powershell
-  pushd ..\; docker build -t mithril/mithril-client -f mithril-client-cli\Dockerfile . ; popd
-  ```
-  </TabItem>
-</Tabs>
-
-Run a local Docker container:
-
-<Tabs groupId="system" queryString>
-  <TabItem value="linux-mac" label="Linux / Mac">
-  ```bash
-  make docker-run
-  ```
-  </TabItem>
-  <TabItem value="windows" label="Windows">
-  ```powershell
-  docker run --rm --name='mithril-client' mithril/mithril-client
-  ```
-  </TabItem>
-</Tabs>
-
 ## Subcommands
 
 Here are the subcommands available:
