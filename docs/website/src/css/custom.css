@@ -158,9 +158,19 @@ h3 {
   line-height: 2rem;
 }
 
+.navbar__item:hover {
+  color: var(--ifm-color-primary);
+
+}
+
 .navbar__items {
   display: flex !important;
   font-family: "Lexend";
+}
+
+.footer__item:hover {
+  color: var(--ifm-color-primary-darkest);
+  text-decoration: underline;
 }
 
 .docusaurus-highlight-code-line {
@@ -228,8 +238,100 @@ div[role="banner"] div {
   margin-bottom: -8px !important;
 }
 
+/*
+ There is a Tailwind Preflight-vs-infima layer conflict when moving to Docusaurus v4,
+ so I have to manually override styling here in custom.css (which was done before so
+ not a big deal).
+*/
+.menu__link {
+  color: var(--ifm-menu-color);
+}
+
 .menu__link--active {
+  color: var(--ifm-menu-color-active);
   font-weight: 700;
+}
+
+.menu__list .menu__list {
+  padding-left: var(--ifm-menu-link-padding-horizontal);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.alert {
+  border-color: var(--ifm-alert-border-color);
+  border-style: solid;
+  border-width: var(--ifm-alert-border-width);
+  border-left-width: var(--ifm-alert-border-left-width);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.pagination-nav__link {
+  border-color: var(--ifm-color-emphasis-300);
+  border-style: solid;
+  border-width: 1px;
+}
+
+.pagination-nav__link:hover {
+  border-color: var(--ifm-pagination-nav-color-hover);
+  color: var(--ifm-pagination-nav-color-hover);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.table-of-contents__link {
+  color: var(--ifm-toc-link-color);
+}
+
+.table-of-contents__link:hover,
+.table-of-contents__link:hover code,
+.table-of-contents__link--active,
+.table-of-contents__link--active code {
+  color: var(--ifm-color-primary);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+table thead tr {
+  border-bottom: 2px solid var(--ifm-table-border-color);
+}
+
+table tr {
+  border-top: var(--ifm-table-border-width) solid var(--ifm-table-border-color);
+}
+
+table th,
+table td {
+  border: var(--ifm-table-border-width) solid var(--ifm-table-border-color);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.theme-doc-card-container {
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.theme-doc-card-container:hover {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-emphasis-700);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.dropdown > .navbar__link:after {
+  border-color: currentColor transparent;
+  border-style: solid;
+  border-width: 0.4em 0.4em 0;
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.dropdown__link {
+  color: var(--ifm-dropdown-link-color);
+}
+
+.dropdown__link:hover,
+.dropdown__link--active {
+  color: var(--ifm-color-primary);
+}
+
+.dropdown__link--active,
+.dropdown__link--active:hover {
+  color: var(--ifm-link-color);
 }
 
 a.menu__link {
@@ -360,6 +462,11 @@ a.menu__link {
 .theme-edit-this-page {
   display: flex;
   align-items: center;
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.theme-edit-this-page:hover {
+  text-decoration: var(--ifm-link-hover-decoration);
 }
 
 .stuck-grid {

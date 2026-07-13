@@ -57,7 +57,7 @@ Information embedded in the `METADATA(p,n)` field:
 
 The message `MSG(p,n)` is a map of multiple values associated with their respective keys. It provides a way to add more information to the certificates without breaking the chain itself. Added items can be any message that the signers can compute deterministically thanks to the Cardano consensus – an immutable files snapshot, the UTXO set, stake distribution, etc.
 
-:::note
+:::note[Note]
 
 The **trigger** represents the instant at which a certificate should be created. It is combined with at least the associated **epoch** to create a [**beacon**](../../../glossary.md#beacon) of the certificate. In the current implementation of the Cardano node database snapshot, this trigger is a new [**immutable file number**](../../../glossary.md#immutable-file-number).
 

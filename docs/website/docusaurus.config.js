@@ -15,11 +15,7 @@ const config = {
   url: "https://mithril.network",
   baseUrl: "/doc/",
   onBrokenLinks: "throw",
-  markdown: {
-    hooks: {
-      onBrokenMarkdownLinks: "warn",
-    },
-  },
+
   favicon: "img/mithril-logo.svg",
   organizationName: "Input Output Global",
   projectName: "Mithril",
@@ -386,6 +382,9 @@ const config = {
     }),
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
   },
   themes: ["@docusaurus/theme-mermaid"],
   stylesheets: [
