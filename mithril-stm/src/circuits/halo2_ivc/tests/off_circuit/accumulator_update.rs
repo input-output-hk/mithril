@@ -1,5 +1,5 @@
 //! Tests the full off-circuit KZG accumulation pipeline:
-//! `extract_fixed_bases` → `collapse` → `Accumulator::accumulate` → `collapse` → `accumulator.check`.
+//! `from_dual_msm` → `collapse` → `Accumulator::accumulate` → `collapse` → `accumulator.check`.
 //!
 //! Each recursive step folds three contributions into a single accumulated result:
 //!   1. The chain-state accumulator carried forward from the previous step.
@@ -22,15 +22,14 @@ use crate::circuits::halo2_ivc::{
     tests::common::{
         asset_readers::load_embedded_recursive_chain_state_asset,
         helpers::{
-            build_unextracted_certificate_accumulator_from_assets,
-            build_unextracted_recursive_proof_accumulator_from_assets,
+            build_certificate_accumulator_from_assets,
+            build_recursive_proof_accumulator_from_assets,
         },
     },
 };
 
-/// Verifies the stored certificate and chain-state IVC proofs, applies
-/// `extract_fixed_bases` and `collapse` to each, and returns
-/// `(certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, tau_in_g2)`.
+/// Verifies the stored certificate and chain-state IVC proofs, applies `collapse` to each, and returns
+/// `(certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, verif_params)`.
 ///
 /// This is the shared setup for both tests: the positive test folds these with
 /// the stored chain-state accumulator; the negative test folds them with a
@@ -46,11 +45,11 @@ fn build_proof_accumulators_from_stored_step_assets() -> (
     ParamsVerifierKZG<PairingEngine>,
 ) {
     let (mut certificate_accumulator, certificate_fixed_bases, verif_params) =
-        build_unextracted_certificate_accumulator_from_assets();
+        build_certificate_accumulator_from_assets();
     certificate_accumulator.collapse();
 
     let (mut previous_proof_accumulator, recursive_fixed_bases) =
-        build_unextracted_recursive_proof_accumulator_from_assets();
+        build_recursive_proof_accumulator_from_assets();
     previous_proof_accumulator.collapse();
 
     let combined_fixed_bases: BTreeMap<String, EmulatedCurve> = certificate_fixed_bases
@@ -67,7 +66,7 @@ fn build_proof_accumulators_from_stored_step_assets() -> (
 }
 
 /// Runs the full off-circuit accumulation pipeline on stored step assets and returns
-/// `(next_accumulator, combined_fixed_bases, tau_in_g2)`.
+/// `(next_accumulator, combined_fixed_bases, verif_params)`.
 fn build_next_accumulator_from_stored_step_assets() -> (
     Accumulator<RecursiveEmulation>,
     BTreeMap<String, EmulatedCurve>,
@@ -92,11 +91,11 @@ fn build_next_accumulator_from_stored_step_assets() -> (
 fn stored_step_pipeline_result_passes_accumulator_check() {
     // The full off-circuit pipeline on stored step assets must produce an accumulator
     // that satisfies the pairing equation.
-    let (next_accumulator, combined_fixed_bases, tau_in_g2) =
+    let (next_accumulator, combined_fixed_bases, verif_params) =
         build_next_accumulator_from_stored_step_assets();
 
     assert!(
-        next_accumulator.check(&tau_in_g2, &combined_fixed_bases),
+        next_accumulator.check(&verif_params, &combined_fixed_bases),
         "folded next accumulator should satisfy the pairing equation"
     );
 }
@@ -113,7 +112,7 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
     // the tamper test in accumulator_verification.rs).
     let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
-    let (certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, tau_in_g2) =
+    let (certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, verif_params) =
         build_proof_accumulators_from_stored_step_assets();
 
     // Tamper the chain-state accumulator by negating one fixed-base scalar.
@@ -143,7 +142,7 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
         tampered_right_hand_side,
     );
     assert!(
-        !tampered_chain_accumulator.check(&tau_in_g2, &combined_fixed_bases),
+        !tampered_chain_accumulator.check(&verif_params, &combined_fixed_bases),
         "tamper precondition: tampered chain accumulator should fail check on its own"
     );
 
@@ -155,7 +154,7 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
     next_accumulator.collapse();
 
     assert!(
-        !next_accumulator.check(&tau_in_g2, &combined_fixed_bases),
+        !next_accumulator.check(&verif_params, &combined_fixed_bases),
         "folding an invalid chain-state accumulator should not satisfy the pairing equation"
     );
 }

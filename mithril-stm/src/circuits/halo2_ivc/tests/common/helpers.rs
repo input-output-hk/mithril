@@ -309,13 +309,13 @@ pub(crate) fn build_mock_prover_public_inputs(
     .concat()
 }
 
-/// Verifies the stored certificate proof and returns the unextracted accumulator
-/// together with the certificate fixed-base map and `tau_in_g2`.
+/// Verifies the stored certificate proof and returns the accumulator
+/// together with the certificate fixed-base map and `verifier_params`.
 ///
 /// Uses the next-epoch step assets: the certificate proof lives in
 /// `recursive_step_output` and its public inputs are derived from
 /// `(recursive_chain_state.state, recursive_step_output.next_state)`.
-pub(crate) fn build_unextracted_certificate_accumulator_from_assets() -> (
+pub(crate) fn build_certificate_accumulator_from_assets() -> (
     Accumulator<RecursiveEmulation>,
     BTreeMap<String, EmulatedCurve>,
     ParamsVerifierKZG<PairingEngine>,
@@ -354,12 +354,12 @@ pub(crate) fn build_unextracted_certificate_accumulator_from_assets() -> (
     )
 }
 
-/// Verifies the stored chain-state IVC proof and returns the unextracted accumulator
-/// together with the recursive fixed-base map, ready for extraction tests.
+/// Verifies the stored chain-state IVC proof and returns the accumulator
+/// together with the recursive fixed-base map, ready for resolution tests.
 ///
 /// The chain-state proof is a Poseidon recursive proof; its public inputs are
 /// `[global | state | accumulator]` as stored in the committed assets.
-pub(crate) fn build_unextracted_recursive_proof_accumulator_from_assets() -> (
+pub(crate) fn build_recursive_proof_accumulator_from_assets() -> (
     Accumulator<RecursiveEmulation>,
     BTreeMap<String, EmulatedCurve>,
 ) {

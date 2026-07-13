@@ -109,8 +109,8 @@ impl IvcVerifierSetup {
     }
 
     /// Construct directly from pre-built parts. Only for tests that load stored assets
-    /// (verifier params, tau_g2, VK, fixed bases) as a bundle — the caller is responsible
-    /// for ensuring `tau_g2 == s_g2()` of `verifier_params` and that `combined_fixed_bases`
+    /// (verifier params, VK, fixed bases) as a bundle — the caller is responsible
+    /// for ensuring that `combined_fixed_bases`
     /// covers both the certificate and IVC verifying keys.
     #[cfg(test)]
     pub(crate) fn from_parts(
@@ -125,10 +125,9 @@ impl IvcVerifierSetup {
         }
     }
 
-    /// Deserialize the compile-time [`KZG_VERIFIER_PARAMS`] constant and extract `tau_g2` (`s_g2`).
+    /// Deserialize the compile-time [`KZG_VERIFIER_PARAMS`] constant.
     ///
-    /// Returns `(verifier_params, tau_g2)` as a pair so callers can use them independently
-    /// without re-reading the constant. Shared by [`try_new`] and [`from_ivc_setup`].
+    /// Returns `verifier_params`. Shared by [`try_new`] and [`from_ivc_setup`].
     ///
     /// [`try_new`]: Self::try_new
     /// [`from_ivc_setup`]: Self::from_ivc_setup

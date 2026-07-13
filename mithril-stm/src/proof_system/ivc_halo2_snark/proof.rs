@@ -799,10 +799,10 @@ mod tests {
     }
 
     #[test]
-    fn ivc_proof_verify_rejects_wrong_tau_g2() {
-        // A verifier setup with a wrong tau_g2 but otherwise correct parameters passes
-        // the KZG opening check (tau_g2 is not part of verifier_params) and fails at
-        // the accumulator pairing equation, exercising the AccumulatorFailed path.
+    fn ivc_proof_verify_rejects_wrong_fixed_bases() {
+        // A verifier setup with a wrong fixed bases but otherwise correct parameters passes
+        // the KZG opening check and fails at the accumulator pairing equation,
+        // exercising the AccumulatorFailed path.
         let ctx = load_embedded_verification_context_asset()
             .expect("verification context asset should load");
         let step_output = load_embedded_next_epoch_step_output_asset()

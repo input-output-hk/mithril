@@ -60,9 +60,7 @@ fn trivial_acc_public_input_length_scales_with_fixed_base_name_count() {
 }
 
 #[test]
-#[should_panic(
-    expected = "Creation of an accumulator from a dual MSM with a bad prefix should panic."
-)]
+#[should_panic]
 fn wrong_prefix_for_fixed_bases_fails_accumulator_creation() {
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");

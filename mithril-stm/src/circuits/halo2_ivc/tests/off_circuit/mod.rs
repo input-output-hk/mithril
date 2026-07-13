@@ -2,7 +2,7 @@
 //! recursive Halo2 IVC circuit.
 //!
 //! These tests validate the off-circuit side of the KZG accumulation pipeline:
-//! accumulator construction, fixed-base extraction, collapse, folding, and
+//! accumulator construction, fixed-base resolution, collapse, folding, and
 //! combined proof verification — as opposed to the in-circuit constraints
 //! covered by Layer C1.
 //!
@@ -12,7 +12,7 @@
 //! `accumulator_verification`    — `accumulator.check` accepts valid stored accumulators and rejects tampered ones.
 //! `certificate_proof_rejection` — `verify_and_prepare_accumulator` rejects garbage bytes and wrong public inputs.
 //! `circuit_validation`          — `IvcCircuitData::validate_ivc_verification_key_degree` rejects a VK with degree ≠ RECURSIVE_CIRCUIT_DEGREE.
-//! `fixed_base_extraction`       — `extract_fixed_bases` reclassification and encoding effects.
+//! `fixed_base_resolution`       — `resolve_fixed_bases` expansion and encoding effects.
 //! `proof_verification`          — `dual_msm.check` + `accumulator.check` combined for same-epoch and chain-state proofs.
 
 mod accumulator_collapse;
@@ -21,5 +21,5 @@ mod accumulator_update;
 mod accumulator_verification;
 mod certificate_proof_rejection;
 mod circuit_validation;
-mod fixed_base_extraction;
+mod fixed_base_resolution;
 mod proof_verification;

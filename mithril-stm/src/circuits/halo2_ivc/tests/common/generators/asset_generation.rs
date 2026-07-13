@@ -826,7 +826,7 @@ pub(crate) fn generate_first_step_cert_asset(setup: &AssetGenerationSetup, paths
 // they rewrite binary files rather than asserting behavior.
 //
 // Committed assets:
-//   verification_context.bin               — VKs, combined fixed bases, verifier params, tau_g2
+//   verification_context.bin               — VKs, combined fixed bases, verifier params
 //   recursive_chain_state.bin              — chain checkpoint: Poseidon IVC proof, state, folded accumulator
 //   recursive_step_output.bin              — next-epoch step: IVC proof, next_state, next_accumulator, certificate proof
 //   genesis_step_output.bin                — genesis step output
@@ -905,11 +905,11 @@ fn generate_recursive_step_output_accumulator_bytes_only() {
 fn generate_recursive_proof_accumulator_bytes_only() {
     use crate::circuits::halo2_ivc::{
         io::Write as IvcWrite,
-        tests::common::helpers::build_unextracted_recursive_proof_accumulator_from_assets,
+        tests::common::helpers::build_recursive_proof_accumulator_from_assets,
     };
     use midnight_proofs::utils::SerdeFormat;
 
-    let (accumulator, _) = build_unextracted_recursive_proof_accumulator_from_assets();
+    let (accumulator, _) = build_recursive_proof_accumulator_from_assets();
     let mut bytes = Vec::new();
     accumulator
         .write(&mut bytes, SerdeFormat::RawBytesUnchecked)

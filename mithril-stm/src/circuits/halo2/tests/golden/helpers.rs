@@ -573,8 +573,8 @@ pub(crate) fn setup_stm_circuit_env(
         let stm_circuit = MidnightCircuit::from_relation(&relation, None);
         println!("\n=== STM circuit case: {case_name} ===");
         println!("circuit degree (selected) {circuit_degree}");
-        println!("k {k}");
-        println!("min_k {:?}", stm_circuit.k());
+        println!("k (mithril parameter) {k}");
+        println!("k (log2 of circuit size) {:?}", stm_circuit.k());
         println!("{:?}", zk::cost_model(&relation, None));
     }
 
