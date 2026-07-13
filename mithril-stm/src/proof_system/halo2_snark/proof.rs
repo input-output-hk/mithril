@@ -277,6 +277,16 @@ impl SnarkProver<ChaCha20Rng> {
 }
 
 impl<R: RngCore + CryptoRng> SnarkProver<R> {
+    /// Returns the certificate circuit verification key derived by this prover's setup.
+    ///
+    /// The clerk clones this before proving so the certificate's ancillary verifier data and the
+    /// proof provably originate from the same setup.
+    // Consumed by the clerk once the Snark aggregation path emits ancillary verifier data.
+    #[allow(dead_code)]
+    pub(crate) fn verification_key(&self) -> &NonRecursiveCircuitVerifyingKey {
+        &self.setup.verification_key
+    }
+
     /// Aggregate a set of single signatures into a SNARK proof.
     ///
     /// Prepares the prover input (public instance and per-index witness) from the collected

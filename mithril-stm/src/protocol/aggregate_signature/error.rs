@@ -70,6 +70,10 @@ pub enum AggregateSignatureError {
     #[error("Missing IVC verifier data from the AncillaryVerifierData.")]
     MissingIvcVerifierData,
 
+    /// Missing SNARK verifier data from the AncillaryVerifierData
+    #[error("Missing SNARK verifier data from the AncillaryVerifierData.")]
+    MissingSnarkVerifierData,
+
     /// Missing genesis verification key bundle to verify the aggregate signature
     #[error("Missing genesis verification key bundle to verify the aggregate signature.")]
     MissingGenesisVerificationKeyBundle,
