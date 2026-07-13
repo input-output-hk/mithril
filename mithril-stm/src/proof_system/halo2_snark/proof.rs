@@ -606,6 +606,47 @@ mod tests {
         }
 
         #[test]
+        fn verify_fails_with_wrong_circuit_verification_key() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 3,
+                phi_f: 0.8,
+            };
+            // Different parameters yield a different circuit and therefore a different verifying key.
+            let other_params = Parameters {
+                m: 100,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+            let mut prover = create_prover(params, [0u8; 32]);
+
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+
+            // Verifying a valid proof against a verifying key derived for other parameters must
+            // fail: the ancillary verifier data's key genuinely gates verification.
+            let wrong_prover = create_prover(other_params, [0u8; 32]);
+            let result = snark_proof.verify(
+                message.as_slice(),
+                &avk,
+                &snark_verifier_data(&wrong_prover),
+                &prover.verifier_params(),
+            );
+
+            assert!(
+                result.is_err(),
+                "verification with a wrong circuit verification key must fail"
+            );
+        }
+
+        #[test]
         fn valid_proof_prepares_and_checks() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
