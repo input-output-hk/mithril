@@ -227,20 +227,13 @@ mod test {
         fn wrap_snark_proof(
             certificate_proof_bytes: Vec<u8>,
         ) -> SnarkProof<MithrilMembershipDigest> {
-            let ctx = shared_verification_context();
             let parameters = Parameters {
                 k: QUORUM_SIZE as u64,
                 m: (QUORUM_SIZE * 10) as u64,
                 phi_f: 0.2,
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-            let circuit_verification_key = ctx.certificate_verifying_key.clone();
-            SnarkProof::from_parts(
-                certificate_proof_bytes,
-                parameters,
-                merkle_tree_depth,
-                circuit_verification_key,
-            )
+            SnarkProof::try_new(certificate_proof_bytes, parameters, merkle_tree_depth).unwrap()
         }
 
         fn wrap_avk(

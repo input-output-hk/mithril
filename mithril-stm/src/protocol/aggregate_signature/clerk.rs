@@ -402,12 +402,12 @@ mod tests {
 
         let ps = setup_equal_parties(tiny_params, 1);
         let snark_clerk = SnarkClerk::new_clerk_from_signer(&ps[0]);
-        let snark_proof = SnarkProof::<MithrilMembershipDigest>::from_parts(
+        let snark_proof = SnarkProof::<MithrilMembershipDigest>::try_new(
             vec![],
             tiny_params,
             MERKLE_TREE_DEPTH_FOR_SNARK,
-            certificate_verifying_key.clone(),
-        );
+        )
+        .unwrap();
 
         let ancillary_input = AncillaryProofInput::new(
             Some(AncillaryProverData::Future),
@@ -444,12 +444,12 @@ mod tests {
 
         let ps = setup_equal_parties(tiny_params, 1);
         let snark_clerk = SnarkClerk::new_clerk_from_signer(&ps[0]);
-        let snark_proof = SnarkProof::<MithrilMembershipDigest>::from_parts(
+        let snark_proof = SnarkProof::<MithrilMembershipDigest>::try_new(
             vec![],
             tiny_params,
             MERKLE_TREE_DEPTH_FOR_SNARK,
-            certificate_verifying_key.clone(),
-        );
+        )
+        .unwrap();
 
         let ancillary_input = AncillaryProofInput::new(
             None,
