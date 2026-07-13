@@ -281,8 +281,6 @@ impl<R: RngCore + CryptoRng> SnarkProver<R> {
     ///
     /// The clerk clones this before proving so the certificate's ancillary verifier data and the
     /// proof provably originate from the same setup.
-    // Consumed by the clerk once the Snark aggregation path emits ancillary verifier data.
-    #[allow(dead_code)]
     pub(crate) fn verification_key(&self) -> &NonRecursiveCircuitVerifyingKey {
         &self.setup.verification_key
     }

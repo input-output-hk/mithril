@@ -146,8 +146,6 @@ pub struct SnarkVerifierData {
 
 impl SnarkVerifierData {
     /// Build the verifier data from the certificate circuit verifying key used to produce the proof.
-    // Consumed by the clerk once the Snark aggregation path emits ancillary verifier data.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new(
         certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
     ) -> Self {
