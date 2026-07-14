@@ -136,9 +136,7 @@ impl SnarkVerifierSetup {
 ///
 /// The verifying key is the per-circuit newtype so its serialization preserves the circuit
 /// architecture needed to deserialize it against the correct constraint system. Mirrors
-/// [`IvcVerifierData`] on the recursive side.
-///
-/// [`IvcVerifierData`]: crate::proof_system::ivc_halo2_snark::verifier_setup::IvcVerifierData
+/// `IvcVerifierData` on the recursive side.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnarkVerifierData {
     certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
