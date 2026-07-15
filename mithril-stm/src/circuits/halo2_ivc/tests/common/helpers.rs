@@ -15,9 +15,9 @@ use crate::circuits::halo2_ivc::{
     state::{Global, State, Witness},
     types::{CertificateProofBytes, IvcProofBytes},
 };
-use crate::circuits::halo2_ivc::{IVC_VERIFICATION_KEY_NAME, keys::RecursiveCircuitVerifyingKey};
+use crate::circuits::halo2_ivc::{IVC_FIXED_BASES_PREFIX, keys::RecursiveCircuitVerifyingKey};
 use crate::circuits::{
-    halo2::keys::NonRecursiveCircuitVerifyingKey, halo2_ivc::CERTIFICATE_VERIFICATION_KEY_NAME,
+    halo2::keys::NonRecursiveCircuitVerifyingKey, halo2_ivc::CERTIFICATE_FIXED_BASES_PREFIX,
 };
 
 pub(crate) use super::generators::{
@@ -201,7 +201,7 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
     let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> =
         Accumulator::from_dual_msm(
             previous_dual_msm,
-            IVC_VERIFICATION_KEY_NAME,
+            IVC_FIXED_BASES_PREFIX,
             &setup.recursive_fixed_bases,
         );
     previous_proof_accumulator.collapse();
@@ -266,7 +266,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
 
     let mut certificate_accumulator: Accumulator<RecursiveEmulation> = Accumulator::from_dual_msm(
         certificate_dual_msm,
-        CERTIFICATE_VERIFICATION_KEY_NAME,
+        CERTIFICATE_FIXED_BASES_PREFIX,
         &setup.certificate_fixed_bases,
     );
     certificate_accumulator.collapse();
@@ -343,7 +343,7 @@ pub(crate) fn build_certificate_accumulator_from_assets() -> (
             recursive_step_output.certificate_proof.as_bytes(),
             &certificate_public_inputs,
         ),
-        CERTIFICATE_VERIFICATION_KEY_NAME,
+        CERTIFICATE_FIXED_BASES_PREFIX,
         &certificate_fixed_bases,
     );
 
@@ -386,7 +386,7 @@ pub(crate) fn build_recursive_proof_accumulator_from_assets() -> (
             recursive_chain_state.ivc_proof.as_bytes(),
             &public_inputs,
         ),
-        IVC_VERIFICATION_KEY_NAME,
+        IVC_FIXED_BASES_PREFIX,
         &recursive_fixed_bases,
     );
 

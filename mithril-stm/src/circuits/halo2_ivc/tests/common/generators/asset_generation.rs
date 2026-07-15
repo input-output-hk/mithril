@@ -16,7 +16,7 @@ use super::transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,
     build_next_certificate_asset_data, build_same_epoch_certificate_asset_data,
 };
-use crate::circuits::halo2_ivc::IVC_VERIFICATION_KEY_NAME;
+use crate::circuits::halo2_ivc::IVC_FIXED_BASES_PREFIX;
 use crate::circuits::halo2_ivc::tests::common::asset_readers::{
     FirstCertificateInEpochAsset, FollowingCertificateInEpochAsset, GenesisStepOutputAsset,
     NextEpochStepOutputAsset, RecursiveChainStateAsset, VerificationContextAsset,
@@ -160,7 +160,7 @@ fn build_recursive_chain_snapshot(
         );
         assert!(dual_msm.clone().check(&context.universal_verifier_params));
         let mut proof_accumulator: Accumulator<RecursiveEmulation> =
-            Accumulator::from_dual_msm(dual_msm, IVC_VERIFICATION_KEY_NAME, recursive_fixed_bases);
+            Accumulator::from_dual_msm(dual_msm, IVC_FIXED_BASES_PREFIX, recursive_fixed_bases);
         proof_accumulator.collapse();
 
         println!(
@@ -274,7 +274,7 @@ fn build_next_recursive_step_inputs(
     let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> =
         Accumulator::from_dual_msm(
             previous_dual_msm,
-            IVC_VERIFICATION_KEY_NAME,
+            IVC_FIXED_BASES_PREFIX,
             recursive_fixed_bases,
         );
     previous_proof_accumulator.collapse();
@@ -671,7 +671,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> =
         Accumulator::from_dual_msm(
             previous_dual_msm,
-            IVC_VERIFICATION_KEY_NAME,
+            IVC_FIXED_BASES_PREFIX,
             &recursive_fixed_bases,
         );
     previous_proof_accumulator.collapse();

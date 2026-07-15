@@ -6,9 +6,9 @@ use std::collections::HashSet;
 
 use super::{
     AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve, AssignedVk,
-    AssignmentInstructions, CERTIFICATE_VERIFICATION_KEY_NAME, CircuitValue, ConstraintSystem,
-    Error, EvaluationDomain, IVC_VERIFICATION_KEY_NAME, Layouter, NativeField,
-    PublicInputInstructions, RecursiveEmulation,
+    AssignmentInstructions, CERTIFICATE_FIXED_BASES_PREFIX, CircuitValue, ConstraintSystem, Error,
+    EvaluationDomain, IVC_FIXED_BASES_PREFIX, Layouter, NativeField, PublicInputInstructions,
+    RecursiveEmulation,
     accumulator::fixed_base_names_from_constraint_system,
     constraint_builder::IvcConstraintBuilder,
     errors::{IvcCircuitError, to_synthesis_error},
@@ -46,7 +46,7 @@ pub(crate) fn assign_global_as_public_input(
     let certificate_verification_key: AssignedVk<RecursiveEmulation> =
         builder.verifier_gadget.assign_vk_as_public_input(
             layouter,
-            CERTIFICATE_VERIFICATION_KEY_NAME,
+            CERTIFICATE_FIXED_BASES_PREFIX,
             certificate_circuit_domain,
             certificate_circuit_constraint_system,
             global
@@ -60,7 +60,7 @@ pub(crate) fn assign_global_as_public_input(
     let ivc_verification_key: AssignedVk<RecursiveEmulation> =
         builder.verifier_gadget.assign_vk_as_public_input(
             layouter,
-            IVC_VERIFICATION_KEY_NAME,
+            IVC_FIXED_BASES_PREFIX,
             ivc_circuit_domain,
             ivc_circuit_constraint_system,
             global
@@ -70,11 +70,11 @@ pub(crate) fn assign_global_as_public_input(
 
     let fixed_base_names = {
         let mut names = fixed_base_names_from_constraint_system(
-            CERTIFICATE_VERIFICATION_KEY_NAME,
+            CERTIFICATE_FIXED_BASES_PREFIX,
             certificate_circuit_constraint_system,
         );
         names.extend(fixed_base_names_from_constraint_system(
-            IVC_VERIFICATION_KEY_NAME,
+            IVC_FIXED_BASES_PREFIX,
             ivc_circuit_constraint_system,
         ));
         // Remove repeated names for committed_instance and the generator

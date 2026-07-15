@@ -21,7 +21,7 @@ use crate::circuits::halo2_ivc::types::{
     ProtocolParametersHash, StepCounter,
 };
 use crate::circuits::halo2_ivc::{
-    Accumulator, CERTIFICATE_VERIFICATION_KEY_NAME, NativeField, PREIMAGE_SIZE, RecursiveEmulation,
+    Accumulator, CERTIFICATE_FIXED_BASES_PREFIX, NativeField, PREIMAGE_SIZE, RecursiveEmulation,
 };
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey,
@@ -185,7 +185,7 @@ fn build_certificate_asset_data_inner(
         certificate_verifying_key.midnight_vk(),
     );
     let (certificate_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
-        CERTIFICATE_VERIFICATION_KEY_NAME,
+        CERTIFICATE_FIXED_BASES_PREFIX,
         certificate_verifying_key.as_ref(),
     );
 
@@ -270,7 +270,7 @@ fn build_certificate_asset_data_inner(
     );
     let mut certificate_accumulator: Accumulator<RecursiveEmulation> = Accumulator::from_dual_msm(
         certificate_dual_msm,
-        CERTIFICATE_VERIFICATION_KEY_NAME,
+        CERTIFICATE_FIXED_BASES_PREFIX,
         &certificate_fixed_bases,
     );
 

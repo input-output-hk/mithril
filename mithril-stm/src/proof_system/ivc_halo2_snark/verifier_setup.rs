@@ -16,7 +16,7 @@ use crate::{
     circuits::{
         halo2::keys::NonRecursiveCircuitVerifyingKey,
         halo2_ivc::{
-            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
+            CERTIFICATE_FIXED_BASES_PREFIX, IVC_FIXED_BASES_PREFIX,
             accumulator::fixed_bases_and_names_from_verifying_key,
             keys::RecursiveCircuitVerifyingKey, types::MessageHash,
         },
@@ -64,11 +64,11 @@ impl IvcVerifierSetup {
         let verifier_params = Self::read_embedded_params()?;
 
         let (certificate_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
-            CERTIFICATE_VERIFICATION_KEY_NAME,
+            CERTIFICATE_FIXED_BASES_PREFIX,
             certificate_verifying_key.as_ref(),
         );
         let (ivc_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
-            IVC_VERIFICATION_KEY_NAME,
+            IVC_FIXED_BASES_PREFIX,
             ivc_verifying_key.as_ref(),
         );
         let mut combined_fixed_bases = certificate_fixed_bases;

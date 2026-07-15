@@ -14,6 +14,7 @@ The author of the change:
 - Prepares the PR that includes the change
 - Needs to justify the change in the circuit
 - Checks that the changes did not increase the degree of the circuits
+- Checks if the value `nr_pow2range_cols` (in `mithril/mithril-stm/src/circuits/halo2/circuit.rs`) can be decreased without increasing the degree of the circuit (a lower value can reduce the proof size)
 - Updates the key values (golden and production)
 - Ensures the approval of the tech lead and all cryptographers before the merge
 
