@@ -15,6 +15,8 @@ use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 use slog::{Level, Logger, debug};
 use std::{collections::HashMap, path::PathBuf};
 
+pub use protocol_configuration_command::*;
+
 use crate::{DefaultConfiguration, extract_all};
 
 /// Main command selector
@@ -25,6 +27,7 @@ pub enum MainCommand {
     Serve(serve_command::ServeCommand),
     Tools(tools_command::ToolsCommand),
     Database(database_command::DatabaseCommand),
+    ProtocolConfiguration(protocol_configuration_command::ProtocolConfigurationCommand),
     #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
@@ -49,6 +52,7 @@ impl MainCommand {
             Self::Serve(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Database(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::ProtocolConfiguration(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::GenerateDoc(cmd) => {
                 let commands_configs =
                     Self::extract_config(Self::format_crate_name_to_config_key());
@@ -68,6 +72,8 @@ impl MainCommand {
             Genesis = { genesis_command::GenesisCommand },
             Serve = { serve_command::ServeCommand },
             Tools = { tools_command::ToolsCommand },
+            ProtocolConfiguration =
+                { protocol_configuration_command::ProtocolConfigurationCommand },
             GenerateDoc = {},
         )
     }
@@ -83,6 +89,7 @@ impl MainCommand {
             MainCommand::Era(_) => CommandType::CommandLine,
             MainCommand::Tools(_) => CommandType::CommandLine,
             MainCommand::Database(_) => CommandType::CommandLine,
+            MainCommand::ProtocolConfiguration(_) => CommandType::CommandLine,
             MainCommand::GenerateDoc(_) => CommandType::CommandLine,
         }
     }
