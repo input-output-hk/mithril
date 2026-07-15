@@ -51,17 +51,13 @@ impl<D: MembershipDigest> SnarkProof<D> {
     /// The certificate verification key is not stored on the proof; it is carried in the
     /// certificate's ancillary verifier data and supplied at verification time, so this
     /// constructor performs no key generation.
-    pub fn try_new(
-        circuit_proof: Vec<u8>,
-        params: Parameters,
-        merkle_tree_depth: u32,
-    ) -> StmResult<Self> {
-        Ok(Self {
+    pub fn new(circuit_proof: Vec<u8>, params: Parameters, merkle_tree_depth: u32) -> Self {
+        Self {
             circuit_proof,
             params,
             merkle_tree_depth,
             phantom: PhantomData,
-        })
+        }
     }
 
     pub(crate) fn into_circuit_proof_bytes(self) -> CertificateProofBytes {
@@ -492,8 +488,7 @@ mod tests {
                 .unwrap();
 
             let snark_proof =
-                SnarkProof::try_new(forged_snark_proof.circuit_proof, params, merkle_tree_depth)
-                    .unwrap();
+                SnarkProof::new(forged_snark_proof.circuit_proof, params, merkle_tree_depth);
             // Verify the forged-parameter proof against the honest-parameter verifying key.
             let honest_prover = create_prover(params, [0u8; 32]);
             let result = snark_proof.verify(
@@ -527,8 +522,7 @@ mod tests {
 
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
-            let random_proof =
-                SnarkProof::try_new(random_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+            let random_proof = SnarkProof::new(random_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK);
             let result = random_proof.verify(
                 message.as_slice(),
                 &avk,
@@ -540,12 +534,11 @@ mod tests {
 
             let not_enough_bytes =
                 &snark_proof.circuit_proof[0..snark_proof.circuit_proof.len() - 1];
-            let small_proof = SnarkProof::try_new(
+            let small_proof = SnarkProof::new(
                 not_enough_bytes.to_vec(),
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
-            )
-            .unwrap();
+            );
             assert!(
                 small_proof
                     .verify(
@@ -560,8 +553,7 @@ mod tests {
 
             let mut too_many_bytes = snark_proof.circuit_proof.to_vec();
             too_many_bytes.push(0u8);
-            let large_proof =
-                SnarkProof::try_new(too_many_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+            let large_proof = SnarkProof::new(too_many_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK);
             assert!(
                 large_proof
                     .verify(
@@ -727,8 +719,7 @@ mod tests {
 
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
-            let random_proof =
-                SnarkProof::try_new(random_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+            let random_proof = SnarkProof::new(random_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK);
 
             random_proof
                 .prepare_and_check(

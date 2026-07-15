@@ -153,8 +153,6 @@ impl SnarkVerifierData {
     }
 
     /// Returns the certificate circuit verifying key stored in the SnarkVerifierData.
-    // Consumed by the aggregate-signature verifier once it sources the key from ancillary data.
-    #[allow(dead_code)]
     pub(crate) fn certificate_circuit_verification_key(&self) -> &NonRecursiveCircuitVerifyingKey {
         &self.certificate_circuit_verification_key
     }

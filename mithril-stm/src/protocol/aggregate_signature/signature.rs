@@ -635,8 +635,7 @@ mod tests {
         // A dummy Snark proof suffices: the ancillary-data checks fire before any cryptographic
         // verification, so the proof bytes are never inspected.
         fn dummy_snark_aggregate_signature(params: Parameters) -> AggregateSignature<D> {
-            let proof =
-                SnarkProof::<D>::try_new(vec![], params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+            let proof = SnarkProof::<D>::new(vec![], params, MERKLE_TREE_DEPTH_FOR_SNARK);
             AggregateSignature::Snark(Box::new(proof))
         }
 
@@ -684,9 +683,7 @@ mod tests {
                 k: 3,
                 phi_f: 0.9,
             };
-            let proof =
-                SnarkProof::<D>::try_new(vec![1, 2, 3], params, MERKLE_TREE_DEPTH_FOR_SNARK)
-                    .unwrap();
+            let proof = SnarkProof::<D>::new(vec![1, 2, 3], params, MERKLE_TREE_DEPTH_FOR_SNARK);
             let inner = proof.to_bytes().expect("proof serialization should not fail");
 
             // Legacy outer type-prefix framing wrapping a new-format (versioned CBOR) inner proof

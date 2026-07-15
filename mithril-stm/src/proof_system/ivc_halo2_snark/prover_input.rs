@@ -233,7 +233,7 @@ mod test {
                 phi_f: 0.2,
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-            SnarkProof::try_new(certificate_proof_bytes, parameters, merkle_tree_depth).unwrap()
+            SnarkProof::new(certificate_proof_bytes, parameters, merkle_tree_depth)
         }
 
         fn wrap_avk(
