@@ -2,6 +2,7 @@ mod config_association;
 mod database_command;
 mod era_command;
 mod genesis_command;
+mod protocol_configuration_command;
 mod serve_command;
 mod tools_command;
 
