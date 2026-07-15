@@ -4,7 +4,8 @@ use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
     collections::BTreeMap,
-    fmt, fs,
+    fmt,
+    fs::{self, File},
     path::{Path, PathBuf},
     process::{ExitCode, Termination},
     sync::Arc,
@@ -274,13 +275,10 @@ fn main() -> AppResult {
 
 async fn main_exec() -> StdResult<()> {
     let args = Cli::parse();
-    let _guard = slog_scope::set_global_logger(build_logger(&args));
 
     if let Some(ScenarioArgs::GenerateDoc(cmd)) = &args.scenario {
         return cmd.execute(&mut Cli::command()).map_err(|message| anyhow!(message));
     }
-
-    info!("Starting Mithril End-to-End test suite"; "args" => #?args);
 
     let work_dir = {
         let dir = match &args.work_directory {
@@ -301,6 +299,14 @@ async fn main_exec() -> StdResult<()> {
             )
         })?
     };
+
+    let _guard = slog_scope::set_global_logger(build_logger(
+        &args,
+        &work_dir.join("mithril-end-to-end.log"),
+    ));
+
+    info!("Starting Mithril End-to-End test suite"; "args" => #?args);
+
     let artifacts_dir = {
         let path = work_dir.join("artifacts");
         fs::create_dir(&path).with_context(|| "Artifacts dir creation failure")?;
@@ -596,13 +602,25 @@ impl AppStopper {
     }
 }
 
-fn build_logger(args: &Cli) -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog::LevelFilter::new(drain, args.log_level()).fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
+fn build_logger(args: &Cli, log_file: &Path) -> Logger {
+    let terminal_drain = {
+        let decorator = slog_term::TermDecorator::new().build();
+        let drain = slog_term::FullFormat::new(decorator).build().fuse();
+        let drain = slog::LevelFilter::new(drain, args.log_level()).fuse();
+        slog_async::Async::new(drain).build().fuse()
+    };
 
-    Logger::root(Arc::new(drain), slog::o!())
+    let file_drain = {
+        let file = File::create(log_file).expect("failed to open log file at {log_file}");
+        let decorator = slog_term::PlainSyncDecorator::new(file);
+        let drain = slog_term::FullFormat::new(decorator).build().fuse();
+        let drain = slog::LevelFilter::new(drain, args.log_level()).fuse();
+        slog_async::Async::new(drain).build().fuse()
+    };
+
+    let slog_duplicate = slog::Duplicate::new(terminal_drain, file_drain).fuse();
+
+    Logger::root(slog_duplicate, slog::o!())
 }
 
 fn create_workdir_if_not_exist_clean_otherwise(work_dir: &Path) {

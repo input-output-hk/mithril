@@ -42,3 +42,8 @@ impl std::fmt::Display for AggregateSignatureType {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    mithril_common::define_test_logger!();
+}
