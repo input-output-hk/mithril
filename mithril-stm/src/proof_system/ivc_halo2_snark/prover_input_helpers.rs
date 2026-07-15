@@ -144,7 +144,7 @@ pub(crate) fn build_next_accumulator(
     global: &Global,
 ) -> StmResult<Accumulator<BlstrsEmulation>> {
     let certificate_collapsed_accumulator =
-        setup.certificate_collapsed_accumulator(certificate_dual_msm);
+        setup.certificate_collapsed_accumulator(certificate_dual_msm)?;
     let previous_ivc_proof_collapsed_accumulator = setup.previous_ivc_proof_collapsed_accumulator(
         rolling_state.ivc_proof().as_bytes(),
         &rolling_state.previous_ivc_proof_public_inputs(global),

@@ -3,6 +3,9 @@
 use std::collections::BTreeMap;
 
 use ff::Field;
+use midnight_proofs::poly::{CommitmentLabel, kzg::msm::DualMSM};
+
+use crate::{StmResult, circuits::halo2_ivc::errors::IvcCircuitError};
 
 use super::{
     Accumulator, ConstraintSystem, EmulatedCurve, KZGCommitmentScheme, Msm, NativeField,
@@ -52,4 +55,30 @@ pub(crate) fn fixed_base_names_from_constraint_system(
         cs.permutation().columns.len(),
     ));
     fixed_base_names
+}
+
+/// Checks that every fixed-base label in `dual_msm` is present in `fixed_bases`
+/// with the matching base point, using `prefix` to construct the commitment name.
+///
+/// This is a pre-flight check for [`Accumulator::from_dual_msm`], which panics on
+/// mismatch. Returns `Ok(())` if all labels match, or an `Err` with the first
+/// mismatch description.
+pub(crate) fn check_dual_msm_matches_fixed_bases(
+    dual_msm: &DualMSM<PairingEngine>,
+    prefix: &str,
+    fixed_bases: &BTreeMap<String, EmulatedCurve>,
+) -> StmResult<()> {
+    let (lhs, rhs) = dual_msm.split();
+    for (label, _, base) in lhs.into_iter().chain(rhs) {
+        let name = match label {
+            CommitmentLabel::Fixed(i) => verifier::fixed_commitment_name(prefix, *i),
+            CommitmentLabel::Permutation(i) => verifier::perm_commitment_name(prefix, *i),
+            CommitmentLabel::Custom(s) if s == "-G" => "-G".to_string(),
+            _ => continue,
+        };
+        if fixed_bases.get(&name) != Some(base) {
+            return Err(IvcCircuitError::MsmFixedBasesNamesMismatch { name }.into());
+        }
+    }
+    Ok(())
 }

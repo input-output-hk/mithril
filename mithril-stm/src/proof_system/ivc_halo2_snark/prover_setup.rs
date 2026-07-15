@@ -21,7 +21,9 @@ use crate::{
         halo2::{keys::NonRecursiveCircuitVerifyingKey, types::CircuitBase},
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, RECURSIVE_CIRCUIT_DEGREE,
-            accumulator::fixed_bases_and_names_from_verifying_key,
+            accumulator::{
+                check_dual_msm_matches_fixed_bases, fixed_bases_and_names_from_verifying_key,
+            },
             certificate_proof::verify_and_prepare_accumulator,
             keys::{
                 RecursiveCircuitKeyGenerator, RecursiveCircuitProvingKey,
@@ -111,14 +113,19 @@ impl IvcSnarkProverSetup {
     pub(crate) fn certificate_collapsed_accumulator(
         &self,
         dual_msm: DualMSM<Bls12>,
-    ) -> Accumulator<BlstrsEmulation> {
+    ) -> StmResult<Accumulator<BlstrsEmulation>> {
+        check_dual_msm_matches_fixed_bases(
+            &dual_msm,
+            CERTIFICATE_VERIFICATION_KEY_NAME,
+            &self.certificate_fixed_bases,
+        )?;
         let mut accumulator: Accumulator<BlstrsEmulation> = Accumulator::from_dual_msm(
             dual_msm,
             CERTIFICATE_VERIFICATION_KEY_NAME,
             &self.certificate_fixed_bases,
         );
         accumulator.collapse();
-        accumulator
+        Ok(accumulator)
     }
 
     /// Off-circuit verify of the previous step's IVC proof, returning the collapsed
@@ -135,6 +142,11 @@ impl IvcSnarkProverSetup {
             public_inputs,
             self.ivc_verifying_key.as_ref(),
             &verifier_params,
+        )?;
+        check_dual_msm_matches_fixed_bases(
+            &dual_msm,
+            IVC_VERIFICATION_KEY_NAME,
+            &self.ivc_fixed_bases,
         )?;
         let mut accumulator: Accumulator<BlstrsEmulation> =
             Accumulator::from_dual_msm(dual_msm, IVC_VERIFICATION_KEY_NAME, &self.ivc_fixed_bases);

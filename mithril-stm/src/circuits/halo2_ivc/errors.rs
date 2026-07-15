@@ -48,6 +48,10 @@ pub enum IvcCircuitError {
     /// Off-circuit step transition: the chain's step counter would overflow u64.
     #[error("IvcProverInput::prepare: step counter overflow advancing past {current}")]
     StepCounterOverflow { current: u64 },
+
+    /// Off-circuit accumulator check: the msm does not match the provided the fixed bases
+    #[error("Fixed base `{name}` in the dual MSM does not match the provided map")]
+    MsmFixedBasesNamesMismatch { name: String },
 }
 
 /// Subcategorization for `IvcCircuitError::InvalidEpochTransition`. Lets negative

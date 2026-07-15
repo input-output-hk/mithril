@@ -1,12 +1,12 @@
 //! Tests that `trivial_accumulator` has the expected structure, verifiable through
 //! its public-input encoding.
 
-use midnight_circuits::{types::Instantiable, verifier::Accumulator};
+use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
-    accumulator::trivial_accumulator,
-    midnight_backend::RecursiveEmulation,
+    accumulator::{check_dual_msm_matches_fixed_bases, trivial_accumulator},
+    errors::IvcCircuitError,
     tests::common::{
         asset_readers::{
             load_embedded_genesis_step_output_asset, load_embedded_recursive_chain_state_asset,
@@ -60,8 +60,7 @@ fn trivial_acc_public_input_length_scales_with_fixed_base_name_count() {
 }
 
 #[test]
-#[should_panic]
-fn wrong_prefix_for_fixed_bases_fails_accumulator_creation() {
+fn wrong_prefix_for_fixed_bases_fails_check_for_dual_msm_names() {
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_chain_state = load_embedded_recursive_chain_state_asset()
@@ -79,13 +78,21 @@ fn wrong_prefix_for_fixed_bases_fails_accumulator_creation() {
     ]
     .concat();
 
-    let _accumulator: Accumulator<RecursiveEmulation> = Accumulator::from_dual_msm(
-        verify_prepare_poseidon_recursive_proof(
+    let err = check_dual_msm_matches_fixed_bases(
+        &verify_prepare_poseidon_recursive_proof(
             verification_context.recursive_verifying_key.as_ref(),
             recursive_chain_state.ivc_proof.as_bytes(),
             &public_inputs,
         ),
         "wrong_prefix",
         &recursive_fixed_bases,
-    );
+    )
+    .expect_err("dual msm names should not match the fixed bases");
+    let ivc_error = err
+        .downcast::<IvcCircuitError>()
+        .expect("error chain should carry IvcCircuitError");
+    assert!(matches!(
+        ivc_error,
+        IvcCircuitError::MsmFixedBasesNamesMismatch { .. }
+    ));
 }
