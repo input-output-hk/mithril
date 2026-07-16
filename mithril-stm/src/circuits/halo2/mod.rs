@@ -6,7 +6,7 @@
 //! - `witness`: circuit-facing witness and instance contract
 //! - `adapters`: STM-to-circuit conversions for boundary types
 //! - `gadgets`: reusable constraint logic split by domain
-//! - `errors`: typed circuit errors and backend synthesis adaptation
+//! - `errors`: typed circuit errors and backend error conversion
 //! - `tests/golden`: end-to-end circuit scenarios
 //! - inline `#[cfg(test)]` blocks in `gadgets/*` and `adapters`: focused regression checks
 //! - `tests/test_helpers`: shared harness for focused gadget tests
