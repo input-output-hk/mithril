@@ -8,7 +8,6 @@ use std::time::Instant;
 use anyhow::{Context, anyhow};
 use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
-use midnight_proofs::plonk::Error as PlonkError;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_proofs::utils::SerdeFormat;
 use midnight_zk_stdlib as zk;
@@ -34,7 +33,7 @@ use crate::membership_commitment::{
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
-use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
+use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmResult};
 
 /// Default number of signers used in golden test environments.
 const DEFAULT_NUM_SIGNERS: usize = 3000;
@@ -84,30 +83,6 @@ pub(crate) fn assert_proving_circuit_error<T>(result: StmResult<T>) -> StmCircui
             .find_map(|err| err.downcast_ref::<StmCircuitError>())
             .cloned()
             .unwrap_or_else(|| panic!("expected StmCircuitError in source chain, got: {error}")),
-        _ => panic!("expected circuit proving failure"),
-    }
-}
-
-/// Assert proving failed with a backend synthesis message containing `expected`.
-///
-/// This is intended for test-only checks when Midnight returns untyped synthesis strings.
-/// At the relation boundary, typed `StmCircuitError` guard failures are flattened into
-/// `PlonkError::Synthesis(String)`, so message checks are the only robust assertion path.
-pub(crate) fn assert_proving_backend_message_contains<T>(result: StmResult<T>, expected: &str) {
-    match result {
-        Err(error) => {
-            let message = error.chain().find_map(|err| match err.downcast_ref::<PlonkError>() {
-                Some(PlonkError::Synthesis(message)) => Some(message),
-                _ => None,
-            });
-            let message = message.unwrap_or_else(|| {
-                panic!("expected PlonkError::Synthesis in source chain, got: {error}")
-            });
-            assert!(
-                message.contains(expected),
-                "expected backend message to contain '{expected}', got '{message}'"
-            );
-        }
         _ => panic!("expected circuit proving failure"),
     }
 }
@@ -614,7 +589,7 @@ pub(crate) fn prove_and_verify_result(
         scenario.witness,
         &mut rng,
     )
-    .map_err(map_proving_backend_error)?;
+    .context("Proving step failed")?;
     let duration = start.elapsed();
     println!("\nProof generation took: {:?}", duration);
     println!("Proof size: {:?}", proof.len());
@@ -636,10 +611,6 @@ pub(crate) fn prove_and_verify_result(
         Err(anyhow!(StmCircuitError::VerificationRejected))
             .context(format!("Proof verification step failed: {verify_result:?}"))
     }
-}
-
-fn map_proving_backend_error(error: PlonkError) -> StmError {
-    anyhow::Error::new(error).context("Proving step failed")
 }
 
 /// Run a case using the default message (SignedMessageWithoutPrefix::from(DEFAULT_TEST_MSG)).
