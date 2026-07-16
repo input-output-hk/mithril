@@ -1,13 +1,11 @@
-use anyhow::anyhow;
 use midnight_circuits::instructions::{
     AssertionInstructions, ControlFlowInstructions, EccInstructions, ZeroInstructions,
 };
 use midnight_circuits::types::{AssignedBit, AssignedNative, AssignedNativePoint};
 use midnight_proofs::circuit::Layouter;
-use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
 
-use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
+use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
 /// Assigned inputs required to verify one Merkle authentication path inside the circuit.
@@ -31,7 +29,7 @@ pub(crate) fn verify_merkle_path(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
     inputs: MerklePathInputs<'_>,
-) -> Result<(), Error> {
+) -> Result<(), StmCircuitError> {
     let verification_key_x = std_lib.jubjub().x_coordinate(inputs.verification_key);
     let verification_key_y = std_lib.jubjub().y_coordinate(inputs.verification_key);
     let leaf = std_lib.poseidon(
@@ -77,22 +75,22 @@ pub(crate) fn verify_merkle_path(
     //
     // The first sibling can never be padding so there is not need to check for a 0 value.
     // This saves a few constraints per loop.
-    let first_sibling = inputs
-        .merkle_siblings
-        .first()
-        .ok_or(anyhow!(StmCircuitError::MerkleSiblingLengthMismatch {
-            expected_depth: inputs.merkle_tree_depth,
-            actual: 0,
-        }))
-        .map_err(to_synthesis_error)?;
-    let first_position = inputs
-        .merkle_positions
-        .first()
-        .ok_or(anyhow!(StmCircuitError::MerklePositionLengthMismatch {
-            expected_depth: inputs.merkle_tree_depth,
-            actual: 0,
-        }))
-        .map_err(to_synthesis_error)?;
+    let first_sibling =
+        inputs
+            .merkle_siblings
+            .first()
+            .ok_or(StmCircuitError::MerkleSiblingLengthMismatch {
+                expected_depth: inputs.merkle_tree_depth,
+                actual: 0,
+            })?;
+    let first_position =
+        inputs
+            .merkle_positions
+            .first()
+            .ok_or(StmCircuitError::MerklePositionLengthMismatch {
+                expected_depth: inputs.merkle_tree_depth,
+                actual: 0,
+            })?;
     let first_left = std_lib.select(layouter, first_position, &leaf, first_sibling)?;
     let first_right = std_lib.select(layouter, first_position, first_sibling, &leaf)?;
     let first_node = std_lib.poseidon(layouter, &[first_left, first_right])?;
@@ -111,7 +109,9 @@ pub(crate) fn verify_merkle_path(
             std_lib.select(layouter, &is_zero, &acc, &current_node)
         })?;
 
-    std_lib.assert_equal(layouter, &root, inputs.merkle_tree_commitment)
+    std_lib
+        .assert_equal(layouter, &root, inputs.merkle_tree_commitment)
+        .map_err(StmCircuitError::from)
 }
 
 #[cfg(test)]
@@ -120,6 +120,7 @@ mod tests {
     use midnight_proofs::plonk::Error;
 
     use crate::circuits::common::merkle::Position;
+    use crate::circuits::halo2::errors::StmCircuitError;
     use crate::circuits::halo2::tests::test_helpers::{
         TEST_MERKLE_TREE_DEPTH, TEST_MERKLE_TREE_DEPTH_FOR_PATH_PADDING, assert_relation_rejected,
         impl_focused_test_relation, jubjub_poseidon_used_chips, prove_and_verify_relation,
@@ -133,6 +134,7 @@ mod tests {
     impl_focused_test_relation!(
         MerkleRelation,
         (CircuitWitnessEntry, MerkleRoot),
+        error = StmCircuitError,
         jubjub_poseidon_used_chips(),
         |std_lib, layouter, witness| {
             let verification_key = std_lib.jubjub().assign(
@@ -203,6 +205,7 @@ mod tests {
     impl_focused_test_relation!(
         MerklePathRelation,
         (CircuitWitnessEntry, MerkleRoot),
+        error = StmCircuitError,
         jubjub_poseidon_used_chips(),
         |std_lib, layouter, witness| {
             let verification_key = std_lib.jubjub().assign(

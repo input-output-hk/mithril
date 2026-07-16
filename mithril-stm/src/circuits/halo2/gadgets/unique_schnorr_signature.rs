@@ -81,6 +81,7 @@ mod tests {
     use midnight_circuits::ecc::curves::CircuitCurve as CircuitCurveTrait;
     use midnight_circuits::instructions::{AssignmentInstructions, ConversionInstructions};
     use midnight_circuits::types::AssignedNative;
+    use midnight_proofs::plonk::Error;
 
     use crate::circuits::halo2::tests::test_helpers::{
         TEST_MERKLE_TREE_DEPTH, assert_relation_rejected, impl_focused_test_relation,
@@ -99,6 +100,7 @@ mod tests {
     impl_focused_test_relation!(
         UniqueSchnorrSignatureRelation,
         (CircuitWitnessEntry, MerkleRoot, SignedMessageWithoutPrefix),
+        error = Error,
         jubjub_poseidon_used_chips(),
         |std_lib, layouter, witness| {
             let merkle_tree_commitment: AssignedNative<CircuitBase> = std_lib.assign(

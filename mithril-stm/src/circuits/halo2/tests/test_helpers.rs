@@ -109,18 +109,18 @@ pub(crate) fn sample_valid_circuit_witness_entry(
 
 /// Declares a tiny test-only relation with no public inputs and a single witness payload.
 macro_rules! impl_focused_test_relation {
-    ($name:ident, $witness:ty, $chips:expr, |$std_lib:ident, $layouter:ident, $witness_value:ident| $body:block) => {
+    ($name:ident, $witness:ty, error = $error:ty, $chips:expr, |$std_lib:ident, $layouter:ident, $witness_value:ident| $body:block) => {
         #[derive(Clone, Default, Debug)]
         struct $name;
 
         impl midnight_zk_stdlib::Relation for $name {
-            type Error = midnight_proofs::plonk::Error;
+            type Error = $error;
             type Instance = ();
             type Witness = $witness;
 
             fn format_instance(
                 _instance: &Self::Instance,
-            ) -> Result<Vec<crate::circuits::halo2::types::CircuitBase>, midnight_proofs::plonk::Error> {
+            ) -> Result<Vec<crate::circuits::halo2::types::CircuitBase>, Self::Error> {
                 Ok(vec![])
             }
 
@@ -130,7 +130,7 @@ macro_rules! impl_focused_test_relation {
                 $layouter: &mut impl midnight_proofs::circuit::Layouter<crate::circuits::halo2::types::CircuitBase>,
                 _instance: midnight_proofs::circuit::Value<()>,
                 $witness_value: midnight_proofs::circuit::Value<$witness>,
-            ) -> Result<(), midnight_proofs::plonk::Error> $body
+            ) -> Result<(), Self::Error> $body
 
             fn used_chips(&self) -> midnight_zk_stdlib::ZkStdLibArch {
                 $chips

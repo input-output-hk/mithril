@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use ff::{Field, PrimeField};
 use midnight_circuits::instructions::{
     ArithInstructions, AssertionInstructions, AssignmentInstructions, DecompositionInstructions,
@@ -10,22 +9,20 @@ use midnight_zk_stdlib::ZkStdLib;
 use num_bigint::BigUint;
 use num_traits::{Num, One};
 
-use crate::StmResult;
 use crate::circuits::halo2::errors::StmCircuitError;
-use crate::circuits::halo2::errors::to_synthesis_error;
 use crate::circuits::halo2::types::CircuitBase;
 
 /// Splits a field element into `(lower, upper)` limbs at `num_bits` using LE encoding.
 pub(super) fn split_field_element_into_le_limbs<Fp: PrimeField>(
     value: &Fp,
     num_bits: u32,
-) -> StmResult<(Fp, Fp)> {
+) -> Result<(Fp, Fp), StmCircuitError> {
     let field_bits = Fp::NUM_BITS;
     if num_bits >= field_bits {
-        return Err(anyhow!(StmCircuitError::InvalidBitDecompositionRange {
+        return Err(StmCircuitError::InvalidBitDecompositionRange {
             num_bits,
             field_bits,
-        }));
+        });
     }
 
     let value_big = BigUint::from_bytes_le(value.to_repr().as_ref());
@@ -38,17 +35,19 @@ pub(super) fn split_field_element_into_le_limbs<Fp: PrimeField>(
 }
 
 /// Parses the prime-field modulus into a `BigUint` for limb splitting and reduction helpers.
-fn field_modulus_as_biguint<Fp: PrimeField>() -> StmResult<BigUint> {
+fn field_modulus_as_biguint<Fp: PrimeField>() -> Result<BigUint, StmCircuitError> {
     BigUint::from_str_radix(&Fp::MODULUS[2..], 16)
-        .map_err(|_| anyhow!(StmCircuitError::FieldModulusParseFailed))
+        .map_err(|_| StmCircuitError::FieldModulusParseFailed)
 }
 
 /// Reduces a non-negative integer modulo the field modulus and converts it into a field element.
-fn big_unsigned_integer_to_field_element<Fp: PrimeField>(e: BigUint) -> StmResult<Fp> {
+fn big_unsigned_integer_to_field_element<Fp: PrimeField>(
+    e: BigUint,
+) -> Result<Fp, StmCircuitError> {
     let modulus = field_modulus_as_biguint::<Fp>()?;
     let e = e % modulus;
     Fp::from_str_vartime(&e.to_str_radix(10)[..])
-        .ok_or_else(|| anyhow!(StmCircuitError::FieldElementConversionFailed))
+        .ok_or(StmCircuitError::FieldElementConversionFailed)
 }
 
 /// Constrains two assigned field elements to share the same least-significant-bit parity.
@@ -69,12 +68,11 @@ pub(super) fn decompose_unsafe(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
     x: &AssignedNative<CircuitBase>,
-) -> Result<(AssignedNative<CircuitBase>, AssignedNative<CircuitBase>), Error> {
+) -> Result<(AssignedNative<CircuitBase>, AssignedNative<CircuitBase>), StmCircuitError> {
     let x_value = x.value();
     let base127 = CircuitBase::from_u128(1_u128 << 127);
     let (x_low, x_high) = x_value
-        .map_with_result(|v| split_field_element_into_le_limbs(v, 127))
-        .map_err(to_synthesis_error)?
+        .map_with_result(|v| split_field_element_into_le_limbs(v, 127))?
         .unzip();
 
     let x_low_assigned: AssignedNative<_> = std_lib.assign(layouter, x_low)?;

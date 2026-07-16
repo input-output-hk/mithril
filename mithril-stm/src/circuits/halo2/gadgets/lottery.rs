@@ -4,6 +4,7 @@ use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
 
+use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::gadgets::comparison::lower_than_native;
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
@@ -17,7 +18,7 @@ pub(crate) fn assert_lottery_won(
     commitment_point: &AssignedNativePoint<CircuitCurve>,
     lottery_index: &AssignedNative<CircuitBase>,
     lottery_target_value: &AssignedNative<CircuitBase>,
-) -> Result<(), Error> {
+) -> Result<(), StmCircuitError> {
     let commitment_point_x = std_lib.jubjub().x_coordinate(commitment_point);
     let commitment_point_y = std_lib.jubjub().y_coordinate(commitment_point);
     let lottery_evaluation_value = std_lib.poseidon(
@@ -35,7 +36,9 @@ pub(crate) fn assert_lottery_won(
         lottery_target_value,
         &lottery_evaluation_value,
     )?;
-    std_lib.assert_false(layouter, &is_less)
+    std_lib
+        .assert_false(layouter, &is_less)
+        .map_err(StmCircuitError::from)
 }
 
 /// Constrains the current lottery index to be strictly greater than the previous one.
@@ -68,8 +71,10 @@ pub(crate) fn assert_lottery_index_in_bounds(
 #[cfg(test)]
 mod tests {
     use midnight_circuits::instructions::AssignmentInstructions;
+    use midnight_proofs::plonk::Error;
 
     use crate::LotteryIndex;
+    use crate::circuits::halo2::errors::StmCircuitError;
     use crate::circuits::halo2::tests::test_helpers::{
         assert_relation_rejected, comparison_used_chips, impl_focused_test_relation,
         jubjub_poseidon_used_chips, prove_and_verify_relation,
@@ -93,6 +98,7 @@ mod tests {
     impl_focused_test_relation!(
         LotteryWonRelation,
         LotteryWonWitness,
+        error = StmCircuitError,
         jubjub_poseidon_used_chips(),
         |std_lib, layouter, witness| {
             let lottery_prefix =
@@ -121,6 +127,7 @@ mod tests {
     impl_focused_test_relation!(
         IncreasingIndexRelation,
         (LotteryIndex, LotteryIndex),
+        error = Error,
         comparison_used_chips(),
         |std_lib, layouter, witness| {
             let previous_lottery_index = std_lib.assign(
@@ -144,6 +151,7 @@ mod tests {
     impl_focused_test_relation!(
         InBoundsIndexRelation,
         (LotteryIndex, u32),
+        error = Error,
         comparison_used_chips(),
         |std_lib, layouter, witness| {
             let lottery_index =

@@ -1,8 +1,6 @@
 use midnight_proofs::plonk::Error as PlonkError;
 use thiserror::Error;
 
-use crate::StmError;
-
 /// Circuit-scoped errors for Halo2 STM validation and execution.
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -128,21 +126,6 @@ impl From<PlonkError> for StmCircuitError {
     fn from(error: PlonkError) -> Self {
         Self::Backend(error.to_string())
     }
-}
-
-/// Convert STM-layer errors to Midnight synthesis errors at relation boundaries.
-pub(crate) fn to_synthesis_error(error: StmError) -> PlonkError {
-    let error = match error.downcast::<PlonkError>() {
-        Ok(plonk_error) => return plonk_error,
-        Err(error) => error,
-    };
-
-    let error = match error.downcast::<StmCircuitError>() {
-        Ok(stm_error) => return PlonkError::Synthesis(stm_error.to_string()),
-        Err(error) => error,
-    };
-
-    PlonkError::Synthesis(error.to_string())
 }
 
 #[cfg(test)]
