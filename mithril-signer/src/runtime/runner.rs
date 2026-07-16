@@ -138,6 +138,7 @@ impl Runner for SignerRunner {
             .signers_registration_retriever
             .retrieve_all_signer_registrations()
             .await
+            .map(Some)
     }
 
     async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>> {

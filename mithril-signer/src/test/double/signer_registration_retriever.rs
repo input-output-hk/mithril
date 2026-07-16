@@ -1,3 +1,4 @@
+use anyhow::Context;
 use tokio::sync::RwLock;
 
 use mithril_common::StdResult;
@@ -21,9 +22,9 @@ impl Default for DumbSignersRegistrationRetriever {
 
 #[async_trait::async_trait]
 impl SignersRegistrationRetriever for DumbSignersRegistrationRetriever {
-    async fn retrieve_all_signer_registrations(&self) -> StdResult<Option<RegisteredSigners>> {
+    async fn retrieve_all_signer_registrations(&self) -> StdResult<RegisteredSigners> {
         let epoch_settings = self.epoch_settings.read().await.clone();
 
-        Ok(epoch_settings)
+        epoch_settings.with_context(|| "No epoch settings set")
     }
 }

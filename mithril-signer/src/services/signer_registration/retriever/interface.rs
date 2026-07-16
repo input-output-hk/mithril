@@ -7,5 +7,5 @@ use crate::RegisteredSigners;
 #[async_trait::async_trait]
 pub trait SignersRegistrationRetriever: Sync + Send {
     /// Retrieves signer's registration from the mithril network
-    async fn retrieve_all_signer_registrations(&self) -> StdResult<Option<RegisteredSigners>>;
+    async fn retrieve_all_signer_registrations(&self) -> StdResult<RegisteredSigners>;
 }
