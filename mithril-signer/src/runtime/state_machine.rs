@@ -90,6 +90,11 @@ enum EpochStatus {
     Unchanged(TimePoint),
 }
 
+enum SignerRegistrationOutcome {
+    Registered,
+    RegistrationRoundNotYetOpened,
+}
+
 /// The state machine is responsible of the execution of the signer automate.
 pub struct StateMachine {
     state: Mutex<SignerState>,
@@ -366,49 +371,24 @@ impl StateMachine {
                 nested_error: Some(e),
             })?;
 
-        fn handle_registration_result(
-            register_result: Result<(), Error>,
-            epoch: Epoch,
-        ) -> Result<Option<SignerState>, RuntimeError> {
-            if let Err(e) = register_result {
-                if let Some(AggregatorHttpClientError::RegistrationRoundNotYetOpened(_)) =
-                    e.downcast_ref::<AggregatorHttpClientError>()
-                {
-                    Ok(Some(SignerState::Unregistered { epoch }))
-                } else if e.downcast_ref::<ProtocolInitializerError>().is_some() {
-                    Err(RuntimeError::Critical {
-                        message: format!(
-                            "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
-                        ),
-                        nested_error: Some(e),
-                    })
-                } else {
-                    Err(RuntimeError::KeepState {
-                        message: format!(
-                            "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
-                        ),
-                        nested_error: Some(e),
-                    })
-                }
-            } else {
-                Ok(None)
+        let register_result = self.runner.register_signer_to_aggregator().await;
+        match Self::handle_registration_result(register_result, epoch)? {
+            SignerRegistrationOutcome::Registered => {
+                self.metrics_service
+                    .get_signer_registration_success_since_startup_counter()
+                    .increment();
+
+                self.metrics_service
+                    .get_signer_registration_success_last_epoch_gauge()
+                    .record(epoch);
+            }
+            SignerRegistrationOutcome::RegistrationRoundNotYetOpened => {
+                self.metrics_service
+                    .get_signer_registration_success_since_startup_counter()
+                    .increment();
+                return Ok(SignerState::Unregistered { epoch });
             }
         }
-
-        let register_result = self.runner.register_signer_to_aggregator().await;
-        let next_state_found = handle_registration_result(register_result, epoch)?;
-
-        self.metrics_service
-            .get_signer_registration_success_since_startup_counter()
-            .increment();
-
-        if let Some(state) = next_state_found {
-            return Ok(state);
-        }
-
-        self.metrics_service
-            .get_signer_registration_success_last_epoch_gauge()
-            .record(epoch);
 
         self.runner.upkeep(epoch).await.map_err(|e| RuntimeError::KeepState {
             message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
@@ -522,6 +502,35 @@ impl StateMachine {
                 ),
                 nested_error: Some(e),
             })
+    }
+
+    fn handle_registration_result(
+        register_result: Result<(), Error>,
+        epoch: Epoch,
+    ) -> Result<SignerRegistrationOutcome, RuntimeError> {
+        if let Err(e) = register_result {
+            if let Some(AggregatorHttpClientError::RegistrationRoundNotYetOpened(_)) =
+                e.downcast_ref::<AggregatorHttpClientError>()
+            {
+                Ok(SignerRegistrationOutcome::RegistrationRoundNotYetOpened)
+            } else if e.downcast_ref::<ProtocolInitializerError>().is_some() {
+                Err(RuntimeError::Critical {
+                    message: format!(
+                        "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
+                    ),
+                    nested_error: Some(e),
+                })
+            } else {
+                Err(RuntimeError::KeepState {
+                    message: format!(
+                        "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
+                    ),
+                    nested_error: Some(e),
+                })
+            }
+        } else {
+            Ok(SignerRegistrationOutcome::Registered)
+        }
     }
 }
 
@@ -733,7 +742,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unregistered_to_ready_to_sign_counter() {
+    async fn unregistered_keeps_state_when_registration_round_not_yet_opened_counter() {
         let mut runner = MockSignerRunner::new();
 
         runner
