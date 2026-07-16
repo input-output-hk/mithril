@@ -118,6 +118,16 @@ pub enum StmCircuitError {
     /// Proof was generated but rejected by the verifier.
     #[error("Proof verification rejected")]
     VerificationRejected,
+
+    /// A proving/verification backend error surfaced at the relation boundary.
+    #[error("Backend error: {0}")]
+    Backend(String),
+}
+
+impl From<PlonkError> for StmCircuitError {
+    fn from(error: PlonkError) -> Self {
+        Self::Backend(error.to_string())
+    }
 }
 
 /// Convert STM-layer errors to Midnight synthesis errors at relation boundaries.
@@ -133,4 +143,19 @@ pub(crate) fn to_synthesis_error(error: StmError) -> PlonkError {
     };
 
     PlonkError::Synthesis(error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn plonk_error_converts_to_backend_variant() {
+        let plonk_error = PlonkError::ConstraintSystemFailure;
+        let expected_message = plonk_error.to_string();
+        assert_eq!(
+            StmCircuitError::from(plonk_error),
+            StmCircuitError::Backend(expected_message),
+        );
+    }
 }
