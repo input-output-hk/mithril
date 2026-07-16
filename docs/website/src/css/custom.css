@@ -189,10 +189,6 @@ h3 {
   }
 }
 
-a.menu__link:hover {
-  text-decoration: underline;
-}
-
 /* "hack" to makes the announcement bar bigger since it doesn't have "public" css classes */
 div[role="banner"] {
   height: 2.3em;
@@ -256,11 +252,30 @@ div[role="banner"] div {
 }
 
 /* Same Preflight-vs-infima fix stated above */
+[class*="yearGroupHeading"] {
+  font-size: 1rem;
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.hash-link:hover {
+  color: var(--ifm-link-color);
+}
+
+.markdown a:hover {
+  color: var(--ifm-link-hover-color);
+}
+
+/* Same Preflight-vs-infima fix stated above */
 .alert {
   border-color: var(--ifm-alert-border-color);
   border-style: solid;
   border-width: var(--ifm-alert-border-width);
   border-left-width: var(--ifm-alert-border-left-width);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.alert a:hover {
+  text-decoration-thickness: 2px;
 }
 
 /* Same Preflight-vs-infima fix stated above */
@@ -304,6 +319,86 @@ table td {
 /* Same Preflight-vs-infima fix stated above */
 .theme-doc-card-container {
   border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.theme-doc-sidebar-container {
+  border-right: 1px solid var(--ifm-toc-border-color);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+blockquote {
+  border-left: var(--ifm-blockquote-border-left-width) solid
+    var(--ifm-blockquote-border-color);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.tabs__item {
+  border-bottom: 3px solid transparent;
+}
+
+.tabs__item--active {
+  border-bottom-color: var(--ifm-tabs-color-active-border);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+code {
+  border: 0.1rem solid rgba(0, 0, 0, 0.1);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+a[rel="tag"] {
+  border: 1px solid
+    var(--docusaurus-tag-list-border, var(--ifm-color-emphasis-300));
+}
+
+a[rel="tag"]:hover {
+  border-color: var(--ifm-link-color);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.theme-code-block [class*="codeBlockTitle"] {
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.theme-code-block [class*="buttonGroup"] button {
+  background: var(--prism-background-color);
+  color: var(--prism-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  padding: 0.4rem;
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.theme-doc-toc-mobile [class*="tocCollapsibleContent"] > ul {
+  border-top: 1px solid var(--ifm-color-emphasis-300);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.table-of-contents__left-border {
+  border-left: 1px solid var(--ifm-toc-border-color);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.navbar__link:hover,
+.navbar__link--active {
+  color: var(--ifm-navbar-link-hover-color);
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.navbar__logo img {
+  height: 100%;
+}
+
+/* Same Preflight-vs-infima fix stated above */
+.container {
+  max-width: var(--ifm-container-width);
+}
+
+@media (min-width: 1440px) {
+  .container {
+    max-width: var(--ifm-container-width-xl);
+  }
 }
 
 .theme-doc-card-container:hover {
@@ -439,6 +534,13 @@ a.menu__link {
 
 .title_f1Hy {
   font-weight: 700;
+  font-size: 3rem;
+}
+
+@media (max-width: 576px) {
+  .title_f1Hy {
+    font-size: 2rem;
+  }
 }
 
 .markdown h3 {
@@ -465,7 +567,8 @@ a.menu__link {
 
 /* Same Preflight-vs-infima fix stated above */
 .theme-edit-this-page:hover {
-  text-decoration: var(--ifm-link-hover-decoration);
+  text-decoration: underline;
+  color: var(--ifm-link-hover-color);
 }
 
 .stuck-grid {
