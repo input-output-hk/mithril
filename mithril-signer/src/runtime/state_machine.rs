@@ -166,16 +166,18 @@ impl StateMachine {
                         "→ Epoch has changed, transiting to Unregistered"
                     );
                     *state = self.transition_from_unregistered_to_unregistered(new_epoch).await?;
-                } else if let Some(signer_registrations) = self
-                    .runner
-                    .get_signer_registrations_from_aggregator()
-                    .await
-                    .map_err(|e| RuntimeError::KeepState {
-                        message: format!("could not retrieve epoch settings at epoch {epoch:?}"),
-                        nested_error: Some(e),
-                    })?
-                {
+                } else {
+                    let signer_registrations =
+                        self.runner.get_signer_registrations_from_aggregator().await.map_err(
+                            |e| RuntimeError::KeepState {
+                                message: format!(
+                                    "could not retrieve epoch settings at epoch {epoch:?}"
+                                ),
+                                nested_error: Some(e),
+                            },
+                        )?;
                     info!(self.logger, "→ Epoch Signer registrations found");
+
                     let network_configuration: MithrilNetworkConfiguration =
                         self.runner.get_mithril_network_configuration(*epoch).await.map_err(
                             |e| RuntimeError::KeepState {
@@ -207,8 +209,6 @@ impl StateMachine {
                             "known_epoch" => ?epoch,
                         );
                     }
-                } else {
-                    info!(self.logger, "→ No epoch settings found yet, waiting…");
                 }
             }
             SignerState::RegisteredNotAbleToSign { epoch } => {
@@ -515,12 +515,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unregistered_epoch_settings_not_found() {
+    async fn unregistered_epoch_settings_error() {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(None));
+            .returning(|| Err(anyhow!("error")));
         runner
             .expect_get_current_time_point()
             .once()
@@ -534,7 +534,7 @@ mod tests {
         state_machine
             .cycle()
             .await
-            .expect("Cycling the state machine should not fail");
+            .expect_err("Cycling the state machine should fail");
 
         assert_eq!(
             SignerState::Unregistered {
@@ -556,7 +556,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(move || Ok(Some(epoch_settings.to_owned())));
+            .returning(move || Ok(epoch_settings.to_owned()));
         runner
             .expect_get_mithril_network_configuration()
             .once()
@@ -594,7 +594,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(RegisteredSigners::dummy())));
+            .returning(|| Ok(RegisteredSigners::dummy()));
 
         runner
             .expect_get_mithril_network_configuration()
@@ -646,7 +646,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(RegisteredSigners::dummy())));
+            .returning(|| Ok(RegisteredSigners::dummy()));
 
         runner
             .expect_get_mithril_network_configuration()
@@ -702,7 +702,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(RegisteredSigners::dummy())));
+            .returning(|| Ok(RegisteredSigners::dummy()));
 
         runner
             .expect_get_mithril_network_configuration()
