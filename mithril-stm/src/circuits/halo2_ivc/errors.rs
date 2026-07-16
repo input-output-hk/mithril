@@ -48,13 +48,6 @@ pub enum IvcCircuitError {
     /// Off-circuit step transition: the chain's step counter would overflow u64.
     #[error("IvcProverInput::prepare: step counter overflow advancing past {current}")]
     StepCounterOverflow { current: u64 },
-
-    /// Off-circuit step transition: the certificate proof's embedded verifying key does
-    /// not match the certificate verifying key carried by `IvcSnarkProverSetup`.
-    #[error(
-        "IvcProverInput::prepare: certificate proof's embedded verifying key does not match the certificate verifying key in IvcSnarkProverSetup"
-    )]
-    CertificateVerifyingKeyMismatch,
 }
 
 /// Subcategorization for `IvcCircuitError::InvalidEpochTransition`. Lets negative

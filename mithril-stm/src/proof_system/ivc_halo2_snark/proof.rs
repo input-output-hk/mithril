@@ -912,7 +912,7 @@ mod tests {
                     state::Global,
                     tests::common::{
                         asset_readers::{
-                            RecursiveChainStateAsset, VerificationContextAsset,
+                            RecursiveChainStateAsset,
                             load_embedded_first_certificate_in_epoch_asset,
                             load_embedded_following_certificate_in_epoch_asset,
                             load_embedded_next_epoch_step_output_asset,
@@ -942,12 +942,10 @@ mod tests {
             global: Global,
             verifier_setup: IvcVerifierSetup,
             asset_setup: AssetGenerationSetup,
-            verification_context: VerificationContextAsset,
         }
 
         fn wrap_snark_proof(
             certificate_proof_bytes: Vec<u8>,
-            verification_context: &VerificationContextAsset,
         ) -> SnarkProof<MithrilMembershipDigest> {
             let parameters = Parameters {
                 k: QUORUM_SIZE as u64,
@@ -955,12 +953,7 @@ mod tests {
                 phi_f: 0.2,
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-            SnarkProof::from_parts(
-                certificate_proof_bytes,
-                parameters,
-                merkle_tree_depth,
-                verification_context.certificate_verifying_key.clone(),
-            )
+            SnarkProof::new(certificate_proof_bytes, parameters, merkle_tree_depth)
         }
 
         fn wrap_avk(root: &[u8; 32]) -> AggregateVerificationKeyForSnark<MithrilMembershipDigest> {
@@ -1011,10 +1004,7 @@ mod tests {
             let first_step = load_embedded_first_certificate_in_epoch_asset()
                 .expect("first-step certificate asset should load");
             let avk = wrap_avk(&first_step.aggregate_verification_key_merkle_root);
-            let snark_proof = wrap_snark_proof(
-                first_step.certificate_proof.clone().into_vec(),
-                &ctx.verification_context,
-            );
+            let snark_proof = wrap_snark_proof(first_step.certificate_proof.clone().into_vec());
             let epoch1_preimage = wrap_protocol_message_preimage(&first_step.message_preimage);
             let bootstrap = genesis_bootstrap(&ctx.asset_setup);
 
@@ -1080,10 +1070,7 @@ mod tests {
                 .expect("next-epoch step output asset should load");
 
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let snark_proof = wrap_snark_proof(
-                step.certificate_proof.clone().into_vec(),
-                &ctx.verification_context,
-            );
+            let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let mut prover = IvcProver {
@@ -1144,10 +1131,7 @@ mod tests {
                 .expect("same-epoch step output asset should load");
 
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let snark_proof = wrap_snark_proof(
-                step.certificate_proof.clone().into_vec(),
-                &ctx.verification_context,
-            );
+            let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let mut prover = IvcProver {
@@ -1194,7 +1178,7 @@ mod tests {
 
             let mut corrupted = step.certificate_proof.clone().into_vec();
             corrupted[0] ^= 0xFF;
-            let snark_proof = wrap_snark_proof(corrupted, &ctx.verification_context);
+            let snark_proof = wrap_snark_proof(corrupted);
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
@@ -1231,10 +1215,7 @@ mod tests {
             let step = load_embedded_following_certificate_in_epoch_asset()
                 .expect("same-epoch step output asset should load");
 
-            let snark_proof = wrap_snark_proof(
-                step.certificate_proof.clone().into_vec(),
-                &ctx.verification_context,
-            );
+            let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
@@ -1274,10 +1255,7 @@ mod tests {
             let step = load_embedded_following_certificate_in_epoch_asset()
                 .expect("same-epoch step output asset should load");
 
-            let snark_proof = wrap_snark_proof(
-                step.certificate_proof.clone().into_vec(),
-                &ctx.verification_context,
-            );
+            let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let mut tampered_root = step.aggregate_verification_key_merkle_root;
             tampered_root[0] ^= 0xFF;
             let wrong_avk = wrap_avk(&tampered_root);
@@ -1320,10 +1298,7 @@ mod tests {
                 chain_state.genesis_signature,
             );
 
-            let snark_proof = wrap_snark_proof(
-                step.certificate_proof.clone().into_vec(),
-                &ctx.verification_context,
-            );
+            let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
@@ -1360,10 +1335,7 @@ mod tests {
             let step = load_embedded_following_certificate_in_epoch_asset()
                 .expect("same-epoch step output asset should load");
 
-            let snark_proof = wrap_snark_proof(
-                step.certificate_proof.clone().into_vec(),
-                &ctx.verification_context,
-            );
+            let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
@@ -1448,7 +1420,6 @@ mod tests {
                 global,
                 verifier_setup,
                 asset_setup,
-                verification_context,
             };
 
             run_bootstrap_path(&ctx);

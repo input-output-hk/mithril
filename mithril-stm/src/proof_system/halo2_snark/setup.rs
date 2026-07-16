@@ -9,6 +9,7 @@ use midnight_proofs::{
     utils::SerdeFormat,
 };
 use midnight_zk_stdlib as zk;
+use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 use crate::circuits::{
@@ -127,6 +128,33 @@ impl SnarkVerifierSetup {
         .with_context(|| "Failed to read embedded SNARK verifier params bytes")?;
 
         Ok(Self { verifier_params })
+    }
+}
+
+/// Verifier data for the non-recursive SNARK: the certificate circuit verifying key, which is
+/// fixed for a given circuit configuration and shared across the proofs it verifies.
+///
+/// The verifying key is the per-circuit newtype so its serialization preserves the circuit
+/// architecture needed to deserialize it against the correct constraint system. Mirrors
+/// `IvcVerifierData` on the recursive side.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SnarkVerifierData {
+    certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
+}
+
+impl SnarkVerifierData {
+    /// Build the verifier data from the certificate circuit verifying key used to produce the proof.
+    pub(crate) fn new(
+        certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
+    ) -> Self {
+        Self {
+            certificate_circuit_verification_key,
+        }
+    }
+
+    /// Returns the certificate circuit verifying key stored in the SnarkVerifierData.
+    pub(crate) fn certificate_circuit_verification_key(&self) -> &NonRecursiveCircuitVerifyingKey {
+        &self.certificate_circuit_verification_key
     }
 }
 

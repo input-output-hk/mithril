@@ -29,7 +29,7 @@ use crate::{
     SnarkProof,
     circuits::halo2_ivc::{ProtocolMessagePreimage, state::Global},
     proof_system::{
-        MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver,
+        MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver, SnarkVerifierData,
         ivc_halo2_snark::{
             proof::{IvcProof, IvcProver},
             verifier_setup::IvcVerifierData,
@@ -118,23 +118,29 @@ impl<D: MembershipDigest> Clerk<D> {
                 let clerk = self
                     .get_snark_clerk()
                     .ok_or_else(|| anyhow!(AggregateSignatureError::MissingSnarkClerk))?;
-                SnarkProver::try_new_non_deterministic(
+                let mut prover = SnarkProver::try_new_non_deterministic(
                     &clerk.parameters,
                     MERKLE_TREE_DEPTH_FOR_SNARK,
-                )?
-                .aggregate_signatures(clerk, sigs, msg)
-                .map(|p| {
-                    (
-                        AggregateSignature::Snark(Box::new(p)),
-                        AncillaryProofOutput::new(None, None),
-                    )
-                })
-                .with_context(|| {
-                    format!(
-                        "Signatures failed to aggregate for type {}",
-                        AggregateSignatureType::Snark
-                    )
-                })
+                )?;
+                // Clone the verifying key before proving so the certificate's ancillary verifier
+                // data and the proof provably originate from the same setup.
+                let certificate_verifying_key = prover.verification_key().clone();
+                let snark_proof =
+                    prover.aggregate_signatures(clerk, sigs, msg).with_context(|| {
+                        format!(
+                            "Signatures failed to aggregate for type {}",
+                            AggregateSignatureType::Snark
+                        )
+                    })?;
+                Ok((
+                    AggregateSignature::Snark(Box::new(snark_proof)),
+                    AncillaryProofOutput::new(
+                        None,
+                        Some(AncillaryVerifierData::Snark(SnarkVerifierData::new(
+                            certificate_verifying_key,
+                        ))),
+                    ),
+                ))
             }
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::IvcSnark => {
@@ -396,11 +402,10 @@ mod tests {
 
         let ps = setup_equal_parties(tiny_params, 1);
         let snark_clerk = SnarkClerk::new_clerk_from_signer(&ps[0]);
-        let snark_proof = SnarkProof::<MithrilMembershipDigest>::from_parts(
+        let snark_proof = SnarkProof::<MithrilMembershipDigest>::new(
             vec![],
             tiny_params,
             MERKLE_TREE_DEPTH_FOR_SNARK,
-            certificate_verifying_key.clone(),
         );
 
         let ancillary_input = AncillaryProofInput::new(
@@ -438,11 +443,10 @@ mod tests {
 
         let ps = setup_equal_parties(tiny_params, 1);
         let snark_clerk = SnarkClerk::new_clerk_from_signer(&ps[0]);
-        let snark_proof = SnarkProof::<MithrilMembershipDigest>::from_parts(
+        let snark_proof = SnarkProof::<MithrilMembershipDigest>::new(
             vec![],
             tiny_params,
             MERKLE_TREE_DEPTH_FOR_SNARK,
-            certificate_verifying_key.clone(),
         );
 
         let ancillary_input = AncillaryProofInput::new(

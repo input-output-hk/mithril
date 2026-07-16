@@ -62,13 +62,17 @@ pub enum AggregateSignatureError {
     #[error("Unknown proof system: {0}")]
     UnknownProofSystem(String),
 
-    /// Missing ancillary verifier data to verify the IVC proof
-    #[error("Missing ancillary verifier data to verify the IVC proof.")]
+    /// Missing ancillary verifier data to verify the aggregate signature
+    #[error("Missing ancillary verifier data to verify the aggregate signature.")]
     MissingAncillaryVerifierData,
 
     /// Missing IVC verifier data from the AncillaryVerifierData
     #[error("Missing IVC verifier data from the AncillaryVerifierData.")]
     MissingIvcVerifierData,
+
+    /// Missing SNARK verifier data from the AncillaryVerifierData
+    #[error("Missing SNARK verifier data from the AncillaryVerifierData.")]
+    MissingSnarkVerifierData,
 
     /// Missing genesis verification key bundle to verify the aggregate signature
     #[error("Missing genesis verification key bundle to verify the aggregate signature.")]

@@ -67,32 +67,21 @@ impl IvcTransitionType {
     }
 }
 
-/// Rejects the certificate proof if its embedded verifying key differs from
-/// `setup.certificate_verifying_key`, then runs the off-circuit verifier and
-/// returns the prepared `DualMSM`.
+/// Runs the off-circuit verifier on the certificate proof and returns the prepared `DualMSM`.
 ///
-/// The verifying-key match is required so the off-circuit accumulator built from
-/// `prepare_and_check` agrees with the one the in-circuit IVC verifier gadget
-/// produces on the same proof.
+/// The certificate verifying key is taken from `setup.certificate_verifying_key` — the single
+/// source shared with the in-circuit IVC verifier gadget — so the off-circuit accumulator built by
+/// `prepare_and_check` agrees with the one the gadget produces on the same proof.
 pub(crate) fn verify_certificate_proof<D: MembershipDigest>(
     certificate_proof: &SnarkProof<D>,
     certificate_message_bytes: &[u8],
     aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
     setup: &IvcSnarkProverSetup,
 ) -> StmResult<DualMSM<Bls12>> {
-    if certificate_proof
-        .circuit_verification_key()
-        .midnight_vk()
-        .vk()
-        .transcript_repr()
-        != setup.certificate_verifying_key.midnight_vk().vk().transcript_repr()
-    {
-        return Err(IvcCircuitError::CertificateVerifyingKeyMismatch.into());
-    }
-
     certificate_proof.prepare_and_check(
         certificate_message_bytes,
         aggregate_verification_key_for_snark,
+        &setup.certificate_verifying_key,
         &setup.srs.verifier_params(),
     )
 }

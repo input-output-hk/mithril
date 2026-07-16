@@ -55,7 +55,7 @@ pub(crate) use concatenation::{ConcatenationProofSigner, SingleSignatureForConca
 pub use halo2_snark::AggregateVerificationKeyForSnark;
 
 #[cfg(feature = "future_snark")]
-pub use halo2_snark::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkProof};
+pub use halo2_snark::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkProof, SnarkVerifierData};
 
 #[cfg(all(test, feature = "future_snark"))]
 pub(crate) use halo2_snark::SnarkProverSetup;

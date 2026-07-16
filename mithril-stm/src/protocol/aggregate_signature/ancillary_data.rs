@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "future_snark")]
 use crate::{
     SchnorrVerificationKey, StandardSchnorrSignature,
-    proof_system::{IvcRollingState, ivc_halo2_snark::verifier_setup::IvcVerifierData},
+    proof_system::{
+        IvcRollingState, SnarkVerifierData, ivc_halo2_snark::verifier_setup::IvcVerifierData,
+    },
     protocol::aggregate_signature::GenesisMessagePreimage,
 };
 use crate::{StmResult, codec};
@@ -62,10 +64,16 @@ impl AncillaryProverData {
 /// Holds the data a verifier needs to verify the certificate. Stored and transmitted in the
 /// certificate message. Variants map to the aggregate signature types that require verifier
 /// data.
+// The recursive `IvcSnark` verifier data is inherently larger than the non-recursive `Snark` one.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AncillaryVerifierData {
     #[cfg(feature = "future_snark")]
     IvcSnark(IvcVerifierData),
+    /// Non-recursive SNARK: carries the certificate circuit verifying key, which is fixed for a
+    /// given circuit configuration and shared across the proofs it verifies.
+    #[cfg(feature = "future_snark")]
+    Snark(SnarkVerifierData),
 }
 
 impl AncillaryVerifierData {
@@ -92,6 +100,16 @@ impl AncillaryVerifierData {
     pub fn as_ivc_verifier_data(&self) -> Option<&IvcVerifierData> {
         match self {
             Self::IvcSnark(state) => Some(state),
+            Self::Snark(_) => None,
+        }
+    }
+
+    /// Returns the wrapped SnarkVerifierData of a non-recursive SNARK AncillaryVerifierData.
+    #[cfg(feature = "future_snark")]
+    pub fn as_snark_verifier_data(&self) -> Option<&SnarkVerifierData> {
+        match self {
+            Self::Snark(snark_verifier_data) => Some(snark_verifier_data),
+            Self::IvcSnark(_) => None,
         }
     }
 }
@@ -370,5 +388,53 @@ mod tests {
         let reconstructed = AncillaryVerifierData::from_bytes(&bytes).unwrap();
 
         assert_eq!(bytes, reconstructed.to_bytes().unwrap());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn ancillary_snark_verifier_data_to_from_bytes_round_trip() {
+        let context = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let verifier_data = SnarkVerifierData::new(context.certificate_verifying_key);
+        let ancillary_verifier_data = AncillaryVerifierData::Snark(verifier_data);
+
+        let bytes = ancillary_verifier_data.to_bytes().unwrap();
+        let reconstructed = AncillaryVerifierData::from_bytes(&bytes).unwrap();
+
+        assert_eq!(bytes, reconstructed.to_bytes().unwrap());
+        assert!(reconstructed.as_snark_verifier_data().is_some());
+        assert!(reconstructed.as_ivc_verifier_data().is_none());
+    }
+
+    /// Byte-locks the CBOR encoding of the pre-existing `IvcSnark` ancillary variant against a
+    /// hardcoded digest, so appending the `Snark` variant to `AncillaryVerifierData` cannot
+    /// silently change the encoding of the existing variant — which would break committed IVC
+    /// certificates. ciborium tags enum variants by name, so the encoding is independent of variant
+    /// order; the digest below is the pre-change value and must never change.
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn ivc_ancillary_encoding_is_byte_stable() {
+        use sha2::{Digest, Sha256};
+
+        const EXPECTED_IVC_ANCILLARY_DIGEST: [u8; 32] = [
+            240, 25, 232, 93, 209, 193, 157, 75, 235, 202, 83, 63, 57, 129, 218, 32, 239, 172, 182,
+            174, 159, 102, 136, 216, 205, 186, 118, 104, 114, 190, 127, 90,
+        ];
+
+        let context = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let verifier_data = IvcVerifierData::new(
+            MessageHash::ZERO,
+            context.certificate_verifying_key,
+            context.recursive_verifying_key,
+        );
+        let bytes = AncillaryVerifierData::IvcSnark(verifier_data).to_bytes().unwrap();
+        let digest: [u8; 32] = Sha256::digest(&bytes).into();
+
+        assert_eq!(
+            digest, EXPECTED_IVC_ANCILLARY_DIGEST,
+            "IvcSnark ancillary encoding changed — adding a variant must not alter the existing \
+             variant's CBOR, or committed IVC certificates would break"
+        );
     }
 }
