@@ -6,9 +6,11 @@ use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
 use midnight_proofs::{
     plonk::{create_proof, prepare},
-    poly::commitment::PolynomialCommitmentScheme,
-    poly::kzg::{KZGCommitmentScheme, msm::DualMSM, params::ParamsKZG},
-    transcript::{CircuitTranscript, Hashable, Sampleable, Transcript, TranscriptHash},
+    poly::{
+        commitment::PolynomialCommitmentScheme,
+        kzg::{KZGCommitmentScheme, msm::DualMSM, params::ParamsKZG},
+    },
+    transcript::{Blake2b256, CircuitTranscript, Hashable, Sampleable, Transcript, TranscriptHash},
 };
 use rand_core::{CryptoRng, RngCore};
 
@@ -117,7 +119,7 @@ pub(crate) fn prove_blake2b_ivc(
     public_inputs: &[NativeField],
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> Vec<u8> {
-    prove_ivc_with_transcript::<blake2b_simd::State>(
+    prove_ivc_with_transcript::<Blake2b256>(
         commitment_parameters,
         proving_key,
         ivc_circuit_data,
@@ -163,7 +165,7 @@ pub(crate) fn verify_prepare_blake2b_ivc(
     proof: &[u8],
     public_inputs: &[NativeField],
 ) -> DualMSM<PairingEngine> {
-    verify_prepare_ivc_with_transcript::<blake2b_simd::State>(
+    verify_prepare_ivc_with_transcript::<Blake2b256>(
         verifying_key,
         proof,
         public_inputs,
