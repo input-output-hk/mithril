@@ -180,7 +180,7 @@ impl StateMachine {
         if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(epoch).await? {
             info!(
                 self.logger,
-                "→ Epoch has changed, transiting to Unregistered"
+                "→ Epoch has changed, transitioning to Unregistered"
             );
 
             self.transition_from_unregistered_to_unregistered(new_epoch)
@@ -211,7 +211,7 @@ impl StateMachine {
 
             if signer_registrations.epoch >= epoch {
                 info!(self.logger, "New Epoch found");
-                info!(self.logger, " ⋅ Transiting to Registered");
+                info!(self.logger, " ⋅ Transitioning to Registered");
 
                 self.transition_from_unregistered_to_one_of_registered_states(
                     signer_registrations.epoch,
@@ -242,7 +242,7 @@ impl StateMachine {
         if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(epoch).await? {
             info!(
                 self.logger,
-                " → New Epoch detected, transiting to Unregistered"
+                " → New Epoch detected, transitioning to Unregistered"
             );
 
             self.transition_from_registered_not_able_to_sign_to_unregistered(new_epoch)
@@ -259,7 +259,7 @@ impl StateMachine {
             EpochStatus::NewEpoch(new_epoch) => {
                 info!(
                     self.logger,
-                    "→ Epoch has changed, transiting to Unregistered"
+                    "→ Epoch has changed, transitioning to Unregistered"
                 );
                 self.transition_from_ready_to_sign_to_unregistered(new_epoch)
                     .await
@@ -277,7 +277,7 @@ impl StateMachine {
                 match beacon_to_sign {
                     Some(beacon) => {
                         info!(
-                            self.logger, "→ Epoch has NOT changed we can sign this beacon, transiting to ReadyToSign";
+                            self.logger, "→ Epoch has NOT changed we can sign this beacon, transitioning to ReadyToSign";
                             "beacon_to_sign" => ?beacon,
                         );
                         self.transition_from_ready_to_sign_to_ready_to_sign(epoch, beacon)
