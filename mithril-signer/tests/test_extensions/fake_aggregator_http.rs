@@ -174,8 +174,7 @@ async fn epoch_settings(state: State<FakeAggregatorRoutesState>) -> Result<Respo
     slog::debug!(state.logger, "/epoch-settings");
 
     if state.store.read().await.withhold_epoch_settings {
-        // Note: aggregator doesn't return NotFound, it returns a 500
-        Ok(StatusCode::NOT_FOUND.into_response())
+        Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response())
     } else {
         let time_point = state.get_time_point().await.map_err(internal_server_error)?;
         let current_signers = state.get_current_signers().await.map_err(internal_server_error)?;
