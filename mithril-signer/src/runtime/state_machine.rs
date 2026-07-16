@@ -43,6 +43,11 @@ pub enum SignerState {
     },
 }
 
+enum CycleOutcome {
+    TransitionTo(SignerState),
+    KeepState,
+}
+
 impl SignerState {
     /// Returns `true` if the state in `Init`
     pub fn is_init(&self) -> bool {
@@ -156,8 +161,8 @@ impl StateMachine {
             .get_runtime_cycle_total_since_startup_counter()
             .increment();
 
-        let next_state_or_skip = match current_state {
-            SignerState::Init => self.transition_from_init_to_unregistered().await.map(Some)?,
+        let outcome = match current_state {
+            SignerState::Init => self.cycle_init().await?,
             SignerState::Unregistered { epoch } => self.cycle_unregistered(epoch).await?,
             SignerState::RegisteredNotAbleToSign { epoch } => {
                 self.cycle_registered_not_able_to_sign(epoch).await?
@@ -165,8 +170,14 @@ impl StateMachine {
             SignerState::ReadyToSign { epoch } => self.cycle_ready_to_sign(epoch).await?,
         };
 
-        if let Some(next_state) = next_state_or_skip {
-            *self.state.lock().await = next_state;
+        match outcome {
+            CycleOutcome::TransitionTo(next_state) => {
+                info!(self.logger, "Transitioned to state: {next_state}");
+                *self.state.lock().await = next_state;
+            }
+            CycleOutcome::KeepState => {
+                info!(self.logger, "Keeping current state: {current_state}");
+            }
         }
 
         self.metrics_service
@@ -176,7 +187,16 @@ impl StateMachine {
         Ok(())
     }
 
-    async fn cycle_unregistered(&self, epoch: Epoch) -> Result<Option<SignerState>, RuntimeError> {
+    async fn cycle_init(&self) -> Result<CycleOutcome, RuntimeError> {
+        let current_epoch = self.get_current_time_point("init → unregistered").await?.epoch;
+        self.update_era_checker(current_epoch, "init → unregistered").await?;
+
+        Ok(CycleOutcome::TransitionTo(SignerState::Unregistered {
+            epoch: current_epoch,
+        }))
+    }
+
+    async fn cycle_unregistered(&self, epoch: Epoch) -> Result<CycleOutcome, RuntimeError> {
         if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(epoch).await? {
             info!(
                 self.logger,
@@ -185,7 +205,7 @@ impl StateMachine {
 
             self.transition_from_unregistered_to_unregistered(new_epoch)
                 .await
-                .map(Some)
+                .map(CycleOutcome::TransitionTo)
         } else {
             let signer_registrations = self
                 .runner
@@ -220,7 +240,7 @@ impl StateMachine {
                     signer_registrations.next_signers,
                 )
                 .await
-                .map(Some)
+                .map(CycleOutcome::TransitionTo)
             } else {
                 info!(
                     self.logger, " ⋅ Signer settings found, but its epoch is behind the known epoch, waiting…";
@@ -230,7 +250,7 @@ impl StateMachine {
                     "known_epoch" => ?epoch,
                 );
 
-                Ok(None)
+                Ok(CycleOutcome::KeepState)
             }
         }
     }
@@ -238,7 +258,7 @@ impl StateMachine {
     async fn cycle_registered_not_able_to_sign(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<SignerState>, RuntimeError> {
+    ) -> Result<CycleOutcome, RuntimeError> {
         if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(epoch).await? {
             info!(
                 self.logger,
@@ -247,14 +267,14 @@ impl StateMachine {
 
             self.transition_from_registered_not_able_to_sign_to_unregistered(new_epoch)
                 .await
-                .map(Some)
+                .map(CycleOutcome::TransitionTo)
         } else {
             info!(self.logger, " ⋅ Epoch has NOT changed, waiting…");
-            Ok(None)
+            Ok(CycleOutcome::KeepState)
         }
     }
 
-    async fn cycle_ready_to_sign(&self, epoch: Epoch) -> Result<Option<SignerState>, RuntimeError> {
+    async fn cycle_ready_to_sign(&self, epoch: Epoch) -> Result<CycleOutcome, RuntimeError> {
         match self.has_epoch_changed(epoch).await? {
             EpochStatus::NewEpoch(new_epoch) => {
                 info!(
@@ -263,7 +283,7 @@ impl StateMachine {
                 );
                 self.transition_from_ready_to_sign_to_unregistered(new_epoch)
                     .await
-                    .map(Some)
+                    .map(CycleOutcome::TransitionTo)
             }
             EpochStatus::Unchanged(timepoint) => {
                 let beacon_to_sign =
@@ -282,11 +302,11 @@ impl StateMachine {
                         );
                         self.transition_from_ready_to_sign_to_ready_to_sign(epoch, beacon)
                             .await
-                            .map(Some)
+                            .map(CycleOutcome::TransitionTo)
                     }
                     None => {
                         info!(self.logger, " ⋅ No beacon to sign, waiting…");
-                        Ok(None)
+                        Ok(CycleOutcome::KeepState)
                     }
                 }
             }
@@ -313,15 +333,6 @@ impl StateMachine {
             .await?;
 
         Ok(SignerState::Unregistered { epoch: new_epoch })
-    }
-
-    async fn transition_from_init_to_unregistered(&self) -> Result<SignerState, RuntimeError> {
-        let current_epoch = self.get_current_time_point("init → unregistered").await?.epoch;
-        self.update_era_checker(current_epoch, "init → unregistered").await?;
-
-        Ok(SignerState::Unregistered {
-            epoch: current_epoch,
-        })
     }
 
     /// Launch the transition process from the `Unregistered` to `ReadyToSign` or `RegisteredNotAbleToSign` state.
