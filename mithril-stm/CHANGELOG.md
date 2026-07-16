@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.11.0 (07-16-2026)
+
+### Changed
+
+- Upgraded `midnight-circuits` to `7.2.2`, `midnight-curves` to `0.3.1`, `midnight-proofs` to `0.8.1`, and `midnight-zk-stdlib` to `2.3.3`
+- Adapted the IVC circuit configuration to the `midnight-circuits 7.2.2` API: replaced `ForeignEccChip`/`ForeignEccConfig` with `ForeignWeierstrassEccChip`/`ForeignWeierstrassEccConfig`
+- Removed the `com_instance` dummy fixed-base entry from the IVC circuit's fixed-base map, which is no longer present in the `midnight-circuits 7.2.2` verifying key
+- Renamed the internal constants `CERTIFICATE_VERIFICATION_KEY_NAME` and `IVC_VERIFICATION_KEY_NAME` to `CERTIFICATE_FIXED_BASES_PREFIX` and `IVC_FIXED_BASES_PREFIX` to better reflect their role as MSM name prefixes
+- Added `check_dual_msm_matches_fixed_bases` pre-flight check in the accumulator module to return an error instead of panicking when the MSM fixed-base names do not match the provided map
+- Regenerate the recursive and non-recursive circuit keys
+
 ## 0.10.50 (07-16-2026)
 
 ### Changed
