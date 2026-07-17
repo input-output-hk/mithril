@@ -30,7 +30,7 @@ on:
         description: The genesis verification key location for the Mithril network.
         required: false
         type: string
-        default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey
+        default: https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey
       transactions_hashes_to_certify:
         description: Comma separated list of transactions hashes to test certification on.
         required: false
@@ -43,7 +43,7 @@ on:
         description: The ancillary verification key location to verify the ancillary files.
         required: false
         type: string
-        default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey
+        default: https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey
       enable_debug:
         description: Enable debug output ("-vvv") for the mithril-client calls
         required: true
@@ -64,7 +64,7 @@ on:
         default: https://aggregator.testing-preview.api.mithril.network/aggregator
       genesis_verification_key:
         type: string
-        default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey
+        default: https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey
       transactions_hashes_to_certify:
         type: string
         default: 1f7dbc899a898ceb4274bbc33b31ca5f0de497753c6c6795fa34838fc252de9b,c43e809de628f7c1ba41a44f188ed3872bb1f97aa101271e35424a8e1d95bea9,c61e22ac4a79a02b28ed36217369ff6959465790a4fe9e66738b7a820e174fcd
@@ -73,7 +73,7 @@ on:
         default: ccaac23d5444c5ca5c0948e0062d50738d961e3f953b1b230ef5206055aceed6,d5720d553b2f547605e7f5f64ebdabb1325b65b37a28525b06ff5b722c320ba7,e5234b6e99fe2763629e396cd37852040e0587e32d2a37c2d473ab046ca38ca9
       ancillary_verification_key:
         type: string
-        default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/ancillary.vkey
+        default: https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/testing-preview/ancillary.vkey
       enable_debug:
         type: boolean
         default: false
@@ -112,8 +112,8 @@ jobs:
             echo "debug_level=-vvv" >> $GITHUB_OUTPUT
           fi
 
-          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_OUTPUT
-          echo "ANCILLARY_VERIFICATION_KEY=$(curl -s ${{ inputs.ancillary_verification_key }})" >> $GITHUB_OUTPUT 
+          echo "GENESIS_VERIFICATION_KEY=$(curl -sSfL ${{ inputs.genesis_verification_key }})" >> $GITHUB_OUTPUT
+          echo "ANCILLARY_VERIFICATION_KEY=$(curl -sSfL ${{ inputs.ancillary_verification_key }})" >> $GITHUB_OUTPUT
 
           wget -q -O - ${{ inputs.aggregator_endpoint }} > aggregator_capabilities.json
           CARDANO_DATABASE_V2_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoDatabase"])' aggregator_capabilities.json)
@@ -417,7 +417,7 @@ jobs:
         run: |
           mkdir -p $PWD/data
           chmod -R a+w $PWD/data
-          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT -e GITHUB_TOKEN=$GITHUB_TOKEN --name='mithril-client' -v $PWD/data:/app/data ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
+          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT -e GITHUB_TOKEN=$GITHUB_TOKEN --name='mithril-client' -v $PWD/data:/app/data ghcr.io/intersectmbo/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
 
       - name: Show client version
         shell: bash
@@ -552,7 +552,7 @@ jobs:
         run: |
           mkdir -p $PWD/data
           chmod -R a+w $PWD/data
-          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT -e GITHUB_TOKEN=$GITHUB_TOKEN --name='mithril-client' -v $PWD/data:/app/data ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
+          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT -e GITHUB_TOKEN=$GITHUB_TOKEN --name='mithril-client' -v $PWD/data:/app/data ghcr.io/intersectmbo/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
 
       - name: fetch latest snapshot hash
         id: last_snapshot

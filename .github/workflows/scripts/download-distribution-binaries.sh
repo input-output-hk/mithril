@@ -9,7 +9,7 @@ TAG_FILE=$ASSETS_DIRECTORY/tags.json
 TAGS_TO_COMPARE=()
 
 mkdir -p $ASSETS_DIRECTORY
-LATEST_TAGS=$(gh api /repos/input-output-hk/mithril/releases | jq -r '[.[] | select(.prerelease == false)][].tag_name' | head -n "$TOTAL_RELEASES")
+LATEST_TAGS=$(gh api /repos/IntersectMBO/mithril/releases | jq -r '[.[] | select(.prerelease == false)][].tag_name' | head -n "$TOTAL_RELEASES")
 
 for TAG in $LATEST_TAGS; do
   if [[ "$TAG" == "$TAG_TO_TEST" ]]; then
@@ -29,7 +29,7 @@ do
     echo ">>>> Retrieving artifacts for release ${TAG_NAME}"
     ARCHIVE_DIRECTORY="./mithril-binaries/$TAG_NAME"
     mkdir -p $ARCHIVE_DIRECTORY
-    gh release download --repo input-output-hk/mithril $TAG_NAME -O mithril-archive --pattern "mithril-$TAG_NAME*-linux-x64.tar.gz"
+    gh release download --repo IntersectMBO/mithril $TAG_NAME -O mithril-archive --pattern "mithril-$TAG_NAME*-linux-x64.tar.gz"
     tar xzf mithril-archive -C $ARCHIVE_DIRECTORY mithril-aggregator mithril-signer mithril-client mithril-relay
     rm mithril-archive
 done

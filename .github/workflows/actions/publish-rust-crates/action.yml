@@ -33,7 +33,7 @@ runs:
           PACKAGE="$(echo "$PACKAGE" | xargs)" # trim
 
           echo "Check crate latest published version for '$PACKAGE' package"
-          LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/$PACKAGE  --user-agent "iog/mithril (https://github.com/input-output-hk/mithril)" | jq -r '.crate.newest_version')
+          LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/$PACKAGE  --user-agent "iog/mithril (https://github.com/IntersectMBO/mithril)" | jq -r '.crate.newest_version')
           LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r --arg package "$PACKAGE" '.packages[] | select(.name== $package) | .version')
           echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
           echo "Local version: $LOCAL_VERSION"
