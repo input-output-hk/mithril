@@ -26,7 +26,7 @@ To dive deeper into advanced topics, see:
 
 If you need help, feel free to reach out to the Mithril team:
 
-- [GitHub discussions](https://github.com/input-output-hk/mithril/discussions)
+- [GitHub discussions](https://github.com/IntersectMBO/mithril/discussions)
 
 - [Stack Exchange](https://cardano.stackexchange.com/search?q=mithril).
 

@@ -35,9 +35,9 @@ The Mithril network configurations are available in the [**Network configuration
 
 ## Resources
 
-|          Node          |                                       Source repository                                        |                                  Rust documentation                                   |                                         Docker packages                                         |                         Network configurations                         |
-| :--------------------: | :--------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| **Mithril client CLI** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_cli/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
+|          Node          |                                      Source repository                                      |                                  Rust documentation                                   |                                       Docker packages                                        |                         Network configurations                         |
+| :--------------------: | :-----------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril client CLI** | [:arrow_upper_right:](https://github.com/IntersectMBO/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_cli/index.html) | [:arrow_upper_right:](https://github.com/IntersectMBO/mithril/pkgs/container/mithril-client) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
 ## Prerequisites
 
@@ -69,13 +69,13 @@ All Windows commands below are run on PowerShell 5.
 Download the source file from GitHub (HTTPS):
 
 ```bash
-git clone https://github.com/input-output-hk/mithril.git
+git clone https://github.com/IntersectMBO/mithril.git
 ```
 
 Or (SSH):
 
 ```bash
-git clone git@github.com:input-output-hk/mithril.git
+git clone git@github.com:IntersectMBO/mithril.git
 ```
 
 Switch to the desired branch/tag:
@@ -368,7 +368,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 ### Registry image
 
 A list of available images on the registry can be
-found [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client).
+found [here](https://github.com/IntersectMBO/mithril/pkgs/container/mithril-client).
 
 To prepare the environment variables, retrieve the values from the **Mithril networks** section.
 
@@ -398,7 +398,7 @@ Here is an example configuration for the `release-preprod` network and the `late
   ```bash
   export MITHRIL_IMAGE_ID=latest
   export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
-  export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
+  export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
   export SNAPSHOT_DIGEST=latest
   ```
   </TabItem>
@@ -406,7 +406,7 @@ Here is an example configuration for the `release-preprod` network and the `late
   ```powershell
   $env:MITHRIL_IMAGE_ID="latest"
   $env:AGGREGATOR_ENDPOINT="https://aggregator.release-preprod.api.mithril.network/aggregator"
-  $env:GENESIS_VERIFICATION_KEY = curl.exe --silent - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey
+  $env:GENESIS_VERIFICATION_KEY = curl.exe --silent - https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey
   $env:SNAPSHOT_DIGEST="latest"
   ```
   </TabItem>
@@ -418,14 +418,14 @@ Proceed by creating a shell function for the Mithril client:
   <TabItem value="linux-mac" label="Linux / Mac">
   ```bash
   mithril_client () {
-    docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -w /app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+    docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -w /app/data -u $(id -u) ghcr.io/intersectmbo/mithril-client:$MITHRIL_IMAGE_ID $@
   }
   ```
   </TabItem>
   <TabItem value="windows" label="Windows">
   ```powershell
   function mithril_client {
-    docker run --rm -e GENESIS_VERIFICATION_KEY=$env:GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$env:AGGREGATOR_ENDPOINT --name='mithril-client' -v ${PWD}:/app/data -w /app/data ghcr.io/input-output-hk/mithril-client:$env:MITHRIL_IMAGE_ID $args
+    docker run --rm -e GENESIS_VERIFICATION_KEY=$env:GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$env:AGGREGATOR_ENDPOINT --name='mithril-client' -v ${PWD}:/app/data -w /app/data ghcr.io/intersectmbo/mithril-client:$env:MITHRIL_IMAGE_ID $args
   }
   ```
   </TabItem>

@@ -25,7 +25,7 @@ This demonstration works exclusively on Linux machines.
 
 :::tip
 
-More information about the private Cardano/Mithril `devnet` is available [here](https://github.com/input-output-hk/mithril/blob/main/mithril-test-lab/mithril-devnet/README.md).
+More information about the private Cardano/Mithril `devnet` is available [here](https://github.com/IntersectMBO/mithril/blob/main/mithril-test-lab/mithril-devnet/README.md).
 
 :::
 
@@ -46,13 +46,13 @@ More information about the private Cardano/Mithril `devnet` is available [here](
 Download the source file from GitHub (HTTPS):
 
 ```bash
-git clone https://github.com/input-output-hk/mithril.git
+git clone https://github.com/IntersectMBO/mithril.git
 ```
 
 Or (SSH):
 
 ```bash
-git clone git@github.com:input-output-hk/mithril.git
+git clone git@github.com:IntersectMBO/mithril.git
 ```
 
 ## Change the directory

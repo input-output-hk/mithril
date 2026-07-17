@@ -28,9 +28,9 @@ The Mithril network configurations are available in the [**Network configuration
 
 ## Resources
 
-|          Node          |                                       Source repository                                        |                                  Rust documentation                                   |                                           Docker packages                                           |                                                                REST API                                                                |                         Network configurations                         |
-| :--------------------: | :--------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| **Mithril aggregator** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-aggregator) | [current&nbsp;:arrow_upper_right:](/doc/aggregator-api/current)<br />[next&nbsp;🚧&nbsp;:arrow_upper_right:](/doc/aggregator-api/next) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
+|          Node          |                                      Source repository                                      |                                  Rust documentation                                   |                                         Docker packages                                          |                                                                REST API                                                                |                         Network configurations                         |
+| :--------------------: | :-----------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril aggregator** | [:arrow_upper_right:](https://github.com/IntersectMBO/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/IntersectMBO/mithril/pkgs/container/mithril-aggregator) | [current&nbsp;:arrow_upper_right:](/doc/aggregator-api/current)<br />[next&nbsp;🚧&nbsp;:arrow_upper_right:](/doc/aggregator-api/next) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
 ## Prerequisites
 
@@ -45,13 +45,13 @@ The Mithril network configurations are available in the [**Network configuration
 Download the source file from GitHub (HTTPS):
 
 ```bash
-git clone https://github.com/input-output-hk/mithril.git
+git clone https://github.com/IntersectMBO/mithril.git
 ```
 
 Or (SSH):
 
 ```bash
-git clone git@github.com:input-output-hk/mithril.git
+git clone git@github.com:IntersectMBO/mithril.git
 ```
 
 Switch to the desired branch/tag:

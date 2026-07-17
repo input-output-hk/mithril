@@ -136,5 +136,5 @@ docker exec -it mithril-aggregator bash
 Once connected to the aggregator container, import the signed genesis payload:
 
 ```bash
-/app/bin/mithril-aggregator -vvv genesis import --signed-payload-path /mithril-aggregator/mithril/genesis/genesis-payload-signed.txt --genesis-verification-key $(curl -s "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/$MITHRIL_NETWORK/genesis.vkey") --mithril-era $MITHRIL_ERA
+/app/bin/mithril-aggregator -vvv genesis import --signed-payload-path /mithril-aggregator/mithril/genesis/genesis-payload-signed.txt --genesis-verification-key $(curl -sSL "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/$MITHRIL_NETWORK/genesis.vkey") --mithril-era $MITHRIL_ERA
 ```

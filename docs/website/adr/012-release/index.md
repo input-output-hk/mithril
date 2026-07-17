@@ -79,7 +79,7 @@ When a change affects only the infrastructure (e.g. a Cardano node upgrade that 
 Mithril distributions are synchronized with Cardano node releases to ensure that every Mithril release ships with full support for the latest stable Cardano node version. The synchronization follows these steps:
 
 1. **Integration build available**: a new integration version of the Cardano node is available but not yet released on GitHub.
-2. **Mithril qualification**: the Mithril team qualifies the unreleased Cardano node version and prepares support for it by using the [prepare-cardano-node-artifacts](https://github.com/input-output-hk/mithril/tree/main/docs/runbook/prepare-cardano-node-artifacts) runbook.
+2. **Mithril qualification**: the Mithril team qualifies the unreleased Cardano node version and prepares support for it by using the [prepare-cardano-node-artifacts](https://github.com/IntersectMBO/mithril/tree/main/docs/runbook/prepare-cardano-node-artifacts) runbook.
 3. **Mithril pre-release**: the Mithril team creates a new pre-release distribution that is ready to be released. It is deployed on `pre-release-preview` with the **previous** stable version of the Cardano node.
 4. **Cardano node pre-release**: the Cardano node team creates a pre-release on GitHub. The release embeds Mithril nodes built from the tag of the aforementioned Mithril pre-release distribution.
 5. **Joint testing**: the Cardano node and Mithril pre-release versions are tested together. The Cardano node version on `pre-release-preview` is updated to the pre-release version.

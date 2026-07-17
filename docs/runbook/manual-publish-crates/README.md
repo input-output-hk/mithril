@@ -6,7 +6,7 @@ From time to time, we may need to publish manually Rust crates to [crates.io](ht
 
 ## Run the associated 'Manual crates publication' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Manual crates publication](https://github.com/input-output-hk/mithril/actions/workflows/manual-publish-crates.yml)
+Go to the page of the workflow with your browser: [Manual crates publication](https://github.com/IntersectMBO/mithril/actions/workflows/manual-publish-crates.yml)
 
 Then, click on the **Run workflow** button:
 

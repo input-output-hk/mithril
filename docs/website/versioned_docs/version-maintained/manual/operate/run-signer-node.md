@@ -130,7 +130,7 @@ Note that this guide works only on a Linux machine.
 
 :::info
 
-Compare the version of your Cardano node with the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file to verify its compatibility with the Mithril signer.
+Compare the version of your Cardano node with the minimum supported versions listed in the [`networks.json`](https://github.com/IntersectMBO/mithril/blob/main/networks.json) file to verify its compatibility with the Mithril signer.
 
 First, check the version of your Cardano node by running the following command:
 
@@ -138,18 +138,18 @@ First, check the version of your Cardano node by running the following command:
 cardano-node --version
 ```
 
-Then, refer to the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file.
+Then, refer to the minimum supported versions listed in the [`networks.json`](https://github.com/IntersectMBO/mithril/blob/main/networks.json) file.
 
 You can also fetch the minimum supported version for your network using the command below:
 
 ```bash
-wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/networks.json | jq -r '."**YOUR_CARDANO_NETWORK**"."cardano-minimum-version"."mithril-signer"'
+wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/networks.json | jq -r '."**YOUR_CARDANO_NETWORK**"."cardano-minimum-version"."mithril-signer"'
 ```
 
 Here is an example for `preprod`:
 
 ```bash
-wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/networks.json | jq -r '."preprod"."cardano-minimum-version"."mithril-signer"'
+wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/networks.json | jq -r '."preprod"."cardano-minimum-version"."mithril-signer"'
 ```
 
 :::
@@ -161,13 +161,13 @@ wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/netw
 To download the source from GitHub (HTTPS), run:
 
 ```bash
-git clone https://github.com/input-output-hk/mithril.git
+git clone https://github.com/IntersectMBO/mithril.git
 ```
 
 Or (SSH):
 
 ```bash
-git clone git@github.com:input-output-hk/mithril.git
+git clone git@github.com:IntersectMBO/mithril.git
 ```
 
 #### Build the Mithril signer binary

@@ -30,9 +30,9 @@ The Mithril network configurations are available in the [**Network configuration
 
 ## Resources
 
-|        Node        |                                     Source repository                                      |                                Rust documentation                                 |                                         Docker packages                                         |                         Network configurations                         |
-| :----------------: | :----------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| **Mithril signer** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-signer) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_signer/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-signer) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
+|        Node        |                                    Source repository                                    |                                Rust documentation                                 |                                       Docker packages                                        |                         Network configurations                         |
+| :----------------: | :-------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril signer** | [:arrow_upper_right:](https://github.com/IntersectMBO/mithril/tree/main/mithril-signer) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_signer/index.html) | [:arrow_upper_right:](https://github.com/IntersectMBO/mithril/pkgs/container/mithril-signer) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
 ## Prerequisites
 
@@ -47,13 +47,13 @@ The Mithril network configurations are available in the [**Network configuration
 You can download the source file from GitHub (HTTPS):
 
 ```bash
-git clone https://github.com/input-output-hk/mithril.git
+git clone https://github.com/IntersectMBO/mithril.git
 ```
 
 Or (SSH):
 
 ```bash
-git clone git@github.com:input-output-hk/mithril.git
+git clone git@github.com:IntersectMBO/mithril.git
 ```
 
 Switch to the desired branch/tag:

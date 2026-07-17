@@ -36,9 +36,9 @@ The Mithril network configurations are available in the [**Network configuration
 
 ## Resources
 
-|        Node        |                                     Source repository                                      |                                Rust documentation                                 |                         Network configurations                         |
-| :----------------: | :----------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| **Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client/index.html) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
+|        Node        |                                    Source repository                                    |                                Rust documentation                                 |                         Network configurations                         |
+| :----------------: | :-------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril client** | [:arrow_upper_right:](https://github.com/IntersectMBO/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client/index.html) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
 ## Prerequisites
 
@@ -126,7 +126,7 @@ async fn main() -> MithrilResult<()> {
 
 :::info
 
-An full example is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-cardano-transaction/src/main.rs). To run it, execute the following command:
+An full example is available in the [Mithril repository](https://github.com/IntersectMBO/mithril/tree/main/examples/client-cardano-transaction/src/main.rs). To run it, execute the following command:
 
 ```bash
 cargo run -p client-cardano-transaction <TRANSACTIONS_HASHES>
@@ -311,7 +311,7 @@ async fn main() -> MithrilResult<()> {
 
 :::info
 
-An full example is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-cardano-stake-distribution/src/main.rs). To run it, execute the following command:
+An full example is available in the [Mithril repository](https://github.com/IntersectMBO/mithril/tree/main/examples/client-cardano-stake-distribution/src/main.rs). To run it, execute the following command:
 
 ```bash
 cargo run -p client-cardano-stake-distribution
@@ -428,7 +428,7 @@ async fn main() -> mithril_client::MithrilResult<()> {
 
 :::info
 
-An full example is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-cardano-database-v2/src/main.rs). To run it, execute the following command:
+An full example is available in the [Mithril repository](https://github.com/IntersectMBO/mithril/tree/main/examples/client-cardano-database-v2/src/main.rs). To run it, execute the following command:
 
 ```bash
 cargo run -p client-cardano-database-v2

@@ -37,13 +37,13 @@ sudo apt-get install make build-essential m4 docker jq
 You can download the source file from GitHub (HTTPS):
 
 ```bash
-git clone https://github.com/input-output-hk/mithril.git
+git clone https://github.com/IntersectMBO/mithril.git
 ```
 
 Or (SSH):
 
 ```bash
-git clone git@github.com:input-output-hk/mithril.git
+git clone git@github.com:IntersectMBO/mithril.git
 ```
 
 ## Build the Mithril client binary
@@ -189,7 +189,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 
 ## Run the Docker container
 
-The list of available images on the registry is listed [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client).
+The list of available images on the registry is listed [here](https://github.com/IntersectMBO/mithril/pkgs/container/mithril-client).
 
 Prepare an environment variable with the selected Docker image:
 
@@ -207,7 +207,7 @@ Then, create a shell function for the Mithril client:
 
 ```bash
 mithril_client () {
-  docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -w /app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+  docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -w /app/data -u $(id -u) ghcr.io/intersectmbo/mithril-client:$MITHRIL_IMAGE_ID $@
 }
 ```
 
@@ -397,10 +397,10 @@ export CARDANO_NETWORK=preview
 export AGGREGATOR_ENDPOINT=https://aggregator.pre-release-preview.api.mithril.network/aggregator
 
 # Genesis verification key
-export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey)
+export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey)
 
 # Ancillary verification key
-export ANCILLARY_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey)
+export ANCILLARY_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey)
 
 # Digest of the latest produced cardano db snapshot for convenience of the demo
 export SNAPSHOT_DIGEST=latest

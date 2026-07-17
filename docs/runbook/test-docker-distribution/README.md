@@ -7,7 +7,7 @@ This is a convenient way for testing early releases of the Cardano node. This is
 
 ## Run the associated 'Test Docker images build' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Test Docker images build](https://github.com/input-output-hk/mithril/actions/workflows/test-docker-distribution.yml)
+Go to the page of the workflow with your browser: [Test Docker images build](https://github.com/IntersectMBO/mithril/actions/workflows/test-docker-distribution.yml)
 
 Then, click on the **Run workflow** button:
 
@@ -28,4 +28,4 @@ The result should look like this in the GitHub Actions:
 
 ![Run workflow result](./img/run-workflow-result.png)
 
-You should also be able to see the newly created Docker images in the [package registry](https://github.com/orgs/input-output-hk/packages?repo_name=mithril)
+You should also be able to see the newly created Docker images in the [package registry](https://github.com/orgs/IntersectMBO/packages?repo_name=mithril)

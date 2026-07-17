@@ -39,7 +39,7 @@ To participate in the pioneer program, you will need to:
 - You can choose between the **Naive** (easier to set up) or the **Production** deployment models
 - Wait for two epochs (or two days) before your **Mithril signer** is eligible to contribute; check that your **Mithril signer** is registered by the aggregator following [**Verify your signer is registered**](./run-signer-node.md#verify-your-signer-is-registered) steps
 - Verify that your **Pool Id** is listed in some of the produced certificates using the [**Mithril explorer**](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.pre-release-preview.api.mithril.network%2Faggregator) or following [**Verify your signer contributes with individual signatures**](./run-signer-node.md#verify-your-signer-contributes-with-individual-signatures) steps
-- :warning: Follow [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/input-output-hk/mithril/releases?q=pre) for new pre-releases to install
+- :warning: Follow [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/IntersectMBO/mithril/releases?q=pre) for new pre-releases to install
 - If you have any technical issues or would like to provide feedback, feel free to ask questions on the [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel.
 
 ## Step 2: Get Mithril ready for `mainnet`
@@ -57,7 +57,7 @@ To get ready for `mainnet`, you need to:
 - You **must** run the **Production** deployment model
 - Wait for two epochs (or ten days) before your **Mithril signer** is eligible to contribute; check that your **Mithril signer** is registered by the aggregator following [**Verify your signer is registered**](./run-signer-node.md#verify-your-signer-is-registered) steps
 - Verify that your **Pool Id** is listed in some of the produced certificates using the [**Mithril explorer**](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.release-preprod.api.mithril.network%2Faggregator) or following [**Verify your signer contributes with individual signatures**](./run-signer-node.md#verify-your-signer-contributes-with-individual-signatures) steps
-- :warning: Follow [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/input-output-hk/mithril/releases/latest) for new releases to install
+- :warning: Follow [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/IntersectMBO/mithril/releases/latest) for new releases to install
 - If you have any technical issues or would like to provide feedback, feel free to ask questions on the [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel.
 
 ## Step 3: Run Mithril on `mainnet`
@@ -75,5 +75,5 @@ To run **Mithril** on `mainnet`, you need to:
 - You **must** run the **Production** deployment model
 - Wait for two epochs (or ten days) before your **Mithril signer** is eligible to contribute; check that your **Mithril signer** is registered by the aggregator following [**Verify your signer is registered**](./run-signer-node.md#verify-your-signer-is-registered) steps
 - Verify that your **Pool Id** is listed in some of the produced certificates using the [**Mithril explorer**](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.release-mainnet.api.mithril.network%2Faggregator) or following [**Verify your signer contributes with individual signatures**](./run-signer-node.md#verify-your-signer-contributes-with-individual-signatures) steps
-- :warning: Follow [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/input-output-hk/mithril/releases/latest) for new releases to install
+- :warning: Follow [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/IntersectMBO/mithril/releases/latest) for new releases to install
 - If you have any technical issues or would like to provide feedback, feel free to ask questions on the [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel.
