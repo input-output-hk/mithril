@@ -52,7 +52,7 @@ fn same_epoch_proof_passes_dual_msm_check_and_accumulator_check() {
     );
     assert!(
         same_epoch_step_output.next_accumulator.check(
-            &verification_context.verifier_tau_in_g2,
+            &verification_context.verifier_params,
             &verification_context.combined_fixed_bases,
         ),
         "same-epoch next accumulator should satisfy the pairing equation"
@@ -88,7 +88,7 @@ fn chain_state_proof_passes_dual_msm_check_and_accumulator_check() {
     );
     assert!(
         recursive_chain_state.accumulator.check(
-            &verification_context.verifier_tau_in_g2,
+            &verification_context.verifier_params,
             &verification_context.combined_fixed_bases,
         ),
         "chain-state accumulator should satisfy the pairing equation"

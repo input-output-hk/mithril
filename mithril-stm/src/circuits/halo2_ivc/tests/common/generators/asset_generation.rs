@@ -16,6 +16,7 @@ use super::transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,
     build_next_certificate_asset_data, build_same_epoch_certificate_asset_data,
 };
+use crate::circuits::halo2_ivc::IVC_FIXED_BASES_PREFIX;
 use crate::circuits::halo2_ivc::tests::common::asset_readers::{
     FirstCertificateInEpochAsset, FollowingCertificateInEpochAsset, GenesisStepOutputAsset,
     NextEpochStepOutputAsset, RecursiveChainStateAsset, VerificationContextAsset,
@@ -158,9 +159,8 @@ fn build_recursive_chain_snapshot(
             &public_inputs,
         );
         assert!(dual_msm.clone().check(&context.universal_verifier_params));
-
-        let mut proof_accumulator: Accumulator<RecursiveEmulation> = dual_msm.into();
-        proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
+        let mut proof_accumulator: Accumulator<RecursiveEmulation> =
+            Accumulator::from_dual_msm(dual_msm, IVC_FIXED_BASES_PREFIX, recursive_fixed_bases);
         proof_accumulator.collapse();
 
         println!(
@@ -183,7 +183,7 @@ fn build_recursive_chain_snapshot(
             accumulated_accumulator.collapse();
             assert!(
                 accumulated_accumulator.check(
-                    &context.universal_kzg_parameters.s_g2().into(),
+                    &context.universal_kzg_parameters.verifier_params(),
                     combined_fixed_bases,
                 ),
                 "recursive accumulator verification failed at step {i}"
@@ -271,8 +271,12 @@ fn build_next_recursive_step_inputs(
         &previous_public_inputs,
     );
     assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
-    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> = previous_dual_msm.into();
-    previous_proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
+    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> =
+        Accumulator::from_dual_msm(
+            previous_dual_msm,
+            IVC_FIXED_BASES_PREFIX,
+            recursive_fixed_bases,
+        );
     previous_proof_accumulator.collapse();
 
     let mut next_accumulator = Accumulator::accumulate(&[
@@ -283,7 +287,7 @@ fn build_next_recursive_step_inputs(
     next_accumulator.collapse();
     assert!(
         next_accumulator.check(
-            &context.universal_kzg_parameters.s_g2().into(),
+            &context.universal_kzg_parameters.verifier_params(),
             combined_fixed_bases,
         ),
         "next accumulator check failed"
@@ -445,7 +449,6 @@ pub(crate) fn generate_verification_context_asset(
         recursive_verifying_key: context.recursive_verifying_key.clone(),
         combined_fixed_bases,
         verifier_params: context.universal_verifier_params,
-        verifier_tau_in_g2: context.universal_kzg_parameters.s_g2().into(),
         certificate_verifying_key: context.certificate_verifying_key,
     };
     store_verification_context_asset(&paths.verification_context, &asset)
@@ -665,8 +668,12 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         previous_dual_msm.clone().check(&context.universal_verifier_params),
         "previous chain state proof verification failed"
     );
-    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> = previous_dual_msm.into();
-    previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
+    let mut previous_proof_accumulator: Accumulator<RecursiveEmulation> =
+        Accumulator::from_dual_msm(
+            previous_dual_msm,
+            IVC_FIXED_BASES_PREFIX,
+            &recursive_fixed_bases,
+        );
     previous_proof_accumulator.collapse();
 
     let mut next_accumulator = Accumulator::accumulate(&[
@@ -677,7 +684,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     next_accumulator.collapse();
     assert!(
         next_accumulator.check(
-            &context.universal_kzg_parameters.s_g2().into(),
+            &context.universal_kzg_parameters.verifier_params(),
             &combined_fixed_bases,
         ),
         "same-epoch next accumulator check failed"
@@ -819,7 +826,7 @@ pub(crate) fn generate_first_step_cert_asset(setup: &AssetGenerationSetup, paths
 // they rewrite binary files rather than asserting behavior.
 //
 // Committed assets:
-//   verification_context.bin               — VKs, combined fixed bases, verifier params, tau_g2
+//   verification_context.bin               — VKs, combined fixed bases, verifier params
 //   recursive_chain_state.bin              — chain checkpoint: Poseidon IVC proof, state, folded accumulator
 //   recursive_step_output.bin              — next-epoch step: IVC proof, next_state, next_accumulator, certificate proof
 //   genesis_step_output.bin                — genesis step output
@@ -888,6 +895,28 @@ fn generate_recursive_step_output_accumulator_bytes_only() {
     let path = AssetPaths::default()
         .recursive_step_output
         .with_file_name("recursive_step_output_accumulator_bytes.bin");
+    std::fs::write(&path, &bytes)
+        .unwrap_or_else(|e| panic!("failed to write accumulator bytes to {path:?}: {e}"));
+    println!("wrote {} bytes to {path:?}", bytes.len());
+}
+
+#[test]
+#[ignore]
+fn generate_recursive_proof_accumulator_bytes_only() {
+    use crate::circuits::halo2_ivc::{
+        io::Write as IvcWrite,
+        tests::common::helpers::build_recursive_proof_accumulator_from_assets,
+    };
+    use midnight_proofs::utils::SerdeFormat;
+
+    let (accumulator, _) = build_recursive_proof_accumulator_from_assets();
+    let mut bytes = Vec::new();
+    accumulator
+        .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
+        .expect("accumulator serialization should succeed");
+    let path = AssetPaths::default()
+        .verification_context
+        .with_file_name("recursive_proof_accumulator_bytes.bin");
     std::fs::write(&path, &bytes)
         .unwrap_or_else(|e| panic!("failed to write accumulator bytes to {path:?}: {e}"));
     println!("wrote {} bytes to {path:?}", bytes.len());

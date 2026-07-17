@@ -8,7 +8,7 @@ use midnight_proofs::{
     poly::kzg::params::{ParamsKZG, ParamsVerifierKZG},
     utils::SerdeFormat,
 };
-use midnight_zk_stdlib as zk;
+use midnight_zk_stdlib::MidnightCircuit;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
@@ -66,7 +66,9 @@ impl SnarkProverSetup {
     ) -> StmResult<Self> {
         let mut srs = trusted_setup_provider.get_trusted_setup_parameters()?;
         let circuit = provider.generator().clone();
-        zk::downsize_srs_for_relation(&mut srs, &circuit);
+        let circuit_degree = MidnightCircuit::from_relation(&circuit, None).k();
+        srs.downsize(circuit_degree);
+
         let (verification_key, proving_key) = provider.key_pair(&srs)?;
 
         Ok(Self {
@@ -187,7 +189,7 @@ mod test {
     fn load_succeeds_with_valid_parameters() {
         let params = default_params();
         let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
-        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let degree = MidnightCircuit::from_relation(&circuit, None).k();
         let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let trusted_setup_provider = TrustedSetupProvider::with_unsafe_srs(&base_dir, degree);
@@ -201,7 +203,7 @@ mod test {
     fn load_returns_same_verification_key_for_same_parameters() {
         let params = default_params();
         let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
-        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let degree = MidnightCircuit::from_relation(&circuit, None).k();
         let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let trusted_setup_provider = TrustedSetupProvider::with_unsafe_srs(&base_dir, degree);

@@ -14,7 +14,9 @@ pub(crate) use crate::circuits::CircuitCurve;
 pub(crate) use midnight_circuits::{
     ecc::{
         curves::CircuitCurve as CircuitCurveTrait,
-        foreign::{ForeignEccChip, ForeignEccConfig, nb_foreign_ecc_chip_columns},
+        foreign::weierstrass_chip::{
+            ForeignWeierstrassEccChip, ForeignWeierstrassEccConfig, nb_foreign_ecc_chip_columns,
+        },
         native::{EccChip, EccConfig, NB_EDWARDS_COLS},
     },
     field::{
@@ -90,8 +92,8 @@ pub const PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES: std::ops::Range<usize> = 137.
 /// Byte range of the current epoch within the protocol message preimage.
 pub const PREIMAGE_CURRENT_EPOCH_BYTES: std::ops::Range<usize> = 182..190;
 
-pub(crate) const CERTIFICATE_VERIFICATION_KEY_NAME: &str = "cert_vk";
-pub(crate) const IVC_VERIFICATION_KEY_NAME: &str = "ivc_one_vk";
+pub(crate) const CERTIFICATE_FIXED_BASES_PREFIX: &str = "cert_vk";
+pub(crate) const IVC_FIXED_BASES_PREFIX: &str = "ivc_one_vk";
 
 /// Circuit verification key of the recursive circuit used for production.
 /// It is created using the circuit verification key of the non-recursive

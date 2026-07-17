@@ -38,8 +38,8 @@ impl NonRecursiveCircuitVerifyingKey {
 
     #[cfg(test)]
     /// Returns the circuit degree using the underlying `MidnightVK`
-    pub(crate) fn circuit_degree(&self) -> u8 {
-        self.midnight_vk().k()
+    pub(crate) fn circuit_degree(&self) -> u32 {
+        self.midnight_vk().vk().get_domain().k()
     }
 }
 
@@ -124,7 +124,7 @@ impl KeyGenerator for StmCertificateCircuit {
         // Keygen needs the SRS at the circuit's degree. The SRS must be at least that large: when it
         // is exactly the circuit degree it is used directly, and when it is larger it is downsized on
         // a clone so the caller's SRS (which may be reused at a different degree) is left untouched.
-        let circuit_degree = MidnightCircuit::from_relation(self).min_k();
+        let circuit_degree = MidnightCircuit::from_relation(self, None).k();
         anyhow::ensure!(
             srs.max_k() >= circuit_degree,
             "the SRS must be at least the certificate circuit degree"
@@ -192,7 +192,7 @@ mod tests {
             .expect("certificate circuit should build");
         // Oversized on purpose: the generator must clone and downsize to the circuit's degree
         // (keygen would otherwise fail), and the caller's SRS must be left untouched.
-        let oversized_degree = MidnightCircuit::from_relation(&circuit).min_k() + 1;
+        let oversized_degree = MidnightCircuit::from_relation(&circuit, None).k() + 1;
         let srs = ParamsKZG::unsafe_setup(oversized_degree, ChaCha20Rng::seed_from_u64(42));
 
         let (verifying_key, proving_key) = circuit
@@ -236,7 +236,7 @@ mod tests {
         let merkle_tree_depth = 4;
         let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth)
             .expect("certificate circuit should build");
-        let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let circuit_degree = MidnightCircuit::from_relation(&circuit, None).k();
 
         // The generator keygens directly from an already-sized SRS and clones+downsizes an oversized
         // one; both paths must produce identical keys (the downsized clone shares the SRS's tau).

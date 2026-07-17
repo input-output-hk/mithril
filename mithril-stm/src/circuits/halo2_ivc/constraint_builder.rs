@@ -12,11 +12,11 @@ use super::{
     Accumulator, ArithInstructions, AssertionInstructions, AssignedAccumulator, AssignedBit,
     AssignedForeignPoint, AssignedNative, AssignmentInstructions, BinaryInstructions, CircuitCurve,
     CircuitValue, ComposableChip, ControlFlowInstructions, EccChip, EccInstructions, EmulatedCurve,
-    EqualityInstructions, Error, ForeignEccChip, HashInstructions, IvcNativeGadget, Layouter,
-    NativeChip, NativeField, NativeGadget, P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES,
-    PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
-    PoseidonChip, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation,
-    VerifierGadget, ZeroInstructions,
+    EqualityInstructions, Error, ForeignWeierstrassEccChip, HashInstructions, IvcNativeGadget,
+    Layouter, NativeChip, NativeField, NativeGadget, P2RDecompositionChip,
+    PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
+    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PoseidonChip, PublicInputInstructions,
+    RECURSIVE_CIRCUIT_DEGREE, RecursiveEmulation, VerifierGadget, ZeroInstructions,
     config::IvcConfig,
     gadgets::{GenesisSchnorrSignatureInputs, combine_bytes, verify_genesis_signature},
     state::{AssignedGlobal, AssignedState, AssignedWitness},
@@ -41,8 +41,13 @@ pub struct IvcConstraintBuilder {
     pub(crate) jubjub_chip: EccChip<CircuitCurve>,
     pub(crate) poseidon_chip: PoseidonChip<NativeField>,
     pub(crate) sha2_256_chip: Sha256Chip<NativeField>,
-    pub(crate) bls12_381_chip:
-        ForeignEccChip<NativeField, EmulatedCurve, EmulatedCurve, IvcNativeGadget, IvcNativeGadget>,
+    pub(crate) bls12_381_chip: ForeignWeierstrassEccChip<
+        NativeField,
+        EmulatedCurve,
+        EmulatedCurve,
+        IvcNativeGadget,
+        IvcNativeGadget,
+    >,
     pub(crate) verifier_gadget: VerifierGadget<RecursiveEmulation>,
 }
 
@@ -59,8 +64,9 @@ impl IvcConstraintBuilder {
         );
         let native_gadget = NativeGadget::new(core_decomp_chip.clone(), native_chip.clone());
         let jubjub_chip = EccChip::<CircuitCurve>::new(&config.jubjub_config, &native_gadget);
-        let bls12_381_chip: ForeignEccChip<_, EmulatedCurve, EmulatedCurve, _, _> =
-            { ForeignEccChip::new(&config.bls12_381_config, &native_gadget, &native_gadget) };
+        let bls12_381_chip: ForeignWeierstrassEccChip<_, EmulatedCurve, EmulatedCurve, _, _> = {
+            ForeignWeierstrassEccChip::new(&config.bls12_381_config, &native_gadget, &native_gadget)
+        };
         let poseidon_chip = PoseidonChip::new(&config.poseidon_config, &native_chip);
         let sha2_256_chip = Sha256Chip::new(&config.sha256_config, &native_gadget);
         let verifier_gadget: VerifierGadget<RecursiveEmulation> =
@@ -460,7 +466,7 @@ impl IvcConstraintBuilder {
         let mut certificate_proof_accumulator = self.verifier_gadget.prepare(
             layouter,
             &global.certificate_verification_key,
-            &[("com_instance", id_point.clone())],
+            std::slice::from_ref(&id_point),
             &[&[
                 witness.certificate_merkle_tree_commitment.clone(),
                 witness.certificate_message.clone(),
@@ -507,7 +513,7 @@ impl IvcConstraintBuilder {
         let mut ivc_proof_accumulator = self.verifier_gadget.prepare(
             layouter,
             &global.ivc_verification_key,
-            &[("com_instance", id_point)],
+            std::slice::from_ref(&id_point),
             &[&assigned_pi],
             ivc_proof.clone(),
         )?;

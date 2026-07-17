@@ -88,7 +88,7 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
     );
     assert!(
         recursive_step_output.next_accumulator.check(
-            &verification_context.verifier_tau_in_g2,
+            &verification_context.verifier_params,
             &verification_context.combined_fixed_bases,
         ),
         "stored recursive step output accumulator should verify"

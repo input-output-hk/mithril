@@ -19,6 +19,7 @@ use crate::circuits::halo2_ivc::{
             load_embedded_verification_context_asset,
         },
         generators::{build_asset_generation_setup, build_genesis_protocol_message_preimage},
+        helpers::build_recursive_proof_accumulator_from_assets,
     },
     types::{EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolParametersHash, StepCounter},
 };
@@ -166,6 +167,27 @@ fn accumulator_serialization_round_trip() {
     assert_eq!(
         first_bytes, second_bytes,
         "accumulator bytes should be identical after a round-trip"
+    );
+}
+
+#[test]
+fn recursive_proof_accumulator_serialized_bytes_are_stable() {
+    // Compares the serialized bytes of a recursive accumulator built via
+    // from_dual_msm against a committed golden file.
+    let (accumulator, _) = build_recursive_proof_accumulator_from_assets();
+
+    let mut bytes = Vec::new();
+    accumulator
+        .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
+        .expect("accumulator serialization should succeed");
+
+    let expected_bytes =
+        include_bytes!("../assets/recursive_proof_accumulator_bytes.bin").as_slice();
+
+    assert_eq!(
+        bytes.as_slice(),
+        expected_bytes,
+        "serialized recursive proof accumulator bytes should match the committed golden file"
     );
 }
 

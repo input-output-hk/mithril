@@ -19,7 +19,7 @@ use crate::circuits::halo2_ivc::accumulator::fixed_bases_and_names_from_verifyin
 use crate::circuits::halo2_ivc::keys::{RecursiveCircuitProvingKey, RecursiveCircuitVerifyingKey};
 use crate::circuits::halo2_ivc::types::MessageHash;
 use crate::circuits::halo2_ivc::{
-    CERTIFICATE_VERIFICATION_KEY_NAME, EmulatedCurve, IVC_VERIFICATION_KEY_NAME, NativeField,
+    CERTIFICATE_FIXED_BASES_PREFIX, EmulatedCurve, IVC_FIXED_BASES_PREFIX, NativeField,
     PairingEngine, circuit::IvcCircuitData, state::Global,
 };
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
@@ -252,11 +252,11 @@ pub(crate) fn build_recursive_fixed_bases(
     BTreeMap<String, EmulatedCurve>,
 ) {
     let (certificate_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
-        CERTIFICATE_VERIFICATION_KEY_NAME,
+        CERTIFICATE_FIXED_BASES_PREFIX,
         certificate_verifying_key.as_ref(),
     );
     let (recursive_fixed_bases, _) = fixed_bases_and_names_from_verifying_key(
-        IVC_VERIFICATION_KEY_NAME,
+        IVC_FIXED_BASES_PREFIX,
         recursive_verifying_key.as_ref(),
     );
     let mut combined_fixed_bases = certificate_fixed_bases.clone();

@@ -184,7 +184,7 @@ impl BenchEnv {
 
     /// Print the circuit cost model (rows, columns, gates) to stdout.
     pub fn print_circuit_cost(&self) {
-        println!("{:?}", zk::cost_model(&self.circuit));
+        println!("{:?}", zk::cost_model(&self.circuit, None));
     }
 
     /// Run the mock prover on `witness` and return timing for each phase.
@@ -210,7 +210,7 @@ impl BenchEnv {
         let circuit_gen = t.elapsed();
 
         let t = Instant::now();
-        let prover = MockProver::run(self.circuit_degree, &mc, vec![vec![], pi])
+        let prover = MockProver::run(&mc, vec![vec![], pi])
             .map_err(|e| anyhow!("mock_run: MockProver::run failed: {e:?}"))?;
         let mock_prove = t.elapsed();
 
@@ -249,7 +249,7 @@ pub fn compute_circuit_degree(k: u32, m: u32) -> StmResult<u32> {
     };
     let circuit = StmCertificateCircuit::try_new(&params, depth)
         .context("compute_circuit_degree: failed to create StmCertificateCircuit")?;
-    Ok(MidnightCircuit::from_relation(&circuit).min_k())
+    Ok(MidnightCircuit::from_relation(&circuit, None).k())
 }
 
 struct SignerEntry {

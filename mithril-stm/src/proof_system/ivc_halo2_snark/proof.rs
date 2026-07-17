@@ -195,7 +195,7 @@ where
         }
 
         if !self.accumulator.check(
-            verifier_setup.tau_g2(),
+            verifier_setup.verifier_params(),
             verifier_setup.combined_fixed_bases(),
         ) {
             return Err(IvcProofError::AccumulatorFailed.into());
@@ -261,8 +261,8 @@ where
             std::slice::from_ref(circuit_data),
             1,
             &[&[&[], public_inputs]],
-            rng,
             &mut transcript,
+            rng,
         )
         .map_err(|e| IvcProofError::ProofGenerationFailed(e.to_string()))?;
         Ok(transcript.finalize())
@@ -453,7 +453,6 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
 #[cfg(test)]
 mod tests {
-    use midnight_curves::G2Affine;
 
     use crate::{
         circuits::halo2_ivc::{
@@ -500,7 +499,6 @@ mod tests {
         );
         let verifier_setup = IvcVerifierSetup::from_parts(
             ctx.verifier_params,
-            ctx.verifier_tau_in_g2,
             ctx.recursive_verifying_key,
             ctx.combined_fixed_bases,
         );
@@ -526,7 +524,6 @@ mod tests {
 
         let verifier_setup = IvcVerifierSetup::from_parts(
             verification_context.verifier_params,
-            verification_context.verifier_tau_in_g2,
             verification_context.recursive_verifying_key,
             verification_context.combined_fixed_bases,
         );
@@ -622,7 +619,6 @@ mod tests {
 
         let verifier_setup = IvcVerifierSetup::from_parts(
             verification_context.verifier_params,
-            verification_context.verifier_tau_in_g2,
             verification_context.recursive_verifying_key,
             verification_context.combined_fixed_bases,
         );
@@ -803,10 +799,10 @@ mod tests {
     }
 
     #[test]
-    fn ivc_proof_verify_rejects_wrong_tau_g2() {
-        // A verifier setup with a wrong tau_g2 but otherwise correct parameters passes
-        // the KZG opening check (tau_g2 is not part of verifier_params) and fails at
-        // the accumulator pairing equation, exercising the AccumulatorFailed path.
+    fn ivc_proof_verify_rejects_wrong_fixed_bases() {
+        // A verifier setup with a wrong fixed bases but otherwise correct parameters passes
+        // the KZG opening check and fails at the accumulator pairing equation,
+        // exercising the AccumulatorFailed path.
         let ctx = load_embedded_verification_context_asset()
             .expect("verification context asset should load");
         let step_output = load_embedded_next_epoch_step_output_asset()
@@ -817,11 +813,16 @@ mod tests {
             &ctx.certificate_verifying_key,
             &ctx.recursive_verifying_key,
         );
+        // negate every fixed base: KZG opening check still passes, accumulator pairing breaks
+        let wrong_fixed_bases = ctx
+            .combined_fixed_bases
+            .into_iter()
+            .map(|(name, base)| (name, -base))
+            .collect();
         let verifier_setup = IvcVerifierSetup::from_parts(
             ctx.verifier_params,
-            G2Affine::default(),
             ctx.recursive_verifying_key,
-            ctx.combined_fixed_bases,
+            wrong_fixed_bases,
         );
 
         let proof = IvcProof::<blake2b_simd::State>::new(
@@ -832,11 +833,12 @@ mod tests {
 
         let err = proof
             .verify(&STEP_OUTPUT_MSG, &global, &verifier_setup)
-            .expect_err("wrong tau_g2 should cause the accumulator pairing check to fail");
+            .expect_err("wrong fixed bases should cause the accumulator pairing check to fail");
+
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
             Some(&IvcProofError::AccumulatorFailed),
-            "wrong tau_g2 must fail the accumulator check (not the KZG check), got: {err}"
+            "wrong fixed bases must fail the accumulator check (not the KZG check), got: {err}"
         );
     }
 

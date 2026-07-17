@@ -1,7 +1,9 @@
+use crate::circuits::halo2_ivc::RECURSIVE_CIRCUIT_DEGREE;
+
 use super::{
     CircuitCurve, ComposableChip, ConstraintSystem, EccChip, EccConfig, EmulatedCurve,
-    EmulatedCurveBaseField, FieldChip, ForeignEccChip, ForeignEccConfig, IvcNativeGadget,
-    NB_ARITH_COLS, NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS,
+    EmulatedCurveBaseField, FieldChip, ForeignWeierstrassEccChip, ForeignWeierstrassEccConfig,
+    IvcNativeGadget, NB_ARITH_COLS, NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS,
     NB_POSEIDON_FIXED_COLS, NativeChip, NativeConfig, NativeField, P2RDecompositionChip,
     P2RDecompositionConfig, PoseidonChip, PoseidonConfig, Pow2RangeChip,
     nb_foreign_ecc_chip_columns,
@@ -15,7 +17,7 @@ pub struct IvcConfig {
     pub(crate) native_config: NativeConfig,
     pub(crate) core_decomp_config: P2RDecompositionConfig,
     pub(crate) jubjub_config: EccConfig,
-    pub(crate) bls12_381_config: ForeignEccConfig<EmulatedCurve>,
+    pub(crate) bls12_381_config: ForeignWeierstrassEccConfig<EmulatedCurve>,
     pub(crate) poseidon_config: PoseidonConfig<NativeField>,
     pub(crate) sha256_config: Sha256Config,
 }
@@ -79,19 +81,33 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<NativeField>) -> IvcCon
             .expect("column counts pre-validated by validate_column_counts"),
     );
 
+    let nb_parallel_range_check = NB_ARITH_COLS - 1;
+    let max_bit_length = RECURSIVE_CIRCUIT_DEGREE - 1;
+
     let base_config = FieldChip::<
         NativeField,
         EmulatedCurveBaseField,
         EmulatedCurve,
         IvcNativeGadget,
-    >::configure(meta, &advice_columns);
-    let bls12_381_config = ForeignEccChip::<
+    >::configure(
+        meta,
+        &advice_columns,
+        nb_parallel_range_check,
+        max_bit_length,
+    );
+    let bls12_381_config = ForeignWeierstrassEccChip::<
         NativeField,
         EmulatedCurve,
         EmulatedCurve,
         IvcNativeGadget,
         IvcNativeGadget,
-    >::configure(meta, &base_config, &advice_columns);
+    >::configure(
+        meta,
+        &base_config,
+        &advice_columns,
+        nb_parallel_range_check,
+        max_bit_length,
+    );
 
     let poseidon_config = PoseidonChip::configure(
         meta,
