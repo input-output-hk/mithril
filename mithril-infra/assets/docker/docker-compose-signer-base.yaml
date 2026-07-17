@@ -1,6 +1,6 @@
 services:
   mithril-signer:
-    image: ghcr.io/input-output-hk/mithril-signer:${MITHRIL_IMAGE_ID}
+    image: ghcr.io/intersectmbo/mithril-signer:${MITHRIL_IMAGE_ID}
     container_name: mithril-signer-${SIGNER_ID}
     restart: always
     user: ${CURRENT_UID}
