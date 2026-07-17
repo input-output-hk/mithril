@@ -383,9 +383,6 @@ impl StateMachine {
                     .record(epoch);
             }
             SignerRegistrationOutcome::RegistrationRoundNotYetOpened => {
-                self.metrics_service
-                    .get_signer_registration_success_since_startup_counter()
-                    .increment();
                 return Ok(SignerState::Unregistered { epoch });
             }
         }
@@ -795,14 +792,14 @@ mod tests {
 
         let metrics_service = state_machine.metrics_service;
         assert_eq!(
-            1,
+            0,
             metrics_service
                 .get_signer_registration_success_since_startup_counter()
                 .get()
         );
 
         assert_eq!(
-            0 as f64,
+            0f64,
             metrics_service
                 .get_signer_registration_success_last_epoch_gauge()
                 .get()
