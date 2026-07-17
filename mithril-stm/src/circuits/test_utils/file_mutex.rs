@@ -14,8 +14,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blake2b_simd::Params as Blake2bParams;
 use fs2::FileExt;
+use sha2::{Digest, Sha256};
 
 use crate::StmResult;
 
@@ -59,13 +59,14 @@ impl FileMutex {
     /// guarded artifacts under [`Self::directory`]. The length prefix on each input keeps the
     /// concatenation unambiguous.
     pub(crate) fn for_shared_cache(label: &str, fingerprint: &[&[u8]]) -> Self {
-        let mut hasher = Blake2bParams::new().hash_length(16).to_state();
+        let mut hasher = Sha256::new();
         hasher.update(CACHE_SCHEMA_VERSION);
         for input in fingerprint {
-            hasher.update(&(input.len() as u64).to_le_bytes());
+            hasher.update((input.len() as u64).to_le_bytes());
             hasher.update(input);
         }
-        let directory = shared_cache_root().join(format!("{label}-{}", hasher.finalize().to_hex()));
+        let directory =
+            shared_cache_root().join(format!("{label}-{}", hex::encode(hasher.finalize())));
         Self::new(directory.join(".lock"))
     }
 

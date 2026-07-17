@@ -19,7 +19,6 @@ default = ["num-integer-backend"]
 benchmark-internals = []
 # Enable experimental SNARK support 
 future_snark = [
-    "dep:blake2b_simd",
     "dep:ff",
     "dep:group",
     "dep:midnight-circuits",
@@ -45,7 +44,6 @@ rug-backend = ["rug/default"]
 [dependencies]
 anyhow = { workspace = true }
 blake2 = "0.10.6"
-blake2b_simd = { version = "1.0.4", optional = true }
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
 blst = { version = "0.3.16", features = ["portable"] }
 ciborium = "0.2.2"
@@ -85,7 +83,6 @@ num-traits = { version = "0.2.19", optional = true }
 rug = { version = "1.30.0", optional = true }
 
 [dev-dependencies]
-blake2b_simd = "1.0.4"
 criterion = { version = "0.8.2", features = ["html_reports"] }
 fs2 = "0.4.3"
 httpmock = "0.8.3"
