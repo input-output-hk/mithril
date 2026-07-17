@@ -17,7 +17,7 @@ This cli implements a very simple version of the Mithril protocol for demonstrat
 
 ```bash
 # Download sources from github
-git clone https://github.com/input-output-hk/mithril
+git clone https://github.com/IntersectMBO/mithril
 
 # Go to sources directory
 cd demo/protocol-demo

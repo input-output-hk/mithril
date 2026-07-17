@@ -18,7 +18,7 @@
 
 ```bash
 # Download sources from github
-git clone https://github.com/input-output-hk/mithril
+git clone https://github.com/IntersectMBO/mithril
 
 # Build nodes
 make -C mithril-aggregator build

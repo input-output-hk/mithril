@@ -1,4 +1,4 @@
-# Mithril-relay [![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg)](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/input-output-hk/mithril/blob/main/LICENSE) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
+# Mithril-relay [![CI workflow](https://github.com/IntersectMBO/mithril/actions/workflows/ci.yml/badge.svg)](https://github.com/IntersectMBO/mithril/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/IntersectMBO/mithril/blob/main/LICENSE) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
 
 > [!WARNING]  
 > **Do not use in production** 🔥
@@ -21,13 +21,13 @@ The **Mithril relay** is an experimental implementation of a relay for Mithril s
 Download the source file from GitHub (HTTPS):
 
 ```bash
-git clone https://github.com/input-output-hk/mithril.git
+git clone https://github.com/IntersectMBO/mithril.git
 ```
 
 Or (SSH):
 
 ```bash
-git clone git@github.com:input-output-hk/mithril.git
+git clone git@github.com:IntersectMBO/mithril.git
 ```
 
 Switch to the desired branch/tag:
@@ -134,7 +134,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 
 ### Registry image
 
-A list of available images on the registry can be found [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-relay).
+A list of available images on the registry can be found [here](https://github.com/IntersectMBO/mithril/pkgs/container/mithril-relay).
 
 To prepare the environment variables, retrieve the values from the above **Mithril networks** table.
 
@@ -154,7 +154,7 @@ Proceed by creating a shell function for the Mithril relay:
 
 ```bash
 mithril_relay () {
-  docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-relay' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-relay:$MITHRIL_IMAGE_ID $@
+  docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-relay' -v $(pwd):/app/data -u $(id -u) ghcr.io/intersectmbo/mithril-relay:$MITHRIL_IMAGE_ID $@
 }
 ```
 

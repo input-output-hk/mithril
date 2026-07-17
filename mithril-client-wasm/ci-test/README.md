@@ -6,7 +6,7 @@
 
 ```bash
 # Download sources from github
-git clone https://github.com/input-output-hk/mithril
+git clone https://github.com/IntersectMBO/mithril
 
 # Go to sources directory
 cd mithril-client-wasm/
@@ -31,7 +31,7 @@ For example with the aggregator on `testing-preview` network:
 
 ```bash
 echo "AGGREGATOR_ENDPOINT=https://aggregator.testing-preview.api.mithril.network/aggregator" > ci-test/.env
-echo "GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey)" >> ci-test/.env
+echo "GENESIS_VERIFICATION_KEY=$(curl -sSL https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey)" >> ci-test/.env
 ```
 
 Specify blocks and/or transactions hashes to certify using comma separated values (examples with `testing-preview` hash) :

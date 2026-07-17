@@ -1,4 +1,4 @@
-# Mithril-client [![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg)](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/mithril-client.svg)](https://crates.io/crates/mithril-client) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/input-output-hk/mithril/blob/main/LICENSE) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
+# Mithril-client [![CI workflow](https://github.com/IntersectMBO/mithril/actions/workflows/ci.yml/badge.svg)](https://github.com/IntersectMBO/mithril/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/mithril-client.svg)](https://crates.io/crates/mithril-client) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/IntersectMBO/mithril/blob/main/LICENSE) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
 
 **This is a work in progress** 🛠
 
@@ -114,4 +114,4 @@ The best way to contribute right now is to try things out and provide feedback,
 but we also accept contributions to the documentation and obviously to the
 code itself.
 
-When contributing to this project and interacting with others, please follow our [Code of Conduct](https://github.com/input-output-hk/mithril/blob/main/CODE-OF-CONDUCT.md) and our [Contributing Guidelines](https://github.com/input-output-hk/mithril/blob/main/CONTRIBUTING.md).
+When contributing to this project and interacting with others, please follow our [Code of Conduct](https://github.com/IntersectMBO/mithril/blob/main/CODE-OF-CONDUCT.md) and our [Contributing Guidelines](https://github.com/IntersectMBO/mithril/blob/main/CONTRIBUTING.md).

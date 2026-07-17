@@ -41,7 +41,7 @@ able to:
 
 #### Where are we?
 
-- Sketched [monitor](https://github.com/input-output-hk/mithril/tree/main/mithril-test-lab/mithril-monitor) as the way
+- Sketched [monitor](https://github.com/IntersectMBO/mithril/tree/main/mithril-test-lab/mithril-monitor) as the way
   to specify expected behaviour of Mithril network and nodes in Haskell
   - `Monitor`s are _composable observers_ that can _monitor_ the trace of observable behaviour of interconnected
     Mithril nodes to verify some protocol invariants
@@ -53,7 +53,7 @@ able to:
     Mithril network, or more precisely to represent _executable specifications_
   - Monitors are interesting if thye provide more abstracting power than mere test examples, eg. express composable
     behaviour, up to interleaving, provided generative power to be able to abstract from details...
-- Sketched [Rust mithril node](https://github.com/input-output-hk/mithril/tree/main/mithril-proto/test-node) which is
+- Sketched [Rust mithril node](https://github.com/IntersectMBO/mithril/tree/main/mithril-proto/test-node) which is
   expected to evolve into some kind of _reference implementation_ of the Mithril protocol
   - As the underlying library is written in Rust, a Rust node should be "easy" to implement and provides more
     assurance we are actually uysing the protocol right

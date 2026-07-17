@@ -48,7 +48,7 @@ documentation = "https://mithril.network/doc"
 edition = "2024"
 homepage = "https://mithril.network"
 license = "Apache-2.0"
-repository = "https://github.com/input-output-hk/mithril/"
+repository = "https://github.com/IntersectMBO/mithril/"
 
 [workspace.dependencies]
 anyhow = "1.0.103"

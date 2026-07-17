@@ -20,7 +20,7 @@ This cli is inspired by this [script](https://github.com/IntersectMBO/cardano-no
 
 ```bash
 # Download sources from github
-git clone https://github.com/input-output-hk/mithril
+git clone https://github.com/IntersectMBO/mithril
 
 # Go to sources directory
 cd mithril/mithril-test-lab/cardano-devnet

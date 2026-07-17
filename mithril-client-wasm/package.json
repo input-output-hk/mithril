@@ -10,11 +10,11 @@
   "homepage": "https://mithril.network/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/input-output-hk/mithril",
+    "url": "git+https://github.com/IntersectMBO/mithril",
     "directory": "mithril-client-wasm"
   },
   "bugs": {
-    "url": "https://github.com/input-output-hk/mithril/issues"
+    "url": "https://github.com/IntersectMBO/mithril/issues"
   },
   "files": [
     "dist/**/*",
