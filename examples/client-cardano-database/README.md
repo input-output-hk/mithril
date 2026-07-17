@@ -20,7 +20,7 @@ The crate [indicatif](https://docs.rs/indicatif/latest/indicatif/) is used to ni
 
 ```bash
 # Switch to the latest release tag
-git checkout tags/$(curl -sSL https://api.github.com/repos/input-output-hk/mithril/releases/latest | jq -r '.tag_name')
+git checkout tags/$(curl -sSL https://api.github.com/repos/IntersectMBO/mithril/releases/latest | jq -r '.tag_name')
 
 # Build from the crate directory
 cargo build
@@ -32,7 +32,7 @@ cargo run
 AGGREGATOR_ENDPOINT=YOUR_AGGREGATOR_ENDPOINT GENESIS_VERIFICATION_KEY=YOUR_GENESIS_VERIFICATION_KEY cargo run
 
 # Example with 'release-preprod' network
-AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey) cargo run
+AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator GENESIS_VERIFICATION_KEY=$(curl -sSL https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey) cargo run
 ```
 
 ## Links

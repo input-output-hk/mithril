@@ -7,7 +7,7 @@ documentation = "https://mithril.network/doc"
 edition = "2021"
 homepage = "https://mithril.network"
 license = "Apache-2.0"
-repository = "https://github.com/input-output-hk/mithril/"
+repository = "https://github.com/IntersectMBO/mithril/"
 
 [dependencies]
 anyhow = { workspace = true }
