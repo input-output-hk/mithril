@@ -6,10 +6,10 @@ use crate::{FromEpochSettingsAdapter, RegisteredSigners};
 
 #[async_trait::async_trait]
 impl SignersRegistrationRetriever for AggregatorHttpClient {
-    async fn retrieve_all_signer_registrations(&self) -> StdResult<Option<RegisteredSigners>> {
+    async fn retrieve_all_signer_registrations(&self) -> StdResult<RegisteredSigners> {
         let message = self.send(GetEpochSettingsQuery::current()).await?;
         let epoch_settings = FromEpochSettingsAdapter::try_adapt(message)?;
 
-        Ok(Some(epoch_settings))
+        Ok(epoch_settings)
     }
 }

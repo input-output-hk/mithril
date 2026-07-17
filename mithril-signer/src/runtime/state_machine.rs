@@ -1,7 +1,8 @@
+use std::{fmt::Display, sync::Arc, time::Duration};
+
 use anyhow::Error;
 use chrono::Local;
 use slog::{Logger, debug, info};
-use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 use mithril_common::{
@@ -40,6 +41,11 @@ pub enum SignerState {
         /// Epoch when signer transitioned to the state.
         epoch: Epoch,
     },
+}
+
+enum CycleOutcome {
+    TransitionTo(SignerState),
+    KeepState,
 }
 
 impl SignerState {
@@ -82,6 +88,11 @@ impl Display for SignerState {
 enum EpochStatus {
     NewEpoch(Epoch),
     Unchanged(TimePoint),
+}
+
+enum SignerRegistrationOutcome {
+    Registered,
+    RegistrationRoundNotYetOpened,
 }
 
 /// The state machine is responsible of the execution of the signer automate.
@@ -144,127 +155,167 @@ impl StateMachine {
 
     /// Perform a cycle of the state machine.
     pub async fn cycle(&self) -> Result<(), RuntimeError> {
-        let mut state = self.state.lock().await;
+        let current_state = self.state.lock().await.clone();
         info!(
             self.logger,
             "================================================================================"
         );
-        info!(self.logger, "New cycle: {}", *state);
+        info!(self.logger, "New cycle: {current_state}");
 
         self.metrics_service
             .get_runtime_cycle_total_since_startup_counter()
             .increment();
 
-        match state.deref() {
-            SignerState::Init => {
-                *state = self.transition_from_init_to_unregistered().await?;
-            }
-            SignerState::Unregistered { epoch } => {
-                if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(*epoch).await? {
-                    info!(
-                        self.logger,
-                        "→ Epoch has changed, transiting to Unregistered"
-                    );
-                    *state = self.transition_from_unregistered_to_unregistered(new_epoch).await?;
-                } else if let Some(signer_registrations) = self
-                    .runner
-                    .get_signer_registrations_from_aggregator()
-                    .await
-                    .map_err(|e| RuntimeError::KeepState {
-                        message: format!("could not retrieve epoch settings at epoch {epoch:?}"),
-                        nested_error: Some(e),
-                    })?
-                {
-                    info!(self.logger, "→ Epoch Signer registrations found");
-                    let network_configuration: MithrilNetworkConfiguration =
-                        self.runner.get_mithril_network_configuration(*epoch).await.map_err(
-                            |e| RuntimeError::KeepState {
-                                message: format!(
-                                    "could not retrieve Mithril network configuration for epoch {epoch:?}"
-                                ),
-                                nested_error: Some(e),
-                            },
-                        )?;
-                    info!(self.logger, "→ Mithril network configuration found");
-
-                    if signer_registrations.epoch >= *epoch {
-                        info!(self.logger, "New Epoch found");
-                        info!(self.logger, " ⋅ Transiting to Registered");
-                        *state = self
-                            .transition_from_unregistered_to_one_of_registered_states(
-                                signer_registrations.epoch,
-                                network_configuration,
-                                signer_registrations.current_signers,
-                                signer_registrations.next_signers,
-                            )
-                            .await?;
-                    } else {
-                        info!(
-                            self.logger, " ⋅ Signer settings found, but its epoch is behind the known epoch, waiting…";
-                            "network_configuration" => ?network_configuration,
-                            "current_singer" => ?signer_registrations.current_signers,
-                            "next_signer" => ?signer_registrations.next_signers,
-                            "known_epoch" => ?epoch,
-                        );
-                    }
-                } else {
-                    info!(self.logger, "→ No epoch settings found yet, waiting…");
-                }
-            }
+        let outcome = match current_state {
+            SignerState::Init => self.cycle_init().await?,
+            SignerState::Unregistered { epoch } => self.cycle_unregistered(epoch).await?,
             SignerState::RegisteredNotAbleToSign { epoch } => {
-                if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(*epoch).await? {
-                    info!(
-                        self.logger,
-                        " → New Epoch detected, transiting to Unregistered"
-                    );
-                    *state = self
-                        .transition_from_registered_not_able_to_sign_to_unregistered(new_epoch)
-                        .await?;
-                } else {
-                    info!(self.logger, " ⋅ Epoch has NOT changed, waiting…");
-                }
+                self.cycle_registered_not_able_to_sign(epoch).await?
             }
-
-            SignerState::ReadyToSign { epoch } => match self.has_epoch_changed(*epoch).await? {
-                EpochStatus::NewEpoch(new_epoch) => {
-                    info!(
-                        self.logger,
-                        "→ Epoch has changed, transiting to Unregistered"
-                    );
-                    *state = self.transition_from_ready_to_sign_to_unregistered(new_epoch).await?;
-                }
-                EpochStatus::Unchanged(timepoint) => {
-                    let beacon_to_sign =
-                        self.runner.get_beacon_to_sign(timepoint).await.map_err(|e| {
-                            RuntimeError::KeepState {
-                                message: "could not fetch the beacon to sign".to_string(),
-                                nested_error: Some(e),
-                            }
-                        })?;
-
-                    match beacon_to_sign {
-                        Some(beacon) => {
-                            info!(
-                                self.logger, "→ Epoch has NOT changed we can sign this beacon, transiting to ReadyToSign";
-                                "beacon_to_sign" => ?beacon,
-                            );
-                            *state = self
-                                .transition_from_ready_to_sign_to_ready_to_sign(*epoch, beacon)
-                                .await?;
-                        }
-                        None => {
-                            info!(self.logger, " ⋅ No beacon to sign, waiting…");
-                        }
-                    }
-                }
-            },
+            SignerState::ReadyToSign { epoch } => self.cycle_ready_to_sign(epoch).await?,
         };
+
+        match outcome {
+            CycleOutcome::TransitionTo(next_state) => {
+                info!(self.logger, "Transitioned to state: {next_state}");
+                *self.state.lock().await = next_state;
+            }
+            CycleOutcome::KeepState => {
+                info!(self.logger, "Keeping current state: {current_state}");
+            }
+        }
 
         self.metrics_service
             .get_runtime_cycle_success_since_startup_counter()
             .increment();
 
         Ok(())
+    }
+
+    async fn cycle_init(&self) -> Result<CycleOutcome, RuntimeError> {
+        let current_epoch = self.get_current_time_point("init → unregistered").await?.epoch;
+        self.update_era_checker(current_epoch, "init → unregistered").await?;
+
+        Ok(CycleOutcome::TransitionTo(SignerState::Unregistered {
+            epoch: current_epoch,
+        }))
+    }
+
+    async fn cycle_unregistered(&self, epoch: Epoch) -> Result<CycleOutcome, RuntimeError> {
+        if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(epoch).await? {
+            info!(
+                self.logger,
+                "→ Epoch has changed, transitioning to Unregistered"
+            );
+
+            self.transition_from_unregistered_to_unregistered(new_epoch)
+                .await
+                .map(CycleOutcome::TransitionTo)
+        } else {
+            let signer_registrations = self
+                .runner
+                .get_signer_registrations_from_aggregator()
+                .await
+                .map_err(|e| RuntimeError::KeepState {
+                    message: format!("could not retrieve epoch settings at epoch {epoch:?}"),
+                    nested_error: Some(e),
+                })?;
+            info!(self.logger, "→ Epoch Signer registrations found");
+
+            let network_configuration: MithrilNetworkConfiguration = self
+                .runner
+                .get_mithril_network_configuration(epoch)
+                .await
+                .map_err(|e| RuntimeError::KeepState {
+                    message: format!(
+                        "could not retrieve Mithril network configuration for epoch {epoch:?}"
+                    ),
+                    nested_error: Some(e),
+                })?;
+            info!(self.logger, "→ Mithril network configuration found");
+
+            if signer_registrations.epoch >= epoch {
+                info!(self.logger, "New Epoch found");
+                info!(self.logger, " ⋅ Transitioning to Registered");
+
+                self.transition_from_unregistered_to_one_of_registered_states(
+                    signer_registrations.epoch,
+                    network_configuration,
+                    signer_registrations.current_signers,
+                    signer_registrations.next_signers,
+                )
+                .await
+                .map(CycleOutcome::TransitionTo)
+            } else {
+                info!(
+                    self.logger, " ⋅ Signer settings found, but its epoch is behind the known epoch, waiting…";
+                    "network_configuration" => ?network_configuration,
+                    "current_singer" => ?signer_registrations.current_signers,
+                    "next_signer" => ?signer_registrations.next_signers,
+                    "known_epoch" => ?epoch,
+                );
+
+                Ok(CycleOutcome::KeepState)
+            }
+        }
+    }
+
+    async fn cycle_registered_not_able_to_sign(
+        &self,
+        epoch: Epoch,
+    ) -> Result<CycleOutcome, RuntimeError> {
+        if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(epoch).await? {
+            info!(
+                self.logger,
+                " → New Epoch detected, transitioning to Unregistered"
+            );
+
+            self.transition_from_registered_not_able_to_sign_to_unregistered(new_epoch)
+                .await
+                .map(CycleOutcome::TransitionTo)
+        } else {
+            info!(self.logger, " ⋅ Epoch has NOT changed, waiting…");
+            Ok(CycleOutcome::KeepState)
+        }
+    }
+
+    async fn cycle_ready_to_sign(&self, epoch: Epoch) -> Result<CycleOutcome, RuntimeError> {
+        match self.has_epoch_changed(epoch).await? {
+            EpochStatus::NewEpoch(new_epoch) => {
+                info!(
+                    self.logger,
+                    "→ Epoch has changed, transitioning to Unregistered"
+                );
+                self.transition_from_ready_to_sign_to_unregistered(new_epoch)
+                    .await
+                    .map(CycleOutcome::TransitionTo)
+            }
+            EpochStatus::Unchanged(timepoint) => {
+                let beacon_to_sign =
+                    self.runner.get_beacon_to_sign(timepoint).await.map_err(|e| {
+                        RuntimeError::KeepState {
+                            message: "could not fetch the beacon to sign".to_string(),
+                            nested_error: Some(e),
+                        }
+                    })?;
+
+                match beacon_to_sign {
+                    Some(beacon) => {
+                        info!(
+                            self.logger, "→ Epoch has NOT changed we can sign this beacon, transitioning to ReadyToSign";
+                            "beacon_to_sign" => ?beacon,
+                        );
+                        self.transition_from_ready_to_sign_to_ready_to_sign(epoch, beacon)
+                            .await
+                            .map(CycleOutcome::TransitionTo)
+                    }
+                    None => {
+                        info!(self.logger, " ⋅ No beacon to sign, waiting…");
+                        Ok(CycleOutcome::KeepState)
+                    }
+                }
+            }
+        }
     }
 
     /// Return the new epoch if the epoch is different than the given one, otherwise return the current time point.
@@ -287,15 +338,6 @@ impl StateMachine {
             .await?;
 
         Ok(SignerState::Unregistered { epoch: new_epoch })
-    }
-
-    async fn transition_from_init_to_unregistered(&self) -> Result<SignerState, RuntimeError> {
-        let current_epoch = self.get_current_time_point("init → unregistered").await?.epoch;
-        self.update_era_checker(current_epoch, "init → unregistered").await?;
-
-        Ok(SignerState::Unregistered {
-            epoch: current_epoch,
-        })
     }
 
     /// Launch the transition process from the `Unregistered` to `ReadyToSign` or `RegisteredNotAbleToSign` state.
@@ -329,49 +371,21 @@ impl StateMachine {
                 nested_error: Some(e),
             })?;
 
-        fn handle_registration_result(
-            register_result: Result<(), Error>,
-            epoch: Epoch,
-        ) -> Result<Option<SignerState>, RuntimeError> {
-            if let Err(e) = register_result {
-                if let Some(AggregatorHttpClientError::RegistrationRoundNotYetOpened(_)) =
-                    e.downcast_ref::<AggregatorHttpClientError>()
-                {
-                    Ok(Some(SignerState::Unregistered { epoch }))
-                } else if e.downcast_ref::<ProtocolInitializerError>().is_some() {
-                    Err(RuntimeError::Critical {
-                        message: format!(
-                            "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
-                        ),
-                        nested_error: Some(e),
-                    })
-                } else {
-                    Err(RuntimeError::KeepState {
-                        message: format!(
-                            "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
-                        ),
-                        nested_error: Some(e),
-                    })
-                }
-            } else {
-                Ok(None)
+        let register_result = self.runner.register_signer_to_aggregator().await;
+        match Self::handle_registration_result(register_result, epoch)? {
+            SignerRegistrationOutcome::Registered => {
+                self.metrics_service
+                    .get_signer_registration_success_since_startup_counter()
+                    .increment();
+
+                self.metrics_service
+                    .get_signer_registration_success_last_epoch_gauge()
+                    .record(epoch);
+            }
+            SignerRegistrationOutcome::RegistrationRoundNotYetOpened => {
+                return Ok(SignerState::Unregistered { epoch });
             }
         }
-
-        let register_result = self.runner.register_signer_to_aggregator().await;
-        let next_state_found = handle_registration_result(register_result, epoch)?;
-
-        self.metrics_service
-            .get_signer_registration_success_since_startup_counter()
-            .increment();
-
-        if let Some(state) = next_state_found {
-            return Ok(state);
-        }
-
-        self.metrics_service
-            .get_signer_registration_success_last_epoch_gauge()
-            .record(epoch);
 
         self.runner.upkeep(epoch).await.map_err(|e| RuntimeError::KeepState {
             message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
@@ -486,6 +500,35 @@ impl StateMachine {
                 nested_error: Some(e),
             })
     }
+
+    fn handle_registration_result(
+        register_result: Result<(), Error>,
+        epoch: Epoch,
+    ) -> Result<SignerRegistrationOutcome, RuntimeError> {
+        if let Err(e) = register_result {
+            if let Some(AggregatorHttpClientError::RegistrationRoundNotYetOpened(_)) =
+                e.downcast_ref::<AggregatorHttpClientError>()
+            {
+                Ok(SignerRegistrationOutcome::RegistrationRoundNotYetOpened)
+            } else if e.downcast_ref::<ProtocolInitializerError>().is_some() {
+                Err(RuntimeError::Critical {
+                    message: format!(
+                        "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
+                    ),
+                    nested_error: Some(e),
+                })
+            } else {
+                Err(RuntimeError::KeepState {
+                    message: format!(
+                        "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
+                    ),
+                    nested_error: Some(e),
+                })
+            }
+        } else {
+            Ok(SignerRegistrationOutcome::Registered)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -515,12 +558,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unregistered_epoch_settings_not_found() {
+    async fn unregistered_epoch_settings_error() {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(None));
+            .returning(|| Err(anyhow!("error")));
         runner
             .expect_get_current_time_point()
             .once()
@@ -534,7 +577,7 @@ mod tests {
         state_machine
             .cycle()
             .await
-            .expect("Cycling the state machine should not fail");
+            .expect_err("Cycling the state machine should fail");
 
         assert_eq!(
             SignerState::Unregistered {
@@ -556,7 +599,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(move || Ok(Some(epoch_settings.to_owned())));
+            .returning(move || Ok(epoch_settings.to_owned()));
         runner
             .expect_get_mithril_network_configuration()
             .once()
@@ -594,7 +637,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(RegisteredSigners::dummy())));
+            .returning(|| Ok(RegisteredSigners::dummy()));
 
         runner
             .expect_get_mithril_network_configuration()
@@ -646,7 +689,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(RegisteredSigners::dummy())));
+            .returning(|| Ok(RegisteredSigners::dummy()));
 
         runner
             .expect_get_mithril_network_configuration()
@@ -696,13 +739,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unregistered_to_ready_to_sign_counter() {
+    async fn unregistered_keeps_state_when_registration_round_not_yet_opened_counter() {
         let mut runner = MockSignerRunner::new();
 
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(RegisteredSigners::dummy())));
+            .returning(|| Ok(RegisteredSigners::dummy()));
 
         runner
             .expect_get_mithril_network_configuration()
@@ -749,14 +792,14 @@ mod tests {
 
         let metrics_service = state_machine.metrics_service;
         assert_eq!(
-            1,
+            0,
             metrics_service
                 .get_signer_registration_success_since_startup_counter()
                 .get()
         );
 
         assert_eq!(
-            0 as f64,
+            0f64,
             metrics_service
                 .get_signer_registration_success_last_epoch_gauge()
                 .get()

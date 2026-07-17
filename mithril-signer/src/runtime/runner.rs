@@ -27,9 +27,7 @@ pub trait Runner: Send + Sync {
     ) -> StdResult<MithrilNetworkConfiguration>;
 
     /// Fetch the current epoch settings if any.
-    async fn get_signer_registrations_from_aggregator(
-        &self,
-    ) -> StdResult<Option<RegisteredSigners>>;
+    async fn get_signer_registrations_from_aggregator(&self) -> StdResult<RegisteredSigners>;
 
     /// Fetch the beacon to sign if any.
     async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>>;
@@ -129,9 +127,7 @@ impl Runner for SignerRunner {
             .await
     }
 
-    async fn get_signer_registrations_from_aggregator(
-        &self,
-    ) -> StdResult<Option<RegisteredSigners>> {
+    async fn get_signer_registrations_from_aggregator(&self) -> StdResult<RegisteredSigners> {
         debug!(self.logger, ">> get_epoch_settings");
 
         self.services
