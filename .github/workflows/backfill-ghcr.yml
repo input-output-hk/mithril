@@ -1,0 +1,172 @@
+name: Backfill GHCR
+
+on:
+  workflow_dispatch:
+    inputs:
+      distributions:
+        description: Comma separated distributions and moving tags to copy
+        required: true
+        type: string
+        default: 2617.0,2603.1,2543.1-hotfix,2537.0,2524.0,unstable
+      source_organization:
+        description: Organization owning the legacy packages
+        required: true
+        type: string
+        default: input-output-hk
+      dry_run:
+        description: Resolve and check the images without copying them
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          [mithril-aggregator, mithril-client, mithril-signer, mithril-relay]
+
+    env:
+      REGISTRY: ghcr.io
+      MOVING_TAGS: unstable latest pre-release
+
+    steps:
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up crane
+        uses: imjasonh/setup-crane@v0.7
+
+      - name: Copy the images to the new namespace
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISTRIBUTIONS: ${{ inputs.distributions }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PACKAGE: ${{ matrix.package }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          SOURCE_ORGANIZATION: ${{ inputs.source_organization }}
+        run: |
+          set -uo pipefail
+
+          # GHCR rejects upper case repository names, and the owner is not lower case
+          target_organization=$(echo "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          source_organization=$(echo "$SOURCE_ORGANIZATION" | tr '[:upper:]' '[:lower:]')
+
+          if [ "$source_organization" = "$target_organization" ]; then
+            echo "::error::The source and the target organization are both '$target_organization': the transfer has not happened yet, or the wrong source was given"
+            exit 1
+          fi
+
+          source_image="$REGISTRY/$source_organization/$PACKAGE"
+          target_image="$REGISTRY/$target_organization/$PACKAGE"
+
+          # A distribution is published as '<distribution>-<short commit>', whereas a moving tag is
+          # published as is. The distributions are also git tags, so they cannot be told apart from
+          # the moving tags by resolving them against the repository.
+          resolve_source_tag() {
+            local distribution=$1
+            local moving_tag reference commit
+
+            for moving_tag in $MOVING_TAGS; do
+              if [ "$distribution" = "$moving_tag" ]; then
+                echo "$distribution"
+                return 0
+              fi
+            done
+
+            reference=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$distribution" 2>/dev/null) || return 1
+            commit=$(echo "$reference" | jq -r '.object.sha')
+            if [ "$(echo "$reference" | jq -r '.object.type')" = "tag" ]; then
+              commit=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$commit" --jq '.object.sha') || return 1
+            fi
+
+            # 'jq' yields 'null' and '--jq' yields an empty string on an unexpected payload, both of
+            # which would silently resolve to a tag that no package publishes
+            echo "$commit" | grep -qE '^[0-9a-f]{40}$' || return 1
+
+            echo "$distribution-$(echo "$commit" | cut -c1-7)"
+          }
+
+          error_file=$(mktemp)
+          copied=0
+          skipped=0
+          failed=0
+
+          IFS=',' read -ra distributions <<< "$DISTRIBUTIONS"
+          for distribution in "${distributions[@]}"; do
+            distribution=$(echo "$distribution" | tr -d '[:space:]')
+            if [ -z "$distribution" ]; then
+              continue
+            fi
+
+            if ! source_tag=$(resolve_source_tag "$distribution"); then
+              echo "::error::Could not resolve the distribution '$distribution' in $GITHUB_REPOSITORY"
+              failed=$((failed + 1))
+              continue
+            fi
+
+            if ! source_digest=$(crane digest "$source_image:$source_tag" 2>"$error_file"); then
+              error=$(cat "$error_file")
+              # Only an unknown manifest means the tag is genuinely not published: anything else
+              # (authentication, throttling, registry outage) must not be reported as a benign skip
+              case "$error" in
+                *MANIFEST_UNKNOWN* | *NAME_UNKNOWN*)
+                  echo "Skipped $source_image:$source_tag, the package does not publish this tag"
+                  skipped=$((skipped + 1))
+                  ;;
+                *)
+                  echo "::error::Could not read $source_image:$source_tag: $error"
+                  failed=$((failed + 1))
+                  ;;
+              esac
+              continue
+            fi
+
+            # Anything but an explicit 'false' is treated as a dry run so that a copy is never made by accident
+            if [ "$DRY_RUN" != "false" ]; then
+              echo "Would copy $source_image:$source_tag ($source_digest) to $target_image:$source_tag"
+              copied=$((copied + 1))
+              continue
+            fi
+
+            # A tag already in the target namespace was published after the move and is newer than
+            # the legacy one: overwriting it would roll the consumers of that tag back
+            if ! crane copy --no-clobber "$source_image:$source_tag" "$target_image:$source_tag"; then
+              echo "::error::Could not copy $source_image:$source_tag to $target_image:$source_tag"
+              failed=$((failed + 1))
+              continue
+            fi
+
+            if ! target_digest=$(crane digest "$target_image:$source_tag" 2>"$error_file"); then
+              echo "::error::Could not read back $target_image:$source_tag: $(cat "$error_file")"
+              failed=$((failed + 1))
+              continue
+            fi
+
+            if [ "$source_digest" != "$target_digest" ]; then
+              echo "::error::$target_image:$source_tag already holds $target_digest and was left untouched instead of being overwritten with $source_digest"
+              failed=$((failed + 1))
+              continue
+            fi
+
+            echo "Copied $source_image:$source_tag to $target_image:$source_tag ($target_digest)"
+            copied=$((copied + 1))
+          done
+
+          if [ "$DRY_RUN" != "false" ]; then
+            echo "$PACKAGE (dry run): $copied resolved, $skipped skipped, $failed failed" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "$PACKAGE: $copied copied, $skipped skipped, $failed failed" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          [ "$failed" -eq 0 ]
