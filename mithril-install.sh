@@ -80,7 +80,7 @@ fetch_release_information() {
 
 # Default values
 DISTRIBUTION="latest"
-GITHUB_ORGANIZATION="input-output-hk"
+GITHUB_ORGANIZATION="IntersectMBO"
 GITHUB_REPOSITORY="mithril"
 
 check_requirements
