@@ -1,10 +1,12 @@
-use anyhow::Context;
 use std::marker::PhantomData;
 #[cfg(feature = "future_snark")]
 use std::sync::Arc;
 
+use anyhow::Context;
 #[cfg(feature = "future_snark")]
 use anyhow::anyhow;
+#[cfg(feature = "future_snark")]
+use midnight_proofs::transcript::Blake2b256;
 #[cfg(feature = "future_snark")]
 use rand_core::OsRng;
 
@@ -261,7 +263,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     ivc_prover_setup: Arc<IvcSnarkProverSetup>,
     certificate_verifying_key: NonRecursiveCircuitVerifyingKey,
 ) -> StmResult<(
-    IvcProof<blake2b_simd::State>,
+    IvcProof<Blake2b256>,
     Option<AncillaryProverData>,
     AncillaryVerifierData,
 )> {

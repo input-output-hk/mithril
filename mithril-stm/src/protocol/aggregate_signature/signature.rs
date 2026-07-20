@@ -1,6 +1,8 @@
 use std::{collections::HashMap, fmt::Display, hash::Hash, str::FromStr};
 
 use anyhow::anyhow;
+#[cfg(feature = "future_snark")]
+use midnight_proofs::transcript::Blake2b256;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -144,7 +146,7 @@ pub enum AggregateSignature<D: MembershipDigest> {
 
     /// IVC SNARK proof system.
     #[cfg(feature = "future_snark")]
-    IvcSnark(Box<IvcProof<blake2b_simd::State>>),
+    IvcSnark(Box<IvcProof<Blake2b256>>),
 
     /// Concatenation proof system.
     // The 'untagged' attribute is required for backward compatibility.
@@ -495,7 +497,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 
     /// If the aggregate signature is an IVC proof, return it.
     #[cfg(feature = "future_snark")]
-    pub fn get_ivc_proof(&self) -> Option<&IvcProof<blake2b_simd::State>> {
+    pub fn get_ivc_proof(&self) -> Option<&IvcProof<Blake2b256>> {
         match self {
             AggregateSignature::IvcSnark(proof) => Some(proof),
             AggregateSignature::Concatenation(_) => None,
@@ -510,6 +512,8 @@ mod tests {
 
     #[cfg(feature = "future_snark")]
     mod ivc_proof {
+        use midnight_proofs::transcript::Blake2b256;
+
         use crate::{Clerk, Parameters, protocol::aggregate_signature::tests::setup_equal_parties};
 
         use crate::{
@@ -550,7 +554,7 @@ mod tests {
                 context.certificate_verifying_key,
                 context.recursive_verifying_key,
             ));
-            let proof = IvcProof::<blake2b_simd::State>::new(
+            let proof = IvcProof::<Blake2b256>::new(
                 step_output.ivc_proof,
                 step_output.next_state,
                 step_output.next_accumulator,
@@ -583,7 +587,7 @@ mod tests {
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
             let avk = clerk.compute_aggregate_verification_key();
 
-            let proof = IvcProof::<blake2b_simd::State>::new(
+            let proof = IvcProof::<Blake2b256>::new(
                 step_output.ivc_proof,
                 step_output.next_state,
                 step_output.next_accumulator,

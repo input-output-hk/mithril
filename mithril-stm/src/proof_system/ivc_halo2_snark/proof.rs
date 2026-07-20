@@ -17,7 +17,7 @@ use midnight_proofs::{
         commitment::PolynomialCommitmentScheme,
         kzg::{KZGCommitmentScheme, params::ParamsKZG},
     },
-    transcript::{CircuitTranscript, Hashable, Sampleable, Transcript, TranscriptHash},
+    transcript::{Blake2b256, CircuitTranscript, Hashable, Sampleable, Transcript, TranscriptHash},
 };
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -314,7 +314,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         protocol_message_preimage: &ProtocolMessagePreimage,
         genesis_bootstrap: &IvcGenesisBootstrapInput,
         rolling_state: Option<&IvcRollingState>,
-    ) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
+    ) -> StmResult<(IvcProof<Blake2b256>, Option<IvcRollingState>)> {
         ensure_advanceable_rolling_state(rolling_state)?;
 
         // `rolling_state = None` is the first certificate: bootstrap from genesis internally,
@@ -378,7 +378,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
                 None
             };
 
-        let blake2b_bytes = IvcProof::<blake2b_simd::State>::prove_with_transcript(
+        let blake2b_bytes = IvcProof::<Blake2b256>::prove_with_transcript(
             &self.ivc_setup.srs,
             &self.ivc_setup.ivc_proving_key,
             &circuit_data,
@@ -454,6 +454,8 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 #[cfg(test)]
 mod tests {
 
+    use midnight_proofs::transcript::Blake2b256;
+
     use crate::{
         circuits::halo2_ivc::{
             state::Global,
@@ -528,7 +530,7 @@ mod tests {
             verification_context.combined_fixed_bases,
         );
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             step_output.next_accumulator,
@@ -544,15 +546,15 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             step_output.next_accumulator,
         );
 
         let bytes = proof.to_bytes().expect("serialization should not fail");
-        let restored = IvcProof::<blake2b_simd::State>::from_bytes(&bytes)
-            .expect("deserialization should not fail");
+        let restored =
+            IvcProof::<Blake2b256>::from_bytes(&bytes).expect("deserialization should not fail");
 
         assert_eq!(
             bytes,
@@ -565,7 +567,7 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             step_output.next_accumulator,
@@ -584,7 +586,7 @@ mod tests {
         let mut wrong_msg = STEP_OUTPUT_MSG;
         wrong_msg[0] ^= 0xff;
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             step_output.next_accumulator,
@@ -623,7 +625,7 @@ mod tests {
             verification_context.combined_fixed_bases,
         );
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             step_output.next_accumulator,
@@ -652,7 +654,7 @@ mod tests {
         let mid = tampered_bytes.len() / 2;
         tampered_bytes[mid] ^= 0xff;
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             IvcProofBytes::new(tampered_bytes),
             step_output.next_state,
             step_output.next_accumulator,
@@ -676,7 +678,7 @@ mod tests {
 
         step_output.next_state.message = MessageHash::ZERO;
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             step_output.next_accumulator,
@@ -703,7 +705,7 @@ mod tests {
         let tampered_msg = &[0u8; 32];
         step_output.next_state.message = MessageHash::ZERO;
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             step_output.next_accumulator,
@@ -730,7 +732,7 @@ mod tests {
         let same_epoch = load_embedded_following_certificate_in_epoch_asset()
             .expect("same-epoch step output asset should load");
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             same_epoch.next_state,
             step_output.next_accumulator,
@@ -757,7 +759,7 @@ mod tests {
         let same_epoch = load_embedded_following_certificate_in_epoch_asset()
             .expect("same-epoch step output asset should load");
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             same_epoch.next_accumulator,
@@ -775,14 +777,14 @@ mod tests {
 
     #[test]
     fn ivc_proof_verify_rejects_poseidon_proof_bytes() {
-        // Constructing an `IvcProof<blake2b_simd::State>` with Poseidon-transcript bytes
+        // Constructing an `IvcProof<Blake2b256>` with Poseidon-transcript bytes
         // and verifying it with the Blake2b path must fail: the two transcript formats
         // are not interchangeable.
         let (global, verifier_setup) = build_proof_verifier_context();
         let chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             chain_state.ivc_proof,
             chain_state.state,
             chain_state.accumulator,
@@ -825,7 +827,7 @@ mod tests {
             wrong_fixed_bases,
         );
 
-        let proof = IvcProof::<blake2b_simd::State>::new(
+        let proof = IvcProof::<Blake2b256>::new(
             step_output.ivc_proof,
             step_output.next_state,
             step_output.next_accumulator,
