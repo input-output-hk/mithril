@@ -87,7 +87,7 @@ curl -sSfL https://raw.githubusercontent.com/IntersectMBO/mithril/main/networks.
 | Done | Milestone                   | Date          | What happens                                                                         |
 | :--: | --------------------------- | ------------- | ------------------------------------------------------------------------------------ |
 |  ✅  | Announcement (today)        | July 17, 2026 | This announcement is published                                                       |
-|  ⬜  | D-day (repository transfer) | July 20, 2026 | Repository transfer is performed, new GHCR images are published under `IntersectMBO` |
+|  ✅  | D-day (repository transfer) | July 20, 2026 | Repository transfer is performed, new GHCR images are published under `IntersectMBO` |
 |  ⬜  | From D+1                    | July 21, 2026 | Documentation cross-references and external references are refreshed                 |
 
 For any inquiries or assistance, contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
