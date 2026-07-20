@@ -90,7 +90,7 @@ pub(crate) fn assert_proving_circuit_error<T>(result: StmResult<T>) -> StmCircui
 fn validate_relation_for_setup(relation: &StmCertificateCircuit) -> StmResult<()> {
     relation
         .validate_parameters()
-        .context("Circuit parameter validation failed before setup")
+        .with_context(|| "Circuit parameter validation failed before setup")
 }
 
 /// Cache key derived from the STM circuit configuration.
@@ -589,7 +589,7 @@ pub(crate) fn prove_and_verify_result(
         scenario.witness,
         &mut rng,
     )
-    .context("Proving step failed")?;
+    .with_context(|| "Proving step failed")?;
     let duration = start.elapsed();
     println!("\nProof generation took: {:?}", duration);
     println!("Proof size: {:?}", proof.len());
@@ -609,7 +609,7 @@ pub(crate) fn prove_and_verify_result(
         Ok(())
     } else {
         Err(anyhow!(StmCircuitError::VerificationRejected))
-            .context(format!("Proof verification step failed: {verify_result:?}"))
+            .with_context(|| format!("Proof verification step failed: {verify_result:?}"))
     }
 }
 
