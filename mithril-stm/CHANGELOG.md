@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.11.2 (07-20-2026)
+
+### Changed
+
+- Typed the non-recursive (certificate) circuit's `Relation` error boundary: `StmCertificateCircuit::Error` is now `StmCircuitError` (with a `Backend(String)` catch-all and a `From<plonk::Error>` conversion) instead of `plonk::Error`, removing the `to_synthesis_error` flattening adapter so domain-guard errors stay typed end-to-end
+
 ## 0.11.1 (07-20-2026)
 
 ### Changed
