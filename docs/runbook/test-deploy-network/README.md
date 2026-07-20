@@ -6,7 +6,7 @@ From time to time, we may need to deploy manually on a test Mithril network a te
 
 ## Run the associated 'Test network deployment' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Test network deployment](https://github.com/input-output-hk/mithril/actions/workflows/test-deploy-network.yml)
+Go to the page of the workflow with your browser: [Test network deployment](https://github.com/IntersectMBO/mithril/actions/workflows/test-deploy-network.yml)
 
 Then, click on the **Run workflow** button:
 
@@ -18,7 +18,7 @@ Then fill the form to manually run the workflow:
 
 > [!WARNING]
 >
-> - The **Mithril image id** of the of the distribution to deploy must be published on the [package registry](https://github.com/orgs/input-output-hk/packages?repo_name=mithril)
+> - The **Mithril image id** of the of the distribution to deploy must be published on the [package registry](https://github.com/orgs/IntersectMBO/packages?repo_name=mithril)
 
 > [!CAUTION]
 > It is highly recommended to run with the **Dry run** option checked at first and make sure that the process works as expected

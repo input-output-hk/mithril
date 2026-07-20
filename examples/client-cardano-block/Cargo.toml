@@ -1,13 +1,13 @@
 [package]
 name = "client-cardano-block"
 description = "Mithril client cardano-block example"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
 homepage = "https://mithril.network"
 license = "Apache-2.0"
-repository = "https://github.com/input-output-hk/mithril/"
+repository = "https://github.com/IntersectMBO/mithril/"
 
 [dependencies]
 anyhow = { workspace = true }

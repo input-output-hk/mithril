@@ -77,7 +77,7 @@ uuid = { version = "1.23.4", features = ["v4"] }
 zstd = { version = "0.13.3", optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-mithril-aggregator-discovery = { path = "../internal/mithril-aggregator-discovery", version = "0.1.11" }
+mithril-aggregator-discovery = { path = "../internal/mithril-aggregator-discovery", version = "0.1.12" }
 mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database", version = "0.2.4" }
 rand = { version = "0.10.2" }
 

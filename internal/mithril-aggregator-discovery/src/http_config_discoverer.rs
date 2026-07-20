@@ -9,7 +9,7 @@ use mithril_common::{StdResult, entities::MithrilNetwork};
 use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 
 const DEFAULT_REMOTE_NETWORKS_CONFIG_URL: &str =
-    "https://raw.githubusercontent.com/input-output-hk/mithril/main/networks.json";
+    "https://raw.githubusercontent.com/IntersectMBO/mithril/main/networks.json";
 
 /// Representation of the networks configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]

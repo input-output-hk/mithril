@@ -143,4 +143,4 @@ The best way to contribute right now is to try things out and provide feedback,
 but we also accept contributions to the documentation and obviously to the
 code itself.
 
-When contributing to this project and interacting with others, please follow our [Code of Conduct](https://github.com/input-output-hk/mithril/blob/main/CODE-OF-CONDUCT.md) and our [Contributing Guidelines](https://github.com/input-output-hk/mithril/blob/main/CONTRIBUTING.md).
+When contributing to this project and interacting with others, please follow our [Code of Conduct](https://github.com/IntersectMBO/mithril/blob/main/CODE-OF-CONDUCT.md) and our [Contributing Guidelines](https://github.com/IntersectMBO/mithril/blob/main/CONTRIBUTING.md).

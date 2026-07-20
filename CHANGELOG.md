@@ -30,6 +30,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Added a new internal crate `mithril-merkle-tree` for the implementation of Merkle tree and merkelized map primitives used by Mithril nodes.
 
+- Moved the repository to the `IntersectMBO` GitHub organization:
+  - The genesis, era and ancillary verification key URLs of the `networks.json` file now target `IntersectMBO`.
+  - The Docker images of the nodes are now published to the `ghcr.io/intersectmbo` namespace.
+  - The legacy `input-output-hk` URLs and released images keep working. Refresh any pinned verification key URL or image reference at your next upgrade.
+
 - **UNSTABLE**:
   - Support for SNARK-friendly rigid protocol message openable in recursive circuit.
   - Support for SNARK-friendly genesis certificate primitives.

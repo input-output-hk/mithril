@@ -1,13 +1,13 @@
 [package]
 name = "client-cardano-stake-distribution"
 description = "Mithril client cardano stake distribution example"
-version = "0.1.19"
+version = "0.1.20"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
 homepage = "https://mithril.network"
 license = "Apache-2.0"
-repository = "https://github.com/input-output-hk/mithril/"
+repository = "https://github.com/IntersectMBO/mithril/"
 
 [dependencies]
 anyhow = { workspace = true }

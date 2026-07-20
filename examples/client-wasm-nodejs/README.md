@@ -23,7 +23,7 @@ In this example, the client interacts by default with a real aggregator on the n
 First you need to switch to the latest release tag:
 
 ```bash
-git checkout tags/$(curl -sSL https://api.github.com/repos/input-output-hk/mithril/releases/latest | jq -r '.tag_name')
+git checkout tags/$(curl -sSL https://api.github.com/repos/IntersectMBO/mithril/releases/latest | jq -r '.tag_name')
 ```
 
 Compile the Mithril client Wasm library:

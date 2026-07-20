@@ -4,7 +4,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-signer-relay-${SIGNER_ID}:${SIGNER_RELAY_SERVER_PORT}
 
   mithril-signer-relay:
-    image: ghcr.io/input-output-hk/mithril-relay:${MITHRIL_IMAGE_ID}
+    image: ghcr.io/intersectmbo/mithril-relay:${MITHRIL_IMAGE_ID}
     container_name: mithril-signer-relay-${SIGNER_ID}
     restart: always
     user: ${CURRENT_UID}

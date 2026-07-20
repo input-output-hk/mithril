@@ -164,17 +164,17 @@ runs:
 
         - Download the **Mithril signer** in the current directory:
         \`\`\`bash
-        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-signer -d ${{ inputs.tag }} -p \$(pwd)
+        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-signer -d ${{ inputs.tag }} -p \$(pwd)
         \`\`\`
 
         - Download the **Mithril client CLI** in the current directory:
         \`\`\`bash
-        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d ${{ inputs.tag }} -p \$(pwd)
+        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d ${{ inputs.tag }} -p \$(pwd)
         \`\`\`
 
         - Download the **Mithril aggregator** in the current directory:
         \`\`\`bash
-        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d ${{ inputs.tag }} -p \$(pwd)
+        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d ${{ inputs.tag }} -p \$(pwd)
         \`\`\`
         EOF
 
@@ -208,9 +208,9 @@ runs:
 
         | Binary             |              Image name              |                             URL                              |
         | ------------------ | :----------------------------------: | :----------------------------------------------------------: |
-        | mithril-aggregator | mithril-aggregator:$MITHRIL_IMAGE_ID | ghcr.io/input-output-hk/mithril-aggregator:$MITHRIL_IMAGE_ID |
-        | mithril-signer     |   mithril-signer:$MITHRIL_IMAGE_ID   |   ghcr.io/input-output-hk/mithril-signer:$MITHRIL_IMAGE_ID   |
-        | mithril-client     |   mithril-client:$MITHRIL_IMAGE_ID   |   ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID   |
+        | mithril-aggregator | mithril-aggregator:$MITHRIL_IMAGE_ID | ghcr.io/intersectmbo/mithril-aggregator:$MITHRIL_IMAGE_ID |
+        | mithril-signer     |   mithril-signer:$MITHRIL_IMAGE_ID   |   ghcr.io/intersectmbo/mithril-signer:$MITHRIL_IMAGE_ID   |
+        | mithril-client     |   mithril-client:$MITHRIL_IMAGE_ID   |   ghcr.io/intersectmbo/mithril-client:$MITHRIL_IMAGE_ID   |
         EOF
 
     - name: List packaged assets

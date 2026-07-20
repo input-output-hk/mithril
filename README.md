@@ -1,20 +1,20 @@
 # <p align="center">Mithril :shield:</p>
 
 <div align="center">
-  <a href='https://github.com/input-output-hk/mithril/actions'>
-    <img src="https://img.shields.io/github/actions/workflow/status/input-output-hk/mithril/ci.yml?label=Tests&style=for-the-badge&branch=main">
+  <a href='https://github.com/IntersectMBO/mithril/actions'>
+    <img src="https://img.shields.io/github/actions/workflow/status/IntersectMBO/mithril/ci.yml?label=Tests&style=for-the-badge&branch=main">
   </a>
-  <a href='https://github.com/input-output-hk/mithril/issues'>
-    <img src="https://img.shields.io/github/issues/input-output-hk/mithril?label=Issues&style=for-the-badge">
+  <a href='https://github.com/IntersectMBO/mithril/issues'>
+    <img src="https://img.shields.io/github/issues/IntersectMBO/mithril?label=Issues&style=for-the-badge">
   </a>
-  <a href='https://github.com/input-output-hk/mithril/network/members'>
-     <img src="https://img.shields.io/github/forks/input-output-hk/mithril?label=Forks&style=for-the-badge">
+  <a href='https://github.com/IntersectMBO/mithril/network/members'>
+     <img src="https://img.shields.io/github/forks/IntersectMBO/mithril?label=Forks&style=for-the-badge">
   </a>
-  <a href='https://github.com/input-output-hk/mithril/stargazers'>
-    <img src="https://img.shields.io/github/stars/input-output-hk/mithril?label=Stars&style=for-the-badge">
+  <a href='https://github.com/IntersectMBO/mithril/stargazers'>
+    <img src="https://img.shields.io/github/stars/IntersectMBO/mithril?label=Stars&style=for-the-badge">
   </a>
-  <a href='https://github.com/input-output-hk/mithril/blob/main/LICENSE'>
-    <img src="https://img.shields.io/github/license/input-output-hk/mithril?label=License&style=for-the-badge">
+  <a href='https://github.com/IntersectMBO/mithril/blob/main/LICENSE'>
+    <img src="https://img.shields.io/github/license/IntersectMBO/mithril?label=License&style=for-the-badge">
   </a>
 </div>
 
@@ -55,7 +55,7 @@ If you are interested in **fast bootstrapping** of a Cardano node, please refer 
 
 You can access tutorials, the user manual, guides, and plenty of documentation on our [website](https://mithril.network/doc)!
 
-Mithril wiki is also available [here](https://github.com/input-output-hk/mithril/wiki).
+Mithril wiki is also available [here](https://github.com/IntersectMBO/mithril/wiki).
 
 ## :satellite: Structure of the repository
 
@@ -135,8 +135,8 @@ The best way to contribute right now is to provide feedback. Start by looking at
 Should you have any questions, ideas, or issues, we would like to hear from you:
 
 - #ask-mithril on the IOG [Discord server](https://discord.gg/5kaErDKDRq)
-- Create a GitHub [discussion](https://github.com/input-output-hk/mithril/discussions)
-- Create a GitHub [issue](https://github.com/input-output-hk/mithril/issues/new)
+- Create a GitHub [discussion](https://github.com/IntersectMBO/mithril/discussions)
+- Create a GitHub [issue](https://github.com/IntersectMBO/mithril/issues/new)
 - Ask on Cardano [StackExchange](https://cardano.stackexchange.com/search?q=mithril) using the `mithril` tag.
 
 When contributing to this project and interacting with others, please follow our [code of conduct](./CODE-OF-CONDUCT.md) and our [contributing guidelines](./CONTRIBUTING.md).

@@ -40,7 +40,7 @@ const config = {
           editUrl: ({ docPath }) => {
             // We want users to submit doc updates to the upstream/next version!
             // Otherwise we risk losing the update on the next release.
-            return `https://github.com/input-output-hk/mithril/edit/main/docs/website/root/${docPath}`;
+            return `https://github.com/IntersectMBO/mithril/edit/main/docs/website/root/${docPath}`;
           },
           lastVersion: "maintained",
           versions: {
@@ -299,7 +299,7 @@ const config = {
             items: [
               {
                 label: "Contributing guidelines",
-                href: "https://github.com/input-output-hk/mithril/blob/main/CONTRIBUTING.md",
+                href: "https://github.com/IntersectMBO/mithril/blob/main/CONTRIBUTING.md",
               },
               {
                 label: "Architectural Decision Records",
@@ -316,7 +316,7 @@ const config = {
               },
               {
                 label: "GitHub discussions",
-                href: "https://github.com/input-output-hk/mithril/discussions",
+                href: "https://github.com/IntersectMBO/mithril/discussions",
               },
               {
                 label: "Stack Exchange",
@@ -337,7 +337,7 @@ const config = {
               },
               {
                 label: "Logbook",
-                href: "https://github.com/input-output-hk/mithril/wiki/Logbook",
+                href: "https://github.com/IntersectMBO/mithril/wiki/Logbook",
               },
               {
                 label: "Input Output (Blog)",

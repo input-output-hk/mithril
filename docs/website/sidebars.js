@@ -10,7 +10,7 @@ const sidebars = {
     {
       type: "link",
       label: "Release notes",
-      href: "https://github.com/input-output-hk/mithril/releases",
+      href: "https://github.com/IntersectMBO/mithril/releases",
     },
     {
       type: "link",

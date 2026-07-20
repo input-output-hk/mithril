@@ -10,7 +10,7 @@ You can manually run this workflow if you want to test the Mithril client featur
 
 ## Run the associated 'Mithril Client multi-platform test' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Mithril Client multi-platform test](https://github.com/input-output-hk/mithril/actions/workflows/test-client.yml)
+Go to the page of the workflow with your browser: [Mithril Client multi-platform test](https://github.com/IntersectMBO/mithril/actions/workflows/test-client.yml)
 
 Then, click on the **Run workflow** button:
 
@@ -22,7 +22,7 @@ Then fill the form to manually run the workflow:
 
 > [!WARNING]
 >
-> - The **Mithril image id** of the distribution to deploy must be published on the [package registry](https://github.com/orgs/input-output-hk/packages?repo_name=mithril)
+> - The **Mithril image id** of the distribution to deploy must be published on the [package registry](https://github.com/orgs/IntersectMBO/packages?repo_name=mithril)
 
 > [!IMPORTANT]
 > If you want to run the tests with an aggregator that has the signing capability for Cardano transactions, you will also need to provide a list of [Cardano transaction hashes](https://preview.cexplorer.io/tx) separated by commas.

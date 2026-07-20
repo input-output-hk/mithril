@@ -32,9 +32,9 @@ The Mithril network configurations are available in the [**Network configuration
 
 ## Resources
 
-|          Node           |                                        Source repository                                        |                                   Rust documentation                                   |                         Network configurations                         |
-| :---------------------: | :---------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| **Mithril client WASM** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-wasm) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_wasm/index.html) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
+|          Node           |                                      Source repository                                       |                                   Rust documentation                                   |                         Network configurations                         |
+| :---------------------: | :------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril client WASM** | [:arrow_upper_right:](https://github.com/IntersectMBO/mithril/tree/main/mithril-client-wasm) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_wasm/index.html) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
 ## Installation
 

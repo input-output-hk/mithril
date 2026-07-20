@@ -15,7 +15,7 @@ In this example, the client interacts with an aggregator and performs the follow
 
 ```bash
 # Switch to the latest release tag
-git checkout tags/$(curl -sSL https://api.github.com/repos/input-output-hk/mithril/releases/latest | jq -r '.tag_name')
+git checkout tags/$(curl -sSL https://api.github.com/repos/IntersectMBO/mithril/releases/latest | jq -r '.tag_name')
 
 # Build from the crate directory
 cargo build
@@ -24,7 +24,7 @@ cargo build
 AGGREGATOR_ENDPOINT=YOUR_AGGREGATOR_ENDPOINT GENESIS_VERIFICATION_KEY=YOUR_GENESIS_VERIFICATION_KEY cargo run CARDANO_TX_HASH1,CARDANO_TX_HASH2,CARDANO_TX_HASH3
 
 # Example with from 'release-preprod' network
-AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey) cargo run 0ea207ab71493f012faab0d1f8151eaf931901141c1482ce6e9a501498076484,326b5b67d926937bf19c6113d0957a39f2eae9df94875ce8a96eff5c8521303b
+AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator GENESIS_VERIFICATION_KEY=$(curl -sSL https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey) cargo run 0ea207ab71493f012faab0d1f8151eaf931901141c1482ce6e9a501498076484,326b5b67d926937bf19c6113d0957a39f2eae9df94875ce8a96eff5c8521303b
 ```
 
 ## Links

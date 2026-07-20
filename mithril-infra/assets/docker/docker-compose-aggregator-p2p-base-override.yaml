@@ -1,6 +1,6 @@
 services:
   mithril-aggregator-relay:
-    image: ghcr.io/input-output-hk/mithril-relay:${MITHRIL_IMAGE_ID}
+    image: ghcr.io/intersectmbo/mithril-relay:${MITHRIL_IMAGE_ID}
     container_name: mithril-aggregator-relay
     restart: always
     user: ${CURRENT_UID}

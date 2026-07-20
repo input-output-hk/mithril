@@ -93,7 +93,7 @@ The actual resource requirements may vary depending on the signed entity types y
 
 :::info
 
-Compare the version of your Cardano node with the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file to verify its compatibility with the Mithril aggregator.
+Compare the version of your Cardano node with the minimum supported versions listed in the [`networks.json`](https://github.com/IntersectMBO/mithril/blob/main/networks.json) file to verify its compatibility with the Mithril aggregator.
 
 First, check the version of your Cardano node by running the following command:
 
@@ -101,18 +101,18 @@ First, check the version of your Cardano node by running the following command:
 cardano-node --version
 ```
 
-Then, refer to the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file.
+Then, refer to the minimum supported versions listed in the [`networks.json`](https://github.com/IntersectMBO/mithril/blob/main/networks.json) file.
 
 You can also fetch the minimum supported version for your network using the command below:
 
 ```bash
-wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/networks.json | jq -r '."**YOUR_CARDANO_NETWORK**"."cardano-minimum-version"."mithril-aggregator"'
+wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/networks.json | jq -r '."**YOUR_CARDANO_NETWORK**"."cardano-minimum-version"."mithril-aggregator"'
 ```
 
 Here is an example for `preprod`:
 
 ```bash
-wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/networks.json | jq -r '."preprod"."cardano-minimum-version"."mithril-aggregator"'
+wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/networks.json | jq -r '."preprod"."cardano-minimum-version"."mithril-aggregator"'
 ```
 
 :::
@@ -124,13 +124,13 @@ wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/netw
 To download the source from GitHub (HTTPS), run:
 
 ```bash
-git clone https://github.com/input-output-hk/mithril.git
+git clone https://github.com/IntersectMBO/mithril.git
 ```
 
 Or (SSH):
 
 ```bash
-git clone git@github.com:input-output-hk/mithril.git
+git clone git@github.com:IntersectMBO/mithril.git
 ```
 
 #### Build the Mithril aggregator binary
@@ -313,8 +313,8 @@ Here is an **example** set of values for **release-preprod** that will be used i
   - **CARDANO_NODE_VERSION**: `10.5.0`
   - **CHAIN_OBSERVER_TYPE**: `pallas`
   - **ERA_READER_ADAPTER_TYPE**: `cardano-chain`
-  - **ERA_READER_ADAPTER_PARAMS**: `$(jq -nc --arg address $(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr) --arg verification_key $(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey) '{"address": $address, "verification_key": $verification_key}')`
-  - **GENESIS_VERIFICATION_KEY**: `$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)`
+  - **ERA_READER_ADAPTER_PARAMS**: `$(jq -nc --arg address $(wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/era.addr) --arg verification_key $(wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/era.vkey) '{"address": $address, "verification_key": $verification_key}')`
+  - **GENESIS_VERIFICATION_KEY**: `$(wget -q -O - https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)`
   - **DMQ_NODE_SOCKET_PATH**: `/dmq/ipc/node.socket`
   - **CUSTOM_ORIGIN_TAG_WHITE_LIST**: `EXPLORER,BENCHMARK,CI,NA`
 
@@ -1299,8 +1299,8 @@ If you want to make your follower aggregator publicly discoverable, you should:
 1. **Ensure your aggregator is accessible via HTTPS** by setting up Traefik or another reverse proxy with a valid SSL certificate (as described in the [Set up the SSL certificate](#setup-the-ssl-certificate-traefik) section).
 
 2. **Register your aggregator in the networks configuration**. You can do this by:
-   - Opening an issue in the [Mithril GitHub repository](https://github.com/input-output-hk/mithril/issues)
-   - Or by creating a pull request that modifies the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file and updates the `aggregators` field in the Cardano network you are targeting.
+   - Opening an issue in the [Mithril GitHub repository](https://github.com/IntersectMBO/mithril/issues)
+   - Or by creating a pull request that modifies the [`networks.json`](https://github.com/IntersectMBO/mithril/blob/main/networks.json) file and updates the `aggregators` field in the Cardano network you are targeting.
 
    Here is an example command to add an aggregator to the `release-preprod` network configuration:
 

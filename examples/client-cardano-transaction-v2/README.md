@@ -26,7 +26,7 @@ cargo build
 AGGREGATOR_ENDPOINT=YOUR_AGGREGATOR_ENDPOINT GENESIS_VERIFICATION_KEY=YOUR_GENESIS_VERIFICATION_KEY cargo run CARDANO_TX_HASH1,CARDANO_TX_HASH2,CARDANO_TX_HASH3
 
 # Example with from 'testing-preview' network
-AGGREGATOR_ENDPOINT=https://aggregator.testing-preview.api.mithril.network/aggregator GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey) cargo run 472f2e8b2ed5965d8899118dc6eabc5d366d96f34cf6941ebd702ca9de88c265,40cebe503aa0137aff67d92c3c117bee57d5e0bb250848091aa9455a8169a900
+AGGREGATOR_ENDPOINT=https://aggregator.testing-preview.api.mithril.network/aggregator GENESIS_VERIFICATION_KEY=$(curl -sSL https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey) cargo run 472f2e8b2ed5965d8899118dc6eabc5d366d96f34cf6941ebd702ca9de88c265,40cebe503aa0137aff67d92c3c117bee57d5e0bb250848091aa9455a8169a900
 ```
 
 ## Links

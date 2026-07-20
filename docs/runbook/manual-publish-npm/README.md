@@ -6,7 +6,7 @@ From time to time, we may need to publish manually packages to [npm ristry](http
 
 ## Run the associated 'Manual npm publication' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Manual npm publication](https://github.com/input-output-hk/mithril/actions/workflows/manual-publish-npm.yml)
+Go to the page of the workflow with your browser: [Manual npm publication](https://github.com/IntersectMBO/mithril/actions/workflows/manual-publish-npm.yml)
 
 Then, click on the **Run workflow** button:
 

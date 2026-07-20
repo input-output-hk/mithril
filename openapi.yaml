@@ -4,17 +4,17 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.67
+  version: 0.1.68
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
   termsOfService: http://swagger.io/terms/
   contact:
     name: Mithril Team
-    url: https://github.com/input-output-hk/mithril
+    url: https://github.com/IntersectMBO/mithril
   license:
     name: BSD 3-Clause License
-    url: https://github.com/input-output-hk/mithril/blob/main/LICENSE
+    url: https://github.com/IntersectMBO/mithril/blob/main/LICENSE
 servers:
   - url: https://aggregator.release-preprod.api.mithril.network/aggregator
   - url: https://aggregator.pre-release-preview.api.mithril.network/aggregator

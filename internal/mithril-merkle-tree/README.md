@@ -1,4 +1,4 @@
-# Mithril-merkle-tree [![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg)](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/mithril-merkle-tree.svg)](https://crates.io/crates/mithril-merkle-tree) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/input-output-hk/mithril/blob/main/LICENSE)
+# Mithril-merkle-tree [![CI workflow](https://github.com/IntersectMBO/mithril/actions/workflows/ci.yml/badge.svg)](https://github.com/IntersectMBO/mithril/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/mithril-merkle-tree.svg)](https://crates.io/crates/mithril-merkle-tree) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/IntersectMBO/mithril/blob/main/LICENSE)
 
 This crate provides Merkle tree and merkelized map primitives used by Mithril nodes.
 

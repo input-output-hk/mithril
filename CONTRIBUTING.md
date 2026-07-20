@@ -16,7 +16,7 @@ these communication channels to reach the Mithril team and get answers in a way
 where others can benefit from it as well:
 
 - #ask-mithril on the IOG [Discord server](https://discord.gg/5kaErDKDRq)
-- GitHub [Discussions](https://github.com/input-output-hk/mithril/discussions)
+- GitHub [Discussions](https://github.com/IntersectMBO/mithril/discussions)
 - Cardano [StackExchange](https://cardano.stackexchange.com/) using the `mithril` tag
 
 ## Your first contribution
@@ -34,7 +34,7 @@ create a pull request with the changes directly!
 
 ### Bug reports
 
-[Submit an issue](https://github.com/input-output-hk/mithril/issues/new/choose) using the "Bug report :bug:" template.
+[Submit an issue](https://github.com/IntersectMBO/mithril/issues/new/choose) using the "Bug report :bug:" template.
 
 For bug reports, it's very important to explain
 
@@ -48,9 +48,9 @@ For bug reports, it's very important to explain
 Feature ideas are precursors to high-level features items, which will be
 discussed and fleshed out to ideally become items on our feature roadmap.
 
-We use the [Ideas discussions category](https://github.com/input-output-hk/mithril/discussions/categories/ideas)
+We use the [Ideas discussions category](https://github.com/IntersectMBO/mithril/discussions/categories/ideas)
 to discuss and vote on feature ideas, but you can also [submit an
-issue](https://github.com/input-output-hk/mithril/issues/new/choose) using the
+issue](https://github.com/IntersectMBO/mithril/issues/new/choose) using the
 "Feature idea :thought_balloon:" template and we convert that to a discussion.
 
 We expect a description of
@@ -78,7 +78,7 @@ additional steps and useful tools in their `README.md` files.
 
 ### Coding standards
 
-Make sure to follow our [Coding Standards](https://github.com/input-output-hk/mithril/wiki/Project-Charter#coding-standards).
+Make sure to follow our [Coding Standards](https://github.com/IntersectMBO/mithril/wiki/Project-Charter#coding-standards).
 It includes guidelines on Rust code style, but also on Git commit messages
 and some processes. To propose new standards or changes to the existing standards, file an issue.
 
@@ -90,7 +90,7 @@ Thank you for contributing your changes by opening a pull requests! To get
 something merged we usually require:
 
 - Description of the changes - if your commit messages are great, this is less important
-- Quality of changes is ensured - through new or updated automated tests in [GitHub Actions](https://github.com/input-output-hk/mithril/actions)
+- Quality of changes is ensured - through new or updated automated tests in [GitHub Actions](https://github.com/IntersectMBO/mithril/actions)
 - Change is related to an issue, feature (idea) or bug report - ideally discussed beforehand
 - Well-scoped - we prefer multiple PRs, rather than a big one
 - All your commits must be [signed](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits) in order to be merged in the `main` branch

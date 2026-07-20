@@ -70,7 +70,7 @@ export default function NavbarContent() {
             </NavbarSearch>
           )}
           <a
-            href="https://github.com/input-output-hk/mithril/"
+            href="https://github.com/IntersectMBO/mithril/"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-[var(--ifm-navbar-link-hover-color)] mx-3 py-1 laptop:flex hidden"

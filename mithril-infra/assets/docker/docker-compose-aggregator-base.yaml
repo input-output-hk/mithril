@@ -38,7 +38,7 @@ services:
       ]
 
   mithril-aggregator:
-    image: ghcr.io/input-output-hk/mithril-aggregator:${MITHRIL_IMAGE_ID}
+    image: ghcr.io/intersectmbo/mithril-aggregator:${MITHRIL_IMAGE_ID}
     container_name: mithril-aggregator
     restart: always
     user: ${CURRENT_UID}
