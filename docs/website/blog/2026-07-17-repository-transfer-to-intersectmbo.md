@@ -16,7 +16,7 @@ tags:
   ]
 ---
 
-### Mithril repository is moving to the `IntersectMBO` GitHub organization
+### The Mithril repository is moving to the `IntersectMBO` GitHub organization
 
 The Mithril repository is moving from the [`input-output-hk`](https://github.com/input-output-hk/mithril) GitHub organization to [`IntersectMBO`](https://github.com/IntersectMBO). The transfer is scheduled for **Monday, July 20, 2026 (D-day)**.
 
@@ -24,7 +24,7 @@ The Mithril repository is moving from the [`input-output-hk`](https://github.com
 
 The Mithril project is transitioning to the Intersect MBO governance, joining other core Cardano components (such as the Cardano node and the DMQ node) already hosted under [`IntersectMBO`](https://github.com/IntersectMBO). This move reflects the maturity of the project and its growing role in the Cardano ecosystem.
 
-#### What is changing?
+#### What changes?
 
 After the transfer:
 
@@ -44,7 +44,7 @@ The move is designed to be **transparent to end users**. GitHub automatically re
 
 ##### About Docker images
 
-- All Docker images previously published under `ghcr.io/input-output-hk/...` **remain in place** and stay public indefinitely. Existing deployments are not affected
+- All Docker images previously published under `ghcr.io/input-output-hk/...` **remain in place** and stay public indefinitely; existing deployments are not affected
 - From D-day onwards, **new Docker images are published only under `ghcr.io/intersectmbo/...`**
 - For convenience, the **most recent Docker images are also mirrored to `ghcr.io/intersectmbo/...` on D-day**, so users can switch their image references to the new namespace immediately without waiting for the next release.
 
@@ -56,14 +56,14 @@ The answer depends on your role. The sections below summarize the action items f
 
 - **Before D-day (mandatory verification)**: if your signer integration fetches the era verification key (`era.vkey`) from its raw GitHub URL at startup, confirm that your HTTP client follows HTTP redirects. If it does **not**, switch your pinned URL to the `IntersectMBO` namespace ahead of D-day.
 - **At your next planned upgrade**:
-  - Switch the signer Docker image reference to `ghcr.io/intersectmbo/mithril-signer:<tag>` (digests remain byte-identical for tags released before D-day, and new releases are published only to the new namespace)
+  - Switch the signer Docker image reference to `ghcr.io/intersectmbo/mithril-signer:<tag>` (digests remain byte-identical for tags released before D-day, and new releases are published only to the new namespace).
   - Refresh any pinned `era.vkey` URL to the `IntersectMBO` namespace.
 
 ##### Mithril aggregator operators
 
 - **Before D-day (mandatory verification)**: if your aggregator integration fetches the era verification key (`era.vkey`) from its raw GitHub URL at startup, confirm that your HTTP client follows HTTP redirects. If it does **not**, switch your pinned URL to the `IntersectMBO` namespace ahead of D-day.
 - **At your next planned upgrade**:
-  - Switch the aggregator Docker image reference to `ghcr.io/intersectmbo/mithril-aggregator:<tag>` (digests remain byte-identical for tags released before D-day, and new releases are published only to the new namespace)
+  - Switch the aggregator Docker image reference to `ghcr.io/intersectmbo/mithril-aggregator:<tag>` (digests remain byte-identical for tags released before D-day, and new releases are published only to the new namespace).
   - Refresh any pinned `era.vkey` URL to the `IntersectMBO` namespace.
 
 ##### Mithril client users (CLI, library, WASM)
