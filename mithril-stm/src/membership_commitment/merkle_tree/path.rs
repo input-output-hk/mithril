@@ -58,7 +58,7 @@ impl<D: Digest + FixedOutput> MerklePath<D> {
         u64_bytes.copy_from_slice(bytes.get(8..16).ok_or(MerkleTreeError::SerializationError)?);
         let len = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
-        let mut values = vec![];
+        let mut values = Vec::new();
         for i in 0..len {
             let range_low = i
                 .checked_mul(<D as Digest>::output_size())
@@ -124,15 +124,15 @@ impl<D: Digest + FixedOutput> MerkleBatchPath<D> {
     /// * Indices
     fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
         let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
+        u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let len_v = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
 
-        u64_bytes.copy_from_slice(&bytes.get(8..16).ok_or(MerkleTreeError::SerializationError)?);
+        u64_bytes.copy_from_slice(bytes.get(8..16).ok_or(MerkleTreeError::SerializationError)?);
         let len_i = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
 
-        let mut values = vec![];
+        let mut values = Vec::new();
         for i in 0..len_v {
             let range_low = i
                 .checked_mul(<D as Digest>::output_size())
@@ -155,7 +155,7 @@ impl<D: Digest + FixedOutput> MerkleBatchPath<D> {
             .and_then(|off| off.checked_add(16))
             .ok_or(MerkleTreeError::SerializationError)?;
 
-        let mut indices = vec![];
+        let mut indices = Vec::new();
         for i in 0..len_i {
             let range_low = i
                 .checked_mul(8)
@@ -167,7 +167,7 @@ impl<D: Digest + FixedOutput> MerkleBatchPath<D> {
                 .and_then(|rh| rh.checked_add(offset))
                 .ok_or(MerkleTreeError::SerializationError)?;
             u64_bytes.copy_from_slice(
-                &bytes
+                bytes
                     .get(range_low..range_high)
                     .ok_or(MerkleTreeError::SerializationError)?,
             );
