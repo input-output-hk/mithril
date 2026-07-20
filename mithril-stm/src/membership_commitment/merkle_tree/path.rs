@@ -58,14 +58,20 @@ impl<D: Digest + FixedOutput> MerklePath<D> {
         u64_bytes.copy_from_slice(bytes.get(8..16).ok_or(MerkleTreeError::SerializationError)?);
         let len = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
-        let mut values = Vec::with_capacity(len);
+        let mut values = vec![];
         for i in 0..len {
+            let range_low = i
+                .checked_mul(<D as Digest>::output_size())
+                .and_then(|rl| rl.checked_add(16))
+                .ok_or(MerkleTreeError::SerializationError)?;
+            let range_high = i
+                .checked_add(1)
+                .and_then(|rh| rh.checked_mul(<D as Digest>::output_size()))
+                .and_then(|rh| rh.checked_add(16))
+                .ok_or(MerkleTreeError::SerializationError)?;
             values.push(
                 bytes
-                    .get(
-                        16 + i * <D as Digest>::output_size()
-                            ..16 + (i + 1) * <D as Digest>::output_size(),
-                    )
+                    .get(range_low..range_high)
                     .ok_or(MerkleTreeError::SerializationError)?
                     .to_vec(),
             );
@@ -118,27 +124,53 @@ impl<D: Digest + FixedOutput> MerkleBatchPath<D> {
     /// * Indices
     fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
         let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
+        u64_bytes.copy_from_slice(&bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let len_v = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
 
-        u64_bytes.copy_from_slice(&bytes[8..16]);
+        u64_bytes.copy_from_slice(&bytes.get(8..16).ok_or(MerkleTreeError::SerializationError)?);
         let len_i = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
 
-        let mut values = Vec::with_capacity(len_v);
+        let mut values = vec![];
         for i in 0..len_v {
+            let range_low = i
+                .checked_mul(<D as Digest>::output_size())
+                .and_then(|rl| rl.checked_add(16))
+                .ok_or(MerkleTreeError::SerializationError)?;
+            let range_high = i
+                .checked_add(1)
+                .and_then(|rh| rh.checked_mul(<D as Digest>::output_size()))
+                .and_then(|rh| rh.checked_add(16))
+                .ok_or(MerkleTreeError::SerializationError)?;
             values.push(
-                bytes[16 + i * <D as Digest>::output_size()
-                    ..16 + (i + 1) * <D as Digest>::output_size()]
+                bytes
+                    .get(range_low..range_high)
+                    .ok_or(MerkleTreeError::SerializationError)?
                     .to_vec(),
             );
         }
-        let offset = 16 + len_v * <D as Digest>::output_size();
+        let offset = len_v
+            .checked_mul(<D as Digest>::output_size())
+            .and_then(|off| off.checked_add(16))
+            .ok_or(MerkleTreeError::SerializationError)?;
 
-        let mut indices = Vec::with_capacity(len_v);
+        let mut indices = vec![];
         for i in 0..len_i {
-            u64_bytes.copy_from_slice(&bytes[offset + i * 8..offset + (i + 1) * 8]);
+            let range_low = i
+                .checked_mul(8)
+                .and_then(|rl| rl.checked_add(offset))
+                .ok_or(MerkleTreeError::SerializationError)?;
+            let range_high = i
+                .checked_add(1)
+                .and_then(|rh| rh.checked_mul(8))
+                .and_then(|rh| rh.checked_add(offset))
+                .ok_or(MerkleTreeError::SerializationError)?;
+            u64_bytes.copy_from_slice(
+                &bytes
+                    .get(range_low..range_high)
+                    .ok_or(MerkleTreeError::SerializationError)?,
+            );
             indices.push(
                 usize::try_from(u64::from_be_bytes(u64_bytes))
                     .map_err(|_| MerkleTreeError::SerializationError)?,
