@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.11.1 (07-20-2026)
+
+### Changed
+
+- Updated the transcript hash function for the recursive circuit from `Blake2b512` to the Plutus friendly `Blake2b256`
+- Removed `blake2b_simd` dependency to use the `Blake2b256` transcript hash from `midnight-proofs`
+
 ## 0.11.0 (07-16-2026)
 
 ### Changed
