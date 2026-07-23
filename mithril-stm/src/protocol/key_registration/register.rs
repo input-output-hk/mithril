@@ -111,24 +111,46 @@ impl KeyRegistration {
             .map(|entry| ClosedRegistrationEntry::try_from((*entry, total_stake, params.phi_f)))
             .collect();
 
-        Ok(ClosedKeyRegistration {
-            closed_registration_entries: closed_registration_entries?,
-            total_stake,
-        })
+        Ok(ClosedKeyRegistration::new(closed_registration_entries?, total_stake))
     }
 }
 
 /// Closed Key Registration
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ClosedKeyRegistration {
-    /// The closed key registration entries
-    pub closed_registration_entries: BTreeSet<ClosedRegistrationEntry>,
-
-    /// The total stake registered
-    pub total_stake: Stake,
+    closed_registration_entries: BTreeSet<ClosedRegistrationEntry>,
+    total_stake: Stake,
 }
 
 impl ClosedKeyRegistration {
+    /// Creates a new `ClosedKeyRegistration`.
+    ///
+    /// This is `pub(crate)` rather than `pub`: `closed_registration_entries` carries
+    /// verification keys with no guarantee of proof of possession unless it was built from a
+    /// [`KeyRegistration`], which only ever admits verified entries. Exposing this publicly
+    /// would let external callers assemble a forged registration (e.g. with a rogue key) and
+    /// feed it directly into the aggregation/verification pipeline, bypassing `KeyRegistration`
+    /// entirely.
+    pub(crate) fn new(
+        closed_registration_entries: BTreeSet<ClosedRegistrationEntry>,
+        total_stake: Stake,
+    ) -> Self {
+        Self {
+            closed_registration_entries,
+            total_stake,
+        }
+    }
+
+    /// Gets the closed registration entries.
+    pub fn get_closed_registration_entries(&self) -> &BTreeSet<ClosedRegistrationEntry> {
+        &self.closed_registration_entries
+    }
+
+    /// Gets the total stake registered.
+    pub fn get_total_stake(&self) -> Stake {
+        self.total_stake
+    }
+
     /// Creates a Merkle tree from the closed registration entries
     pub fn to_merkle_tree<D: Digest + FixedOutput, L: MerkleTreeLeaf>(&self) -> MerkleTree<D, L>
     where
