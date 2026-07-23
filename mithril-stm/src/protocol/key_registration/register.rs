@@ -1,8 +1,9 @@
+use std::collections::{BTreeSet, HashSet};
+
 use digest::{Digest, FixedOutput};
-use std::collections::BTreeSet;
 
 use crate::{
-    Parameters, RegisterError, SignerIndex, Stake, StmResult,
+    Parameters, RegisterError, SignerIndex, Stake, StmResult, VerificationKeyForConcatenation,
     VerificationKeyProofOfPossessionForConcatenation,
     membership_commitment::{MerkleTree, MerkleTreeLeaf},
     protocol::key_registration::ClosedRegistrationEntry,
@@ -14,9 +15,12 @@ use crate::VerificationKeyForSnark;
 use super::RegistrationEntry;
 
 /// Key Registration
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct KeyRegistration {
     registration_entries: BTreeSet<RegistrationEntry>,
+    registered_keys_for_concatenation: HashSet<VerificationKeyForConcatenation>,
+    #[cfg(feature = "future_snark")]
+    registered_keys_for_snark: HashSet<VerificationKeyForSnark>,
 }
 
 impl KeyRegistration {
@@ -24,6 +28,9 @@ impl KeyRegistration {
     pub fn initialize() -> Self {
         Self {
             registration_entries: Default::default(),
+            registered_keys_for_concatenation: Default::default(),
+            #[cfg(feature = "future_snark")]
+            registered_keys_for_snark: Default::default(),
         }
     }
 
@@ -32,11 +39,28 @@ impl KeyRegistration {
     /// # Error
     /// The function fails when the entry is already registered.
     pub fn register_by_entry(&mut self, entry: &RegistrationEntry) -> StmResult<()> {
-        if !self.registration_entries.contains(entry) {
-            self.registration_entries.insert(*entry);
-            return Ok(());
+        let vk_concatenation = entry.get_verification_key_for_concatenation();
+        let is_already_registered =
+            self.registered_keys_for_concatenation.contains(&vk_concatenation);
+
+        #[cfg(feature = "future_snark")]
+        let is_already_registered = is_already_registered
+            || entry
+                .get_verification_key_for_snark()
+                .is_some_and(|vk_snark| self.registered_keys_for_snark.contains(&vk_snark));
+
+        if is_already_registered {
+            return Err(RegisterError::EntryAlreadyRegistered(Box::new(*entry)).into());
         }
-        Err(RegisterError::EntryAlreadyRegistered(Box::new(*entry)).into())
+
+        self.registered_keys_for_concatenation.insert(vk_concatenation);
+        #[cfg(feature = "future_snark")]
+        if let Some(vk_snark) = entry.get_verification_key_for_snark() {
+            self.registered_keys_for_snark.insert(vk_snark);
+        }
+        self.registration_entries.insert(*entry);
+
+        Ok(())
     }
 
     /// Registers a new signer with the given verification key proof of possession and stake.
@@ -308,6 +332,66 @@ mod tests {
         }
     }
 
+    #[test]
+    fn register_by_entry_rejects_same_verification_key_with_different_stake() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let mut kr = KeyRegistration::initialize();
+        let vk_pop = VerificationKeyProofOfPossessionForConcatenation::from(
+            &BlsSigningKey::generate(&mut rng),
+        );
+
+        let first_entry = RegistrationEntry::new(
+            vk_pop,
+            100,
+            #[cfg(feature = "future_snark")]
+            None,
+        )
+        .unwrap();
+        kr.register_by_entry(&first_entry)
+            .expect("registering a new verification key should succeed");
+
+        let second_entry = RegistrationEntry::new(
+            vk_pop,
+            200,
+            #[cfg(feature = "future_snark")]
+            None,
+        )
+        .unwrap();
+        let result = kr.register_by_entry(&second_entry);
+
+        assert!(matches!(
+            result.unwrap_err().downcast_ref::<RegisterError>(),
+            Some(RegisterError::EntryAlreadyRegistered(_))
+        ));
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn register_by_entry_rejects_same_snark_key_with_different_concatenation_key() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let mut kr = KeyRegistration::initialize();
+        let schnorr_vk =
+            SchnorrVerificationKey::new_from_signing_key(SchnorrSigningKey::generate(&mut rng));
+
+        let first_vk_pop = VerificationKeyProofOfPossessionForConcatenation::from(
+            &BlsSigningKey::generate(&mut rng),
+        );
+        let first_entry = RegistrationEntry::new(first_vk_pop, 100, Some(schnorr_vk)).unwrap();
+        kr.register_by_entry(&first_entry)
+            .expect("registering a new verification key pair should succeed");
+
+        let second_vk_pop = VerificationKeyProofOfPossessionForConcatenation::from(
+            &BlsSigningKey::generate(&mut rng),
+        );
+        let second_entry = RegistrationEntry::new(second_vk_pop, 200, Some(schnorr_vk)).unwrap();
+        let result = kr.register_by_entry(&second_entry);
+
+        assert!(matches!(
+            result.unwrap_err().downcast_ref::<RegisterError>(),
+            Some(RegisterError::EntryAlreadyRegistered(_))
+        ));
+    }
+
     proptest! {
         #[test]
         fn test_keyreg(stake in vec(1..1u64 << 60, 2..=10),
@@ -333,8 +417,10 @@ mod tests {
                 VerificationKeyProofOfPossessionForConcatenation::from(&sk)
             };
 
-            // Record successful registrations
+            // Record successful registrations, keyed by verification key since that's
+            // the uniqueness criterion enforced by register_by_entry
             let mut keys = BTreeSet::new();
+            let mut registered_entries = BTreeSet::new();
 
             for (i, &stake) in stake.iter().enumerate() {
                 let mut pk = gen_keys[i % gen_keys.len()];
@@ -350,15 +436,17 @@ mod tests {
 
                 match entry_result {
                     Ok(entry) => {
+                        let vk = entry.get_verification_key_for_concatenation();
                         let reg = kr.register_by_entry(&entry);
                         match reg {
                             Ok(_) => {
-                                assert!(keys.insert(entry));
+                                assert!(keys.insert(vk));
+                                assert!(registered_entries.insert(entry));
                             },
                             Err(error) => match error.downcast_ref::<RegisterError>(){
                                 Some(RegisterError::EntryAlreadyRegistered(e1)) => {
                                     assert!(e1.as_ref() == &entry);
-                                    assert!(keys.contains(&entry));
+                                    assert!(keys.contains(&vk));
                                 },
                                 _ => {panic!("Unexpected error: {error}")}
                             }
@@ -380,7 +468,7 @@ mod tests {
                 let retrieved_keys = closed.closed_registration_entries.iter()
                     .map(|entry| (*entry).clone().into())
                     .collect::<BTreeSet<RegistrationEntry>>();
-                assert!(retrieved_keys == keys);
+                assert!(retrieved_keys == registered_entries);
             }
         }
     }

@@ -48,10 +48,11 @@ impl<D: MembershipDigest> AggregateVerificationKeyForConcatenation<D> {
         let mut u64_bytes = [0u8; 8];
         let size = bytes.len();
 
-        u64_bytes.copy_from_slice(&bytes[size - 8..]);
+        let split = size.checked_sub(8).ok_or(MerkleTreeError::SerializationError)?;
+        u64_bytes.copy_from_slice(bytes.get(split..).ok_or(MerkleTreeError::SerializationError)?);
         let stake = u64::from_be_bytes(u64_bytes);
         let mt_commitment = MerkleTreeBatchCommitment::from_bytes(
-            bytes.get(..size - 8).ok_or(MerkleTreeError::SerializationError)?,
+            bytes.get(..split).ok_or(MerkleTreeError::SerializationError)?,
         )?;
         Ok(Self {
             mt_commitment,
