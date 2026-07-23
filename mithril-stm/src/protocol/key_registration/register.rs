@@ -36,9 +36,16 @@ impl KeyRegistration {
 
     /// Check whether the given `RegistrationEntry` is already registered.
     /// Insert the new entry if all checks pass.
+    ///
+    /// This is `pub(crate)` rather than `pub`: it trusts that `entry` was produced through a
+    /// path that already verified proof of possession (`RegistrationEntry::new`), which every
+    /// internal caller does. Exposing it publicly would let external callers register an entry
+    /// obtained without that verification (e.g. via deserialization), so external registration
+    /// must go through [`KeyRegistration::register`] instead, which always constructs the entry
+    /// itself via `RegistrationEntry::new`.
     /// # Error
     /// The function fails when the entry is already registered.
-    pub fn register_by_entry(&mut self, entry: &RegistrationEntry) -> StmResult<()> {
+    pub(crate) fn register_by_entry(&mut self, entry: &RegistrationEntry) -> StmResult<()> {
         let vk_concatenation = entry.get_verification_key_for_concatenation();
         let is_already_registered =
             self.registered_keys_for_concatenation.contains(&vk_concatenation);
