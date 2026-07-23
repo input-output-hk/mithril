@@ -9,7 +9,8 @@ use crate::ProtocolConfigurationForEpoch;
 /// [ConfigurationComputerFromMarkers] containing markers by epoch
 #[derive(PartialEq, Clone, Debug)]
 pub struct ConfigurationComputerFromMarkers {
-    markers: BTreeMap<Epoch, ProtocolConfigurationForEpoch>,
+    /// BTreeMap assotiation of ProtocolConfigurationForEpoch to a coresponding Epoch
+    pub markers: BTreeMap<Epoch, ProtocolConfigurationForEpoch>,
 }
 
 impl ConfigurationComputerFromMarkers {
