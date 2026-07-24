@@ -36,9 +36,16 @@ impl KeyRegistration {
 
     /// Check whether the given `RegistrationEntry` is already registered.
     /// Insert the new entry if all checks pass.
+    ///
+    /// This is `pub(crate)` rather than `pub`: it trusts that `entry` was produced through a
+    /// path that already verified proof of possession (`RegistrationEntry::new`), which every
+    /// internal caller does. Exposing it publicly would let external callers register an entry
+    /// obtained without that verification (e.g. via deserialization), so external registration
+    /// must go through [`KeyRegistration::register`] instead, which always constructs the entry
+    /// itself via `RegistrationEntry::new`.
     /// # Error
     /// The function fails when the entry is already registered.
-    pub fn register_by_entry(&mut self, entry: &RegistrationEntry) -> StmResult<()> {
+    pub(crate) fn register_by_entry(&mut self, entry: &RegistrationEntry) -> StmResult<()> {
         let vk_concatenation = entry.get_verification_key_for_concatenation();
         let is_already_registered =
             self.registered_keys_for_concatenation.contains(&vk_concatenation);
@@ -104,26 +111,40 @@ impl KeyRegistration {
             .map(|entry| ClosedRegistrationEntry::try_from((*entry, total_stake, params.phi_f)))
             .collect();
 
-        Ok(ClosedKeyRegistration {
-            closed_registration_entries: closed_registration_entries?,
+        Ok(ClosedKeyRegistration::new(
+            closed_registration_entries?,
             total_stake,
-        })
+        ))
     }
 }
 
 /// Closed Key Registration
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ClosedKeyRegistration {
-    /// The closed key registration entries
-    pub closed_registration_entries: BTreeSet<ClosedRegistrationEntry>,
-
-    /// The total stake registered
-    pub total_stake: Stake,
+    closed_registration_entries: BTreeSet<ClosedRegistrationEntry>,
+    total_stake: Stake,
 }
 
 impl ClosedKeyRegistration {
+    pub(crate) fn new(
+        closed_registration_entries: BTreeSet<ClosedRegistrationEntry>,
+        total_stake: Stake,
+    ) -> Self {
+        Self {
+            closed_registration_entries,
+            total_stake,
+        }
+    }
+
+    /// Gets the total stake registered.
+    pub(crate) fn get_total_stake(&self) -> Stake {
+        self.total_stake
+    }
+
     /// Creates a Merkle tree from the closed registration entries
-    pub fn to_merkle_tree<D: Digest + FixedOutput, L: MerkleTreeLeaf>(&self) -> MerkleTree<D, L>
+    pub(crate) fn to_merkle_tree<D: Digest + FixedOutput, L: MerkleTreeLeaf>(
+        &self,
+    ) -> MerkleTree<D, L>
     where
         Option<L>: From<ClosedRegistrationEntry>,
     {
@@ -137,7 +158,7 @@ impl ClosedKeyRegistration {
     }
 
     /// Gets the index of given closed registration entry.
-    pub fn get_signer_index_for_registration(
+    pub(crate) fn get_signer_index_for_registration(
         &self,
         entry: &ClosedRegistrationEntry,
     ) -> Option<SignerIndex> {
@@ -149,19 +170,19 @@ impl ClosedKeyRegistration {
 
     /// Check if any registration entry has a SNARK verification key.
     #[cfg(feature = "future_snark")]
-    pub fn has_snark_verification_keys(&self) -> bool {
+    pub(crate) fn has_snark_verification_keys(&self) -> bool {
         self.closed_registration_entries
             .iter()
             .any(|entry| entry.get_verification_key_for_snark().is_some())
     }
 
     /// Return the number of registered parties.
-    pub fn number_of_registered_parties(&self) -> usize {
+    pub(crate) fn number_of_registered_parties(&self) -> usize {
         self.closed_registration_entries.len()
     }
 
     /// Get the closed registration entry for a given signer index.
-    pub fn get_registration_entry_for_index(
+    pub(crate) fn get_registration_entry_for_index(
         &self,
         signer_index: &SignerIndex,
     ) -> StmResult<ClosedRegistrationEntry> {

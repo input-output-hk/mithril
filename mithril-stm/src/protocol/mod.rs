@@ -14,9 +14,9 @@ pub use error::RegisterError;
 #[cfg(feature = "future_snark")]
 pub use key_registration::RegistrationEntryForSnark;
 pub use key_registration::{
-    ClosedKeyRegistration, ClosedRegistrationEntry, KeyRegistration, RegistrationEntry,
-    RegistrationEntryForConcatenation,
+    ClosedKeyRegistration, KeyRegistration, RegistrationEntryForConcatenation,
 };
+pub(crate) use key_registration::{ClosedRegistrationEntry, RegistrationEntry};
 pub use parameters::Parameters;
 pub use participant::{Initializer, Signer};
 pub use single_signature::{SignatureError, SingleSignature, SingleSignatureWithRegisteredParty};

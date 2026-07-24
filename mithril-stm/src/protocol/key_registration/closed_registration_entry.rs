@@ -32,7 +32,7 @@ struct ClosedRegistrationEntryCborEnvelope {
 
 /// Represents a registration entry of a closed key registration.
 #[derive(PartialEq, Eq, Clone, Debug, Deserialize)]
-pub struct ClosedRegistrationEntry {
+pub(crate) struct ClosedRegistrationEntry {
     verification_key_for_concatenation: VerificationKeyForConcatenation,
     stake: Stake,
     #[cfg(feature = "future_snark")]
@@ -45,7 +45,13 @@ pub struct ClosedRegistrationEntry {
 
 impl ClosedRegistrationEntry {
     /// Creates a new closed registration entry.
-    pub fn new(
+    ///
+    /// This is private rather than `pub`: it performs no verification of any kind (unlike
+    /// `RegistrationEntry::new`, which verifies proof of possession), so it must only be used
+    /// where the caller has already established the verification key is trustworthy — currently
+    /// only via `TryFrom<(RegistrationEntry, Stake, PhiFValue)>`, which derives from an
+    /// already-verified `RegistrationEntry`.
+    fn new(
         verification_key_for_concatenation: VerificationKeyForConcatenation,
         stake: Stake,
         #[cfg(feature = "future_snark")] verification_key_for_snark: Option<
@@ -64,12 +70,12 @@ impl ClosedRegistrationEntry {
     }
 
     /// Gets the verification key for concatenation.
-    pub fn get_verification_key_for_concatenation(&self) -> VerificationKeyForConcatenation {
+    pub(crate) fn get_verification_key_for_concatenation(&self) -> VerificationKeyForConcatenation {
         self.verification_key_for_concatenation
     }
 
     /// Gets the stake.
-    pub fn get_stake(&self) -> Stake {
+    pub(crate) fn get_stake(&self) -> Stake {
         self.stake
     }
 
@@ -79,7 +85,7 @@ impl ClosedRegistrationEntry {
     /// which do not need SNARK fields and must remain backward-compatible with
     /// clients that do not support the `future_snark` feature.
     #[cfg(feature = "future_snark")]
-    pub fn without_snark_fields(&self) -> Self {
+    pub(crate) fn without_snark_fields(&self) -> Self {
         ClosedRegistrationEntry {
             verification_key_for_concatenation: self.verification_key_for_concatenation,
             stake: self.stake,
@@ -90,13 +96,13 @@ impl ClosedRegistrationEntry {
 
     #[cfg(feature = "future_snark")]
     /// Gets the verification key for snark.
-    pub fn get_verification_key_for_snark(&self) -> Option<VerificationKeyForSnark> {
+    pub(crate) fn get_verification_key_for_snark(&self) -> Option<VerificationKeyForSnark> {
         self.verification_key_for_snark
     }
 
     #[cfg(feature = "future_snark")]
     /// Gets the lottery target value.
-    pub fn get_lottery_target_value(&self) -> Option<LotteryTargetValue> {
+    pub(crate) fn get_lottery_target_value(&self) -> Option<LotteryTargetValue> {
         self.lottery_target_value
     }
 

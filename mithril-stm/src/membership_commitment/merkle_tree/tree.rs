@@ -3,12 +3,14 @@ use std::marker::PhantomData;
 use digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::StmResult;
-use crate::codec;
+#[cfg(test)]
+use crate::{StmResult, codec};
 
+#[cfg(test)]
+use super::MerkleTreeError;
 use super::{
-    MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeError, MerkleTreeLeaf, left_child,
-    parent, right_child, sibling,
+    MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeLeaf, left_child, parent, right_child,
+    sibling,
 };
 #[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -147,6 +149,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     }
 
     /// Convert a `MerkleTree` into a byte string.
+    #[cfg(test)]
     pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
         codec::to_cbor_bytes(self)
     }
@@ -154,6 +157,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     /// Try to convert a byte string into a `MerkleTree`.
     /// # Error
     /// It returns error if conversion fails.
+    #[cfg(test)]
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
     }
@@ -162,27 +166,38 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     /// # Layout
     /// * Number of leaves committed in the Merkle Tree (as u64)
     /// * All nodes of the merkle tree (starting with the root)
+    #[cfg(test)]
     fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let n = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
-        let num_nodes = n + n.next_power_of_two() - 1;
-        let mut nodes = Vec::with_capacity(num_nodes);
+        let num_nodes = n
+            .checked_next_power_of_two()
+            .and_then(|num_nodes| num_nodes.checked_add(n))
+            .and_then(|num_nodes| num_nodes.checked_sub(1))
+            .ok_or(MerkleTreeError::SerializationError)?;
+        let mut nodes = Vec::new();
         for i in 0..num_nodes {
+            let range_low = i
+                .checked_mul(<D as Digest>::output_size())
+                .and_then(|rl| rl.checked_add(16))
+                .ok_or(MerkleTreeError::SerializationError)?;
+            let range_high = i
+                .checked_add(1)
+                .and_then(|rh| rh.checked_mul(<D as Digest>::output_size()))
+                .and_then(|rh| rh.checked_add(16))
+                .ok_or(MerkleTreeError::SerializationError)?;
             nodes.push(
                 bytes
-                    .get(
-                        8 + i * <D as Digest>::output_size()
-                            ..8 + (i + 1) * <D as Digest>::output_size(),
-                    )
+                    .get(range_low..range_high)
                     .ok_or(MerkleTreeError::SerializationError)?
                     .to_vec(),
             );
         }
         Ok(Self {
             nodes,
-            leaf_off: num_nodes - n,
+            leaf_off: num_nodes.checked_sub(n).ok_or(MerkleTreeError::SerializationError)?,
             n,
             hasher: PhantomData,
             leaves: PhantomData,
