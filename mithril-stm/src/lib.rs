@@ -151,11 +151,12 @@ pub use protocol::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
     AggregationError, AncillaryGenesisData, AncillaryProofInput, AncillaryProofOutput,
     AncillaryProverData, AncillaryVerifierData, Clerk, ClosedKeyRegistration,
-    ClosedRegistrationEntry, GenesisVerificationKeyBundle, Initializer, KeyRegistration,
-    Parameters, RegisterError, RegistrationEntry, RegistrationEntryForConcatenation,
-    SignatureError, Signer, SingleSignature, SingleSignatureWithRegisteredParty,
-    VerificationKeyForConcatenation, VerificationKeyProofOfPossessionForConcatenation,
+    GenesisVerificationKeyBundle, Initializer, KeyRegistration, Parameters, RegisterError,
+    RegistrationEntryForConcatenation, SignatureError, Signer, SingleSignature,
+    SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
+    VerificationKeyProofOfPossessionForConcatenation,
 };
+pub(crate) use protocol::{ClosedRegistrationEntry, RegistrationEntry};
 pub use signature_scheme::BlsSignatureError;
 
 use blake2::{Blake2b, digest::consts::U32};
