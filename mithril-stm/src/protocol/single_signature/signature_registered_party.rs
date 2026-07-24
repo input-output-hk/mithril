@@ -17,6 +17,7 @@ struct SingleSignatureWithRegisteredPartyCborEnvelope {
 }
 
 /// Signature with its registered party.
+#[allow(private_interfaces)]
 #[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SingleSignatureWithRegisteredParty {
     /// Stm signature
