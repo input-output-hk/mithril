@@ -14,7 +14,7 @@ jobs:
       - name: Write HTML body to file
         run: |
           cat > ./email-body.html <<EOF
-          <h3>Nightly Trigger workflow has failed, see details:</h3>
+          <h3>${{ github.workflow }} workflow has failed, see details:</h3>
           <ul>
             <li><strong>Workflow :</strong> ${{ github.workflow }}</li>
             <li><strong>Repository :</strong> ${{ github.repository }}</li>
@@ -30,7 +30,7 @@ jobs:
           server_port: ${{ vars.CI_NOTIFICATION_SMTP_PORT }}
           username: ${{ secrets.CI_NOTIFICATION_SMTP_LOGIN }}
           password: ${{ secrets.CI_NOTIFICATION_SMTP_PASSWORD }}
-          subject: "🚨 Nightly Workflow Failed"
+          subject: "🚨 ${{ github.workflow }} Workflow Failed"
           to: ${{ secrets.CI_NOTIFICATION_EMAIL_TO }}
           from: ${{ secrets.CI_NOTIFICATION_EMAIL_FROM }}
           html_body: file://email-body.html
