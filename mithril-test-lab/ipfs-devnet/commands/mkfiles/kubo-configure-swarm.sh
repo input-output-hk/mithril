@@ -10,6 +10,10 @@ readonly SCRIPT_DIRECTORY
 # shellcheck source=../lib/common.sh
 source "${SCRIPT_DIRECTORY}/../lib/common.sh"
 
+readonly API_PORT_BASE=5000
+readonly GATEWAY_PORT_BASE=5100
+readonly SWARM_PORT_BASE=5200
+
 display_help() {
     echo "Configure a private swarm of Kubo IPFS node"
     echo
@@ -28,6 +32,15 @@ display_help() {
 # Generate a 64 chars long random hex string
 generate_swarm_key() {
   od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+}
+
+# Fail if something is already listening on the given local port, whatever process owns it
+require_free_port() {
+  local -r port="$1"
+
+  if (echo >"/dev/tcp/127.0.0.1/${port}") 2>/dev/null; then
+    error_exit "Port ${port} is already in use: another Kubo swarm may be running, please free the port then try again."
+  fi
 }
 
 # Init a node, removing existing content if overwrite is set, returning the node Peer Id
@@ -66,9 +79,9 @@ configure_node() {
   node_dir="$swarm_dir/kubo-node-$node_id"
 
   local api_port gateway_port swarm_port
-  api_port=$((5000 + node_id))
-  gateway_port=$((5100 + node_id))
-  swarm_port=$((5200 + node_id))
+  api_port=$((API_PORT_BASE + node_id))
+  gateway_port=$((GATEWAY_PORT_BASE + node_id))
+  swarm_port=$((SWARM_PORT_BASE + node_id))
 
   #---------- Write swarm key
   {
@@ -117,7 +130,7 @@ configure_node_peers() {
     fi
 
     peer_id="${peer_ids[$((peer_node_id - 1))]}"
-    swarm_port=$((5200 + peer_node_id))
+    swarm_port=$((SWARM_PORT_BASE + peer_node_id))
 
     peers_json="${peers_json}${separator}{\"ID\":\"${peer_id}\",\"Addrs\":[\"/ip4/127.0.0.1/tcp/${swarm_port}\"]}"
     separator=","
@@ -166,6 +179,13 @@ fi
 # ---------------------------------------------------------------------------
 
 echo ">> Configuring ${NUMBER_OF_NODES} Kubo nodes in '${SWARM_DIR}'"
+
+# Check ports before touching any node so a running swarm is never orphaned
+for ((node_id = 1; node_id <= NUMBER_OF_NODES; node_id++)); do
+  require_free_port $((API_PORT_BASE + node_id))
+  require_free_port $((GATEWAY_PORT_BASE + node_id))
+  require_free_port $((SWARM_PORT_BASE + node_id))
+done
 
 SWARM_KEY="$(generate_swarm_key)"
 readonly SWARM_KEY
