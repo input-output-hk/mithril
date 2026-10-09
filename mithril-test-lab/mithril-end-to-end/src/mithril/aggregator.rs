@@ -19,7 +19,7 @@ use crate::utils::{EnvVars, MithrilCommand, NodeVersion};
 use crate::{
     ANCILLARY_MANIFEST_SECRET_KEY, AggregateSignatureType, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID,
     DmqNodeFlavor, ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, FullNode, GenesisKeys,
-    KuboNode, PROTOCOL_CONFIGURATION_MARKERS_SECRET_KEY,
+    IPNS_KEY_NAME_FOR_SNAPSHOT, KuboNode, PROTOCOL_CONFIGURATION_MARKERS_SECRET_KEY,
     PROTOCOL_CONFIGURATION_MARKERS_VERIFICATION_KEY, RetryableDevnetError,
 };
 
@@ -223,8 +223,8 @@ impl Aggregator {
             env.insert(
                 "IPFS_RPC_SERVER_CONFIG",
                 format!(
-                    r#"{{"url": "{}", "mfs_folder_name": "mithril-snapshots"}}"#,
-                    node.rpc_url
+                    r#"{{"url": "{}", "mfs_folder_name": "mithril-snapshots", "ipns_key_name": "{}"}}"#,
+                    node.rpc_url, IPNS_KEY_NAME_FOR_SNAPSHOT
                 ),
             );
         }
