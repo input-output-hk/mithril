@@ -87,6 +87,18 @@ impl App {
                 self.list_state.select(Some(index))
             }
             (Some(QuestionKind::Choice { .. }), _) => self.list_state.select(Some(0)),
+            (Some(QuestionKind::ChoiceOrText { .. }), Some(Answer::Choice(index))) => {
+                self.list_state.select(Some(index));
+                self.input = TextInput::default();
+            }
+            (Some(QuestionKind::ChoiceOrText { options }), Some(Answer::Text(value))) => {
+                self.list_state.select(Some(options.len()));
+                self.input = TextInput::with_value(value);
+            }
+            (Some(QuestionKind::ChoiceOrText { .. }), _) => {
+                self.list_state.select(Some(0));
+                self.input = TextInput::default();
+            }
             (Some(_), Some(Answer::Text(value))) => self.input = TextInput::with_value(value),
             (Some(_), Some(Answer::Integer(value))) => {
                 self.input = TextInput::with_value(value.to_string())
@@ -105,6 +117,11 @@ impl App {
         let question = &self.questions[self.step];
         let answer = match &question.kind {
             QuestionKind::Choice { .. } => Ok(Answer::Choice(self.list_state.selected().unwrap_or(0))),
+            QuestionKind::ChoiceOrText { options } => match self.list_state.selected() {
+                Some(index) if index < options.len() => Ok(Answer::Choice(index)),
+                Some(index) if index == options.len() => question.parse_input(self.input.value()),
+                _ => Err("Select an option or enter a custom value".into()),
+            },
             _ => question.parse_input(self.input.value()),
         };
         match answer {
@@ -148,7 +165,7 @@ impl App {
     fn render(&mut self, frame: &mut Frame) {
         let [header_area, body_area, error_area, help_area] = Layout::vertical([
             Constraint::Length(3),
-            Constraint::Min(5),
+            Constraint::Min(7),
             Constraint::Length(1),
             Constraint::Length(1),
         ])
@@ -202,12 +219,43 @@ impl App {
                     .highlight_symbol(">> ");
                 frame.render_stateful_widget(list, input_area, &mut self.list_state);
             }
+            QuestionKind::ChoiceOrText { options } => {
+                let list = List::new(
+                    options
+                        .iter()
+                        .map(String::as_str)
+                        .chain(std::iter::once("Custom value")),
+                )
+                .highlight_style(Style::new().bold().yellow())
+                .highlight_symbol(">> ");
+                if self.list_state.selected() == Some(options.len()) {
+                    let [options_area, custom_input_area] =
+                        Layout::vertical([Constraint::Min(1), Constraint::Length(3)])
+                            .areas(input_area);
+                    frame.render_stateful_widget(list, options_area, &mut self.list_state);
+                    let content = if self.input.value().is_empty() {
+                        Line::from(Span::from("Enter custom value").dark_gray().italic())
+                    } else {
+                        Line::from(self.input.value())
+                    };
+                    frame.render_widget(
+                        Paragraph::new(content).block(Block::bordered()),
+                        custom_input_area,
+                    );
+                    frame.set_cursor_position(Position::new(
+                        custom_input_area.x + 1 + self.input.cursor() as u16,
+                        custom_input_area.y + 1,
+                    ));
+                } else {
+                    frame.render_stateful_widget(list, input_area, &mut self.list_state);
+                }
+            }
             QuestionKind::Text { .. } | QuestionKind::Integer { .. } => {
                 let [input_area] = Layout::vertical([Constraint::Length(3)]).areas(input_area);
                 let default = match &question.kind {
                     QuestionKind::Text { default } => Some(default.to_string()),
                     QuestionKind::Integer { default } => default.map(|d| d.to_string()),
-                    QuestionKind::Choice { .. } => None,
+                    QuestionKind::Choice { .. } | QuestionKind::ChoiceOrText { .. } => None,
                 };
                 let content = if self.input.value().is_empty() {
                     match default {
@@ -244,6 +292,9 @@ impl App {
         let help = match self.current_question().map(|q| &q.kind) {
             None => "Enter: confirm  Esc: back  Ctrl-C: quit",
             Some(QuestionKind::Choice { .. }) => "↑/↓: choose  Enter: next  Esc: back  Ctrl-C: quit",
+            Some(QuestionKind::ChoiceOrText { .. }) => {
+                "↑/↓: choose  Enter: next  type with Custom value selected  Esc: back  Ctrl-C: quit"
+            }
             Some(_) => "Enter: next (empty = default)  Esc: back  Ctrl-C: quit",
         };
         frame.render_widget(Line::from(help).dark_gray().centered(), area);
@@ -267,11 +318,31 @@ impl App {
             (_, KeyCode::Enter) => self.submit(),
             _ => match self.current_question().map(|q| q.kind.clone()) {
                 Some(QuestionKind::Choice { .. }) => self.on_choice_key(key.code),
+                Some(QuestionKind::ChoiceOrText { options }) => {
+                    self.on_choice_or_text_key(key.code, options.len())
+                }
                 Some(kind @ (QuestionKind::Text { .. } | QuestionKind::Integer { .. })) => {
                     self.on_input_key(key.code, matches!(kind, QuestionKind::Integer { .. }))
                 }
                 None => {}
             },
+        }
+    }
+
+    fn on_choice_or_text_key(&mut self, code: KeyCode, option_count: usize) {
+        match code {
+            KeyCode::Up => {
+                let selected = self.list_state.selected().unwrap_or(0);
+                self.list_state.select(Some(selected.saturating_sub(1)));
+            }
+            KeyCode::Down => {
+                let selected = self.list_state.selected().unwrap_or(0);
+                self.list_state.select(Some((selected + 1).min(option_count)));
+            }
+            _ if self.list_state.selected() == Some(option_count) => {
+                self.on_input_key(code, false);
+            }
+            _ => {}
         }
     }
 

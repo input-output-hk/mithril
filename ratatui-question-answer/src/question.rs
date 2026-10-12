@@ -1,5 +1,7 @@
 use std::{fmt, path::PathBuf};
 
+const CHOICE_OR_TEXT_OPTIONS: [&str; 3] = ["First choice", "Second choice", "Third choice"];
+
 /// Cardano network the signer runs on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Network {
@@ -32,6 +34,8 @@ pub struct SignerConfig {
     pub cardano_cli_path: PathBuf,
     pub run_interval: u64,
     pub store_retention_limit: u64,
+    /// Value selected from the fixed options or entered as custom text.
+    pub user_choice_or_text_input: String,
 }
 
 /// [`SignerConfig`] being filled, each field is set once its question is answered.
@@ -44,6 +48,8 @@ pub struct SignerConfigDraft {
     pub cardano_cli_path: Option<PathBuf>,
     pub run_interval: Option<u64>,
     pub store_retention_limit: Option<u64>,
+    /// Value selected from the fixed options or entered as custom text.
+    pub user_choice_or_text_input: Option<String>,
 }
 
 impl SignerConfigDraft {
@@ -57,6 +63,7 @@ impl SignerConfigDraft {
             cardano_cli_path: self.cardano_cli_path?,
             run_interval: self.run_interval?,
             store_retention_limit: self.store_retention_limit?,
+            user_choice_or_text_input: self.user_choice_or_text_input?,
         })
     }
 }
@@ -75,6 +82,8 @@ pub enum Answer {
 pub enum QuestionKind {
     /// Pick one value among a fixed list of options.
     Choice { options: Vec<String> },
+    /// Pick one value among fixed options or enter a custom value.
+    ChoiceOrText { options: Vec<String> },
     /// Free text, falling back to `default` when left empty.
     Text { default: &'static str },
     /// Positive integer, falling back to `default` (if any) when left empty.
@@ -91,11 +100,15 @@ pub struct Question {
 }
 
 impl Question {
-    /// Build an [`Answer`] from the raw text typed by the user (not used for [`QuestionKind::Choice`]).
+    /// Build an [`Answer`] from typed text; choice-or-text questions use it for custom values.
     pub fn parse_input(&self, raw: &str) -> Result<Answer, String> {
         let raw = raw.trim();
         match &self.kind {
             QuestionKind::Choice { .. } => Err("choice questions are not answered with text".into()),
+            QuestionKind::ChoiceOrText { .. } if raw.is_empty() => {
+                Err("A value is required".into())
+            }
+            QuestionKind::ChoiceOrText { .. } => Ok(Answer::Text(raw.to_string())),
             QuestionKind::Text { default } => Ok(Answer::Text(if raw.is_empty() {
                 default.to_string()
             } else {
@@ -121,6 +134,9 @@ impl Question {
     pub fn format_answer(&self, answer: &Answer) -> String {
         match (answer, &self.kind) {
             (Answer::Choice(index), QuestionKind::Choice { options }) => {
+                options.get(*index).cloned().unwrap_or_default()
+            }
+            (Answer::Choice(index), QuestionKind::ChoiceOrText { options }) => {
                 options.get(*index).cloned().unwrap_or_default()
             }
             (Answer::Text(value), _) => value.clone(),
@@ -203,6 +219,25 @@ pub fn signer_questions() -> Vec<Question> {
             kind: QuestionKind::Integer { default: None },
             apply: |draft, answer| draft.store_retention_limit = as_integer(answer),
         },
+        Question {
+            title: "Choice or input text",
+            help: "Choose an option or select Custom value to enter your own",
+            kind: QuestionKind::ChoiceOrText {
+                options: CHOICE_OR_TEXT_OPTIONS
+                    .iter()
+                    .map(|option| (*option).to_string())
+                    .collect(),
+            },
+            apply: |draft, answer| {
+                draft.user_choice_or_text_input = match answer {
+                    Answer::Choice(index) => {
+                        CHOICE_OR_TEXT_OPTIONS.get(*index).map(|value| (*value).to_string())
+                    }
+                    Answer::Text(value) => Some(value.clone()),
+                    Answer::Integer(_) => None,
+                };
+            },
+        },
     ]
 }
 
@@ -245,6 +280,31 @@ mod tests {
     }
 
     #[test]
+    fn choice_or_text_accepts_custom_text_and_rejects_empty_input() {
+        let q = question(QuestionKind::ChoiceOrText {
+            options: vec!["first".into(), "second".into()],
+        });
+
+        assert_eq!(Ok(Answer::Text("custom".into())), q.parse_input(" custom "));
+        assert!(q.parse_input("  ").is_err());
+        assert_eq!("second", q.format_answer(&Answer::Choice(1)));
+    }
+
+    #[test]
+    fn choice_or_text_question_applies_a_selected_option() {
+        let questions = signer_questions();
+        let question = &questions[questions.len() - 1];
+        let mut draft = SignerConfigDraft::default();
+
+        question.apply(&mut draft, &Answer::Choice(1));
+
+        assert_eq!(
+            Some("Second choice".into()),
+            draft.user_choice_or_text_input
+        );
+    }
+
+    #[test]
     fn answering_all_questions_builds_a_signer_config() {
         let answers = [
             Answer::Choice(1),
@@ -254,6 +314,7 @@ mod tests {
             Answer::Text("/cardano-cli".into()),
             Answer::Integer(60000),
             Answer::Integer(5),
+            Answer::Text("custom value".into()),
         ];
         let mut draft = SignerConfigDraft::default();
         for (question, answer) in signer_questions().iter().zip(&answers) {
@@ -269,6 +330,7 @@ mod tests {
                 cardano_cli_path: "/cardano-cli".into(),
                 run_interval: 60000,
                 store_retention_limit: 5,
+                user_choice_or_text_input: "custom value".into(),
             }),
             draft.build()
         );
