@@ -48,6 +48,12 @@ pub struct IpfsDevnetBootstrapArgs {
     pub mode: IpfsDevnetMode,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct IpnsKey {
+    pub id: String,
+    pub name: String,
+}
+
 #[derive(Debug, Clone)]
 struct IpfsCommandBuilder {
     devnet_script_path: PathBuf,
@@ -66,8 +72,8 @@ impl IpfsCommandBuilder {
         self.devnet_script_path.display()
     }
 
-    fn build(&self, sub_command: &str, additional_args: &[&str]) -> StdResult<IpfsCommand> {
-        let mut context = format!("{IPFS_DEVNET_SCRIPT_NAME} {sub_command}",);
+    fn build(&self, sub_command: &str, additional_args: &[&str]) -> IpfsCommand {
+        let mut context = format!("{IPFS_DEVNET_SCRIPT_NAME} {sub_command}");
 
         if !additional_args.is_empty() {
             context.push(' ');
@@ -83,15 +89,13 @@ impl IpfsCommandBuilder {
             .stderr(Stdio::piped())
             .kill_on_drop(true);
 
-        Ok(IpfsCommand { command, context })
+        IpfsCommand { command, context }
     }
 
-    fn build_query_command(
-        &self,
-        node_swarm_index: u8,
-        query_args: &[&str],
-    ) -> StdResult<IpfsCommand> {
-        let node_swarm_index_str = format!("{node_swarm_index}");
+    fn build_query_command(&self, node_swarm_index: u8, query_args: &[&str]) -> IpfsCommand {
+        let node_swarm_index_str = node_swarm_index.to_string();
+        // First `--` forwards arguments to the generated `$SWARM_DIR/query.sh` command
+        // Second `--` ends `query.sh` options, ensuring that all remaining arguments are forwarded to the executed `ipfs` command.
         let additional_args =
             [vec!["--", "-n", &node_swarm_index_str, "--"], query_args.to_vec()].concat();
 
@@ -105,6 +109,9 @@ struct IpfsCommand {
 }
 
 impl IpfsCommand {
+    /// Execute the IPFS command and return the exit status.
+    ///
+    /// Stdout and stderr are forwarded to the slog scope logger.
     async fn execute(mut self) -> StdResult<ExitStatus> {
         let exit_status = self
             .command
@@ -115,6 +122,28 @@ impl IpfsCommand {
             .with_context(|| format!("Execution of '{}' failed", self.context))?;
 
         Ok(exit_status)
+    }
+
+    /// Execute the IPFS command and return the output.
+    ///
+    /// If the command fails, an error is returned.
+    async fn execute_with_output(mut self) -> StdResult<std::process::Output> {
+        let output = self
+            .command
+            .output()
+            .await
+            .with_context(|| format!("Failed to spawn '{}'", self.context))?;
+
+        if output.status.success() {
+            Ok(output)
+        } else {
+            Err(anyhow!(
+                "Execution of '{}' failed with status {}: {}",
+                self.context,
+                output.status,
+                String::from_utf8_lossy(&output.stderr)
+            ))
+        }
     }
 }
 
@@ -209,7 +238,7 @@ impl IpfsDevnet {
         let mut bootstrap_command = command_builder.build(
             "init",
             &["--overwrite", "--number", &bootstrap_args.number_of_nodes.to_string()],
-        )?;
+        );
 
         if let Some(kubo_version) = &bootstrap_args.kubo_version {
             bootstrap_command.env("KUBO_VERSION", kubo_version.to_string());
@@ -248,7 +277,7 @@ impl IpfsDevnet {
     pub async fn start(&self) -> StdResult<()> {
         // Note: running the start command on an already running devnet does nothing, so running it
         // against a "Detached" devnet poses no risk (if stopped, it will start, if running, it will do nothing).
-        let run_command = self.command_builder.build("start", &[])?;
+        let run_command = self.command_builder.build("start", &[]);
 
         info!("Starting the IPFS devnet"; "script" => &self.command_builder.display_script_path(), "cmd" => "start");
 
@@ -267,7 +296,7 @@ impl IpfsDevnet {
             return Ok(());
         }
 
-        let run_command = self.command_builder.build("stop", &[])?;
+        let run_command = self.command_builder.build("stop", &[]);
 
         info!("Stopping the IPFS devnet"; "script" => &self.command_builder.display_script_path(), "cmd" => "stop");
 
@@ -280,30 +309,37 @@ impl IpfsDevnet {
 }
 
 impl KuboNode {
-    async fn list_ipns_keys(&self) -> StdResult<Vec<String>> {
+    /// List IPNS keys of the Kubo node keystore
+    pub async fn list_ipns_keys(&self) -> StdResult<Vec<IpnsKey>> {
+        // Output lines example:
+        // k51qzi5uqu5dhmp0n2e4olicqyqure0kk8qq87y8s2o8qyyeah2hugrmo9boq7 self
+        // k51qzi5uqu5dldmb73ienkcee5fm46ldactwcuu0wzqizcwgas9en94spxr16j mithril-snapshot
         let output = self
             .command_builder
-            .build_query_command(self.swarm_index, &["key", "list"])?
-            .output()
-            .await
-            .with_context(|| "Failed to list IPNS keys")?;
-        if !output.status.success() {
-            return Err(anyhow!(RetryableDevnetError(format!(
-                "List IPNS keys failed with status {}: {}",
-                output.status,
-                String::from_utf8_lossy(&output.stderr)
-            ))));
-        }
+            .build_query_command(self.swarm_index, &["key", "list", "-l"])
+            .execute_with_output()
+            .await?;
 
         Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
-            .map(|line| line.trim().to_string())
-            .filter(|line| !line.is_empty())
+            .filter_map(|line| line.trim().split_once(char::is_whitespace))
+            .map(|(id, name)| IpnsKey {
+                id: id.to_string(),
+                name: name.to_string(),
+            })
             .collect())
     }
 
+    /// Get the id of the IPNS key with the given name
+    ///
+    /// Note: The key name is local to the IPFS node and can't be used to resolve IPNS names, only the key id can.
+    pub async fn get_ipns_key_id(&self, key_name: &str) -> StdResult<Option<String>> {
+        let keys = self.list_ipns_keys().await?;
+        Ok(keys.into_iter().find(|key| key.name == key_name).map(|key| key.id))
+    }
+
     pub async fn create_ipns_keypair(&self, key_name: &str) -> StdResult<()> {
-        if self.list_ipns_keys().await?.iter().any(|key| key == key_name) {
+        if self.get_ipns_key_id(key_name).await?.is_some() {
             warn!("Create IPNS keypair - key with name '{key_name}' already exists, reusing it");
             return Ok(());
         }
@@ -311,7 +347,7 @@ impl KuboNode {
         let query_command = self.command_builder.build_query_command(
             self.swarm_index,
             &["key", "gen", "--type=ed25519", key_name],
-        )?;
+        );
 
         info!("Creating IPNS keypair"; "script" => &self.command_builder.display_script_path(), "cmd" => "query -- key gen");
 
@@ -322,5 +358,34 @@ impl KuboNode {
             )))),
             None => Err(anyhow!("Create IPNS keypair terminated by signal")),
         }
+    }
+
+    /// Resolve an **IPNS** name to an IPFS path.
+    pub async fn ipns_name_resolve(&self, ipns_name: &str) -> StdResult<String> {
+        // Example output:
+        // /ipfs/QmfYpbWwaAmrTfapNZHYDkutDxckvqA5hzjrbfYDwymaKw
+        let output = self
+            .command_builder
+            .build_query_command(
+                self.swarm_index,
+                &["name", "resolve", "--nocache", ipns_name],
+            )
+            .execute_with_output()
+            .await?;
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    /// Resolve an **IPFS** path (useful to retrieve the CID of a file if you only know the path and its folder CID).
+    pub async fn ipfs_resolve(&self, ipfs_path: &str) -> StdResult<String> {
+        // Example output:
+        // /ipfs/bafkreibeffv3u3yqulwvgxqjcfsigocas35t5rjykzk5nmyev2x2fzwe3y
+        let output = self
+            .command_builder
+            .build_query_command(self.swarm_index, &["resolve", ipfs_path])
+            .execute_with_output()
+            .await?;
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 }
