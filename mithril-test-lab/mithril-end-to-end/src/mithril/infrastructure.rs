@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use slog_scope::info;
 use std::collections::BTreeSet;
@@ -165,7 +166,12 @@ impl MithrilInfrastructure {
         }
         if let Some(ipfs_devnet) = &config.ipfs_devnet {
             ipfs_devnet.start().await?;
-            ipfs_devnet.create_ipns_keypair(IPNS_KEY_NAME_FOR_SNAPSHOT).await?;
+            ipfs_devnet
+                .topology()
+                .first()
+                .with_context(|| "IPFS devnet should have at least one node")?
+                .create_ipns_keypair(IPNS_KEY_NAME_FOR_SNAPSHOT)
+                .await?;
         }
 
         let devnet_topology = config.devnet.topology();
