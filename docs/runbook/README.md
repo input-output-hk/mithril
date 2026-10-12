@@ -31,3 +31,4 @@ This page gathers the available guides to operate a Mithril network.
 | **Update circuits verification keys**        | [update-circuit-keys](./update-circuit-keys/README.md)                                   | Update the circuits verification keys after an intentional circuit modification.     |
 | **GitHub self-hosted runner**                | [self-hosted-runner](./self-hosted-runner/README.md)                                     | Set up a GCP virtual machine as a GitHub self-hosted runner for heavy workloads.     |
 | **Circuit verification key registry**        | [circuit-key-registry](./circuit-key-registry/README.md)                                 | Publish, rotate and revoke circuit verification keys in the genesis-signed registry. |
+| **IPNS signing key**                         | [ipns-signing-key](./ipns-signing-key/README.md)                                         | Create, register and rotate the IPNS signing key of the aggregator IPFS node.        |
