@@ -102,6 +102,10 @@ inputs:
     description: Maximum disk space used by the IPFS node datastore (experimental).
     required: false
     default: "50GB"
+  mithril_ipfs_ipns_signing_key:
+    description: IPNS signing key in PEM PKCS#8 format used by the IPFS node to publish the immutable archives directory (optional, the aggregator does not publish to IPNS if empty, experimental).
+    required: false
+    default: ""
   ipfs_node_version:
     description: IPFS node version (experimental).
     required: false
@@ -282,6 +286,9 @@ runs:
         MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64=$(echo '${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials }}' | base64 -w 0)
         echo "::add-mask::$MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64"
         echo "mithril_aggregator_ancillary_signer_gcp_kms_credentials_base64=$MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64" >> $GITHUB_OUTPUT
+        MITHRIL_IPFS_IPNS_SIGNING_KEY_BASE64=$(printf '%s' '${{ inputs.mithril_ipfs_ipns_signing_key }}' | base64 -w 0)
+        echo "::add-mask::$MITHRIL_IPFS_IPNS_SIGNING_KEY_BASE64"
+        echo "mithril_ipfs_ipns_signing_key_base64=$MITHRIL_IPFS_IPNS_SIGNING_KEY_BASE64" >> $GITHUB_OUTPUT
 
     - name: Prepare terraform variables
       shell: bash
@@ -316,6 +323,7 @@ runs:
           mithril_p2p_signer_relay_signature_registration_mode                         = "${{ inputs.mithril_p2p_signer_relay_signature_registration_mode }}"
           mithril_ipfs_enabled                                                         = "${{ inputs.mithril_ipfs_enabled }}"
           mithril_ipfs_storage_max                                                     = "${{ inputs.mithril_ipfs_storage_max }}"
+          mithril_ipfs_ipns_signing_key                                                = "${{ steps.prepare.outputs.mithril_ipfs_ipns_signing_key_base64 }}"
           mithril_api_domain                                                           = "${{ inputs.mithril_api_domain }}"
           mithril_image_id                                                             = "${{ inputs.mithril_image_id }}"
           mithril_genesis_verification_key_url                                         = "${{ inputs.mithril_genesis_verification_key_url }}"
