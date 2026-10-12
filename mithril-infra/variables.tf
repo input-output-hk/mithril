@@ -450,7 +450,7 @@ variable "mithril_ipfs_ipns_signing_key_name" {
 variable "ipfs_image_id" {
   type        = string
   description = "The IPFS image tag of service to deploy"
-  default     = "v0.38.1"
+  default     = "v0.43.1"
 }
 
 variable "ipfs_image_registry" {

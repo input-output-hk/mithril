@@ -109,7 +109,7 @@ inputs:
   ipfs_node_version:
     description: IPFS node version (experimental).
     required: false
-    default: "v0.38.1"
+    default: "v0.43.1"
   ipfs_node_docker_registry:
     description: IPFS node Docker image registry (experimental).
     required: false
