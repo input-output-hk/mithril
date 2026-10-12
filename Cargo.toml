@@ -1,7 +1,4 @@
 [workspace]
-
-resolver = "2"
-
 members = [
     "demo/protocol-demo",
     "examples/client-cardano-block",
@@ -42,70 +39,102 @@ members = [
     "mithril-stm",
     "mithril-test-lab/mithril-aggregator-fake",
     "mithril-test-lab/mithril-end-to-end",
+    "ratatui-question-answer",
 ]
+resolver = "2"
 
 [workspace.package]
-authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
-documentation = "https://mithril.network/doc"
-edition = "2024"
+authors = [
+    "dev@iohk.io",
+    "mithril-dev@iohk.io",
+]
 homepage = "https://mithril.network"
+documentation = "https://mithril.network/doc"
 license = "Apache-2.0"
 repository = "https://github.com/IntersectMBO/mithril/"
+edition = "2024"
 
 [workspace.dependencies]
 anyhow = "1.0.104"
 async-trait = "0.1.92"
-chrono = { version = "0.4.45", features = ["serde"] }
 ciborium = "0.2.2"
-clap = { version = "4.6.7", features = ["derive", "env"] }
 config = "0.15.27"
-digest = { version = "0.11.3", features = ["alloc"] }
 hex = "0.4.3"
 mockall = "0.15.0"
 rand_chacha = "0.3.1"
-rand_core = { version = "0.6.4", features = ["std"] }
 rayon = "1.12.0"
-reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 semver = "1.0.28"
-serde = { version = "1.0.229", features = ["derive", "rc"] }
-serde_json = { version = "1.0.151", features = ["raw_value"] }
-# Pin slog to `2.7.0`: `2.8.2` introduces failures in our test suite
 slog = "=2.7.0"
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 slog-term = "2.9.2"
-strum = { version = "0.28.0", features = ["derive"] }
 thiserror = "2.0.21"
-tokio = { version = "1.53.2", features = ["rt", "sync", "time"] }
 tracing = "0.1.44"
-warp = { version = "0.4.3", features = ["server", "websocket"] }
+
+[workspace.dependencies.chrono]
+version = "0.4.45"
+features = ["serde"]
+
+[workspace.dependencies.clap]
+version = "4.6.7"
+features = [
+    "derive",
+    "env",
+]
+
+[workspace.dependencies.digest]
+version = "0.11.3"
+features = ["alloc"]
+
+[workspace.dependencies.rand_core]
+version = "0.6.4"
+features = ["std"]
+
+[workspace.dependencies.reqwest]
+version = "0.13.5"
+features = ["json"]
+default-features = false
+
+[workspace.dependencies.serde]
+version = "1.0.229"
+features = [
+    "derive",
+    "rc",
+]
+
+[workspace.dependencies.serde_json]
+version = "1.0.151"
+features = ["raw_value"]
+
+[workspace.dependencies.strum]
+version = "0.28.0"
+features = ["derive"]
+
+[workspace.dependencies.tokio]
+version = "1.53.2"
+features = [
+    "rt",
+    "sync",
+    "time",
+]
+
+[workspace.dependencies.warp]
+version = "0.4.3"
+features = [
+    "server",
+    "websocket",
+]
 
 [profile.ci-tests]
-inherits = "dev"
-# Minimize the amount of debug info generated, this disables profiling (not needed in ci) but keeps backtraces with filename/line number info
 debug = "line-tables-only"
-# Not cached by `Swatinem/rust-cache`, so generating them is a waste of resources
 incremental = false
+inherits = "dev"
 
-# Variant of `ci-tests` used *only* by the `snark` Rust test job (selected via
-# `--cargo-profile ci-tests-snark` in the matching CI matrix entry). All other test jobs keep
-# using `ci-tests` and are unaffected by the `opt-level = 3` overrides below.
 [profile.ci-tests-snark]
 inherits = "ci-tests"
 
-# Optimize all dependencies while leaving the workspace crates at the profile's base
-# `opt-level = 0` (fast to compile, the part under active iteration). The `snark`
-# crypto stack (`midnight-proofs`, `midnight-curves`, `midnight-circuits`, `blst`, `ff`,
-# `group`, ...) does heavy proof-system arithmetic (FFTs, MSM, polynomial ops) that runs
-# considerably slower unoptimized and dominates the slow circuit/proof tests. The dependency
-# build cost is paid once per `Swatinem/rust-cache` key, not per CI run.
-[profile.ci-tests-snark.package."*"]
+[profile.ci-tests-snark.package.mithril-stm]
 opt-level = 3
 
-# The `mithril-stm` circuit/synthesis code (cert + IVC circuits, gadget assignment) runs
-# during keygen / MockProver / proving and measured as the dominant remaining hotspot after
-# the dependency stack was optimized: MockProver synthesis sped up 5.6× and IVC keygen ~2.2×
-# only once this crate was optimized too (deps alone gave ~1.5×). This trades slower
-# incremental recompiles of `mithril-stm` for substantially faster `snark` test runs.
-[profile.ci-tests-snark.package.mithril-stm]
+[profile.ci-tests-snark.package."*"]
 opt-level = 3
