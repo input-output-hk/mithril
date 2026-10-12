@@ -32,3 +32,13 @@ allow = [
     "Zlib",
 ]
 
+[advisories]
+yanked = "deny"
+unmaintained="none"
+ignore = [
+    # Known vulnerabilities
+    { id = "RUSTSEC-2026-0118", reason = "Known vulnerability on hickory-proto (0.25.2) not directly imported by Mithril crates" },
+    { id = "RUSTSEC-2026-0119", reason = "Known vulnerability on hickory-proto (0.25.2) not directly imported by Mithril crates" },
+]
+unused-ignored-advisory="deny"
+
