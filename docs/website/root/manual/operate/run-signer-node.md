@@ -1511,11 +1511,11 @@ This step is **optional** but **recommended**. It allows other DMQ nodes of the 
 
 :::
 
-[CIP-155](https://cips.cardano.org/cip/CIP-0155) defines a registry of `SRV` record prefixes that decentralized protocols can use to publish their service endpoints on the Cardano ledger. By declaring an `SRV` record with the `_mithril._tcp` prefix on your pool relay domain, your DMQ relay node becomes discoverable as a **ledger peer** by any DMQ node that uses ledger peers.
+[CIP-155](https://cips.cardano.org/cip/CIP-0155) defines a registry of `SRV` record prefixes that decentralized protocols can use to publish their service endpoints on the Cardano ledger. By declaring an `SRV` record with the `_dmq._mithril._cardano._tcp` prefix on your pool relay domain, your DMQ relay node becomes discoverable as a **ledger peer** by any DMQ node that uses ledger peers.
 
 The declaration requires two steps:
 
-1. Publish an `SRV` record for your **relay** DMQ node under the `_mithril._tcp` prefix of your pool domain.
+1. Publish an `SRV` record for your **relay** DMQ node under the `_dmq._mithril._cardano._tcp` prefix of your pool domain.
 2. Register your pool domain as a multi-host relay in your stake pool registration certificate.
 
 :::caution
@@ -1532,10 +1532,10 @@ Here is the needed information to declare your DMQ node as a ledger peer:
 
 #### Publish the SRV record
 
-Add an `SRV` record to the DNS zone of your pool domain so that `_mithril._tcp.**YOUR_SPO_DOMAIN_NAME**` points to your DMQ relay node:
+Add an `SRV` record to the DNS zone of your pool domain so that `_dmq._mithril._cardano._tcp.**YOUR_SPO_DOMAIN_NAME**` points to your DMQ relay node:
 
 ```
-_mithril._tcp.**YOUR_SPO_DOMAIN_NAME**. 86400 IN SRV 10 5 **YOUR_DMQ_NODE_RELAY_PORT** **YOUR_DMQ_NODE_RELAY_PUBLIC_HOSTNAME**.
+_dmq._mithril._cardano._tcp.**YOUR_SPO_DOMAIN_NAME**. 86400 IN SRV 10 5 **YOUR_DMQ_NODE_RELAY_PORT** **YOUR_DMQ_NODE_RELAY_PUBLIC_HOSTNAME**.
 ```
 
 :::tip
@@ -1543,7 +1543,7 @@ _mithril._tcp.**YOUR_SPO_DOMAIN_NAME**. 86400 IN SRV 10 5 **YOUR_DMQ_NODE_RELAY_
 Here is an example for the pool domain `example.com`, with the DMQ relay node reachable at `cardano.example.com` on port `6161`:
 
 ```
-_mithril._tcp.example.com. 86400 IN SRV 10 5 6161 cardano.example.com.
+_dmq._mithril._cardano._tcp.example.com. 86400 IN SRV 10 5 6161 cardano.example.com.
 ```
 
 The values after `SRV` are the standard priority (`10`), weight (`5`), port (`6161`), and target hostname (`cardano.example.com`). More information is available in [RFC 2782](https://datatracker.ietf.org/doc/html/rfc2782).
@@ -1562,7 +1562,7 @@ cardano-cli latest stake-pool registration-certificate \
 
 :::info
 
-The `_cardano._tcp` prefix is used by the Cardano node to discover Cardano relays on the same domain, while the `_mithril._tcp` prefix is used by the DMQ node to discover Mithril DMQ relays. Both prefixes can coexist on the same pool domain.
+The `_cardano._tcp` prefix is used by the Cardano node to discover Cardano relays on the same domain, while the `_dmq._mithril._cardano._tcp` prefix is used by the DMQ node to discover Mithril DMQ relays. Both records can coexist on the same pool domain.
 
 :::
 
