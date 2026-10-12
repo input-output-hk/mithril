@@ -3,6 +3,7 @@ locals {
   mithril_aggregator_dmq_port                             = 6161
   mithril_aggregator_ipfs_swarm_port                      = 4001
   mithril_aggregator_ipfs_rpc_api_url                     = "http://ipfs-node-aggregator:5001/"
+  mithril_aggregator_ipfs_ipns_signing_key                = base64decode(var.mithril_ipfs_ipns_signing_key)
   mithril_aggregator_ancillary_signer_gcp_kms_credentials = base64decode(var.mithril_aggregator_ancillary_signer_gcp_kms_credentials)
 }
 
@@ -34,6 +35,8 @@ resource "null_resource" "mithril_aggregator" {
     mithril_p2p_dmq_dense_topology                                               = var.mithril_p2p_dmq_dense_topology,
     mithril_ipfs_enabled                                                         = var.mithril_ipfs_enabled,
     mithril_ipfs_storage_max                                                     = var.mithril_ipfs_storage_max,
+    mithril_ipfs_ipns_signing_key                                                = sha256(var.mithril_ipfs_ipns_signing_key),
+    mithril_ipfs_ipns_signing_key_name                                           = var.mithril_ipfs_ipns_signing_key_name,
     ipfs_image_id                                                                = var.ipfs_image_id,
     ipfs_image_registry                                                          = var.ipfs_image_registry,
   }
@@ -191,7 +194,7 @@ EOT
       ,
       <<-EOT
 if [ "${var.mithril_ipfs_enabled}" = "true" ]; then
-  export IPFS_RPC_SERVER_CONFIG=$(jq -nc --arg url '${local.mithril_aggregator_ipfs_rpc_api_url}' '{"url": $url}')
+  export IPFS_RPC_SERVER_CONFIG=$(jq -nc --arg url '${local.mithril_aggregator_ipfs_rpc_api_url}' --arg ipns_key_name '${var.mithril_ipfs_ipns_signing_key_name}' --arg ipns_enabled '${var.mithril_ipfs_ipns_signing_key != ""}' '{"url": $url} + if $ipns_enabled == "true" then {"ipns_key_name": $ipns_key_name} else {} end')
 fi
 EOT
       ,
@@ -220,6 +223,8 @@ EOT
       "export AGGREGATOR_IPFS_SWARM_PORT='${local.mithril_aggregator_ipfs_swarm_port}'",
       "export AGGREGATOR_IPFS_PUBLIC_ADDRESS='${google_compute_address.mithril-external-address.address}'",
       "export AGGREGATOR_IPFS_STORAGE_MAX='${var.mithril_ipfs_storage_max}'",
+      "export AGGREGATOR_IPFS_IPNS_SIGNING_KEY_NAME='${var.mithril_ipfs_ipns_signing_key_name}'",
+      "export AGGREGATOR_IPFS_IPNS_SIGNING_KEY='${local.mithril_aggregator_ipfs_ipns_signing_key}'",
       "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
       "export ENABLE_METRICS_SERVER=true",
       "export METRICS_SERVER_IP=0.0.0.0",

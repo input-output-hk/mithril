@@ -434,6 +434,19 @@ variable "mithril_ipfs_storage_max" {
   default     = "50GB"
 }
 
+variable "mithril_ipfs_ipns_signing_key" {
+  type        = string
+  description = "The IPNS signing key in PEM PKCS#8 format base64 encoded, imported by the IPFS node to publish the immutable archives directory (optional, the aggregator does not publish to IPNS if empty)"
+  sensitive   = true
+  default     = ""
+}
+
+variable "mithril_ipfs_ipns_signing_key_name" {
+  type        = string
+  description = "The name under which the IPNS signing key is imported by the IPFS node and used by the aggregator"
+  default     = "mithril-snapshot"
+}
+
 variable "ipfs_image_id" {
   type        = string
   description = "The IPFS image tag of service to deploy"
