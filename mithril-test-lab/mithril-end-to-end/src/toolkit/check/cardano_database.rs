@@ -4,12 +4,14 @@ use slog_scope::{info, warn};
 
 use mithril_common::{
     StdResult,
-    entities::{Epoch, EpochSpecifier},
+    entities::{Epoch, EpochSpecifier, ImmutableFileNumber},
     messages::{CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListItemMessage},
 };
 
 use crate::{
-    Aggregator, CardanoDbV2Command, Client, ClientCommand, poll_until,
+    Aggregator, CardanoDbV2Command, Client, ClientCommand, KuboNode,
+    mithril::IPNS_KEY_NAME_FOR_SNAPSHOT,
+    poll_until,
     toolkit::{CheckCertificateToolkit, ScenarioToolkitContext},
     utils::AttemptResult,
 };
@@ -30,7 +32,7 @@ impl CheckCardanoDatabaseToolkit {
         &self,
         aggregator: &Aggregator,
         client: &mut Client,
-        ipfs_rpc_url: Option<Url>,
+        client_ipfs_node: Option<&KuboNode>,
         expected_epoch_min: Epoch,
         total_signers_expected: usize,
     ) -> StdResult<()> {
@@ -45,7 +47,28 @@ impl CheckCardanoDatabaseToolkit {
             )
             .await?;
         self.node_producing_cardano_database_digests_map(aggregator).await?;
-        self.verify_with_client(client, ipfs_rpc_url, &artifact.hash).await?;
+        self.verify_with_client(
+            client,
+            client_ipfs_node.map(|n| n.rpc_url.clone()),
+            &artifact.hash,
+        )
+        .await?;
+
+        if let Some(client_kubo_node) = client_ipfs_node {
+            let aggregator_kubo_node = aggregator.ipfs_kubo_node().with_context(|| {
+                format!(
+                    "IPFS devnet is enabled but {} has no Kubo node",
+                    aggregator.name()
+                )
+            })?;
+            self.check_immutable_published_to_ipns(
+                aggregator,
+                aggregator_kubo_node,
+                client_kubo_node,
+                artifact.beacon.immutable_file_number,
+            )
+            .await?;
+        }
 
         Ok(())
     }
@@ -166,6 +189,48 @@ impl CheckCardanoDatabaseToolkit {
                 .await?;
             info!("Client downloaded & restored the cardano database snapshot"; "hash" => &hash, "storage_source" => "ipfs");
         }
+
+        Ok(())
+    }
+
+    pub async fn check_immutable_published_to_ipns(
+        &self,
+        aggregator: &Aggregator,
+        aggregator_kubo_node: &KuboNode,
+        client_kubo_node: &KuboNode,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<()> {
+        info!(
+            "Checking IPNS publication of immutable file #{immutable_file_number}";
+            "aggregator" => &aggregator.name(),
+        );
+
+        let ipns_key_id = aggregator_kubo_node
+            .get_ipns_key_id(IPNS_KEY_NAME_FOR_SNAPSHOT)
+            .await?
+            .with_context(|| {
+                format!(
+                    "Failed to get IPNS key ID for key '{IPNS_KEY_NAME_FOR_SNAPSHOT}' and {}",
+                    aggregator.name()
+                )
+            })?;
+        info!("IPNS key ID for key '{IPNS_KEY_NAME_FOR_SNAPSHOT}': '{ipns_key_id}'"; "aggregator" => &aggregator.name());
+
+        // Note: we could use `ipfs resolve` directly with the ipns key id, but this would make the
+        // query prone to cache issues since this request does not allow ignoring the cache (contrary
+        // to `ipfs name resolve` which has a `--nocache` option).
+        let ipfs_dir_path = client_kubo_node
+            .ipns_name_resolve(&format!("/ipns/{ipns_key_id}"))
+            .await?;
+        info!("'/ipns/{ipns_key_id}' resolves to: '{ipfs_dir_path}'"; "aggregator" => &aggregator.name());
+
+        let ipfs_path_for_immutable =
+            format!("{ipfs_dir_path}/{immutable_file_number:0>5}.tar.zst");
+        client_kubo_node.ipfs_resolve(&ipfs_path_for_immutable).await?;
+        info!(
+            "Success, '/ipns/{ipns_key_id}' contains immutable {immutable_file_number:0>5}";
+            "aggregator" => &aggregator.name()
+        );
 
         Ok(())
     }

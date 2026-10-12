@@ -166,12 +166,6 @@ impl MithrilInfrastructure {
         }
         if let Some(ipfs_devnet) = &config.ipfs_devnet {
             ipfs_devnet.start().await?;
-            ipfs_devnet
-                .topology()
-                .first()
-                .with_context(|| "IPFS devnet should have at least one node")?
-                .create_ipns_keypair(IPNS_KEY_NAME_FOR_SNAPSHOT)
-                .await?;
         }
 
         let devnet_topology = config.devnet.topology();
@@ -383,6 +377,16 @@ impl MithrilInfrastructure {
         certificate_chain_aggregator_endpoint: Option<String>,
     ) -> StdResult<Aggregator> {
         let aggregator_name = Aggregator::name_suffix(index);
+
+        if let Some(kubo_node) = ipfs_kubo_node {
+            kubo_node
+                .create_ipns_keypair(IPNS_KEY_NAME_FOR_SNAPSHOT)
+                .await
+                .with_context(|| {
+                    format!("Failed to create IPNS keypair for aggregator {aggregator_name}")
+                })?;
+        }
+
         let aggregator_artifacts_dir = config
             .artifacts_dir
             .join(format!("mithril-aggregator-{aggregator_name}"));

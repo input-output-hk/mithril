@@ -386,7 +386,7 @@ impl FullScenario {
                 .is_certified_and_verified(
                     aggregator,
                     &mut client,
-                    infrastructure.client_ipfs_node().map(|n| n.rpc_url.clone()),
+                    infrastructure.client_ipfs_node(),
                     expected_epoch_min,
                     infrastructure.signers().len(),
                 )
