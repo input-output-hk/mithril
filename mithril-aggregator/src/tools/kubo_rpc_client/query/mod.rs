@@ -2,10 +2,12 @@ mod ipfs_add;
 mod ipfs_files_ls;
 mod ipfs_files_mkdir;
 mod ipfs_files_stat;
+mod ipfs_key_ls;
 mod ipfs_name_publish;
 
 pub use ipfs_add::*;
 pub use ipfs_files_ls::*;
 pub use ipfs_files_mkdir::*;
 pub use ipfs_files_stat::*;
+pub use ipfs_key_ls::*;
 pub use ipfs_name_publish::*;
