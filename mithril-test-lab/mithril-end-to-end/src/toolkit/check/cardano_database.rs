@@ -216,22 +216,47 @@ impl CheckCardanoDatabaseToolkit {
             })?;
         info!("IPNS key ID for key '{IPNS_KEY_NAME_FOR_SNAPSHOT}': '{ipns_key_id}'"; "aggregator" => &aggregator.name());
 
-        // Note: we could use `ipfs resolve` directly with the ipns key id, but this would make the
-        // query prone to cache issues since this request does not allow ignoring the cache (contrary
-        // to `ipfs name resolve` which has a `--nocache` option).
-        let ipfs_dir_path = client_kubo_node
-            .ipns_name_resolve(&format!("/ipns/{ipns_key_id}"))
-            .await?;
-        info!("'/ipns/{ipns_key_id}' resolves to: '{ipfs_dir_path}'"; "aggregator" => &aggregator.name());
+        let ipns_name = format!("/ipns/{ipns_key_id}");
+        let ipfs_file_name_for_immutable = format!("{immutable_file_number:0>5}.tar.zst");
+        let mut last_error = None;
 
-        let ipfs_path_for_immutable =
-            format!("{ipfs_dir_path}/{immutable_file_number:0>5}.tar.zst");
-        client_kubo_node.ipfs_resolve(&ipfs_path_for_immutable).await?;
-        info!(
-            "Success, '/ipns/{ipns_key_id}' contains immutable {immutable_file_number:0>5}";
-            "aggregator" => &aggregator.name()
-        );
-
-        Ok(())
+        match poll_until!(
+            self.context.existing_artifact_fetch_timeout(),
+            self.context.poll_backoff(),
+            {
+                match client_kubo_node.resolve_file_in_ipns_dir(
+                    &ipns_name,
+                    &ipfs_file_name_for_immutable,
+                )
+                .await
+                {
+                    Ok(ipfs_dir_path) => Ok(Some(ipfs_dir_path)),
+                    Err(error) => {
+                        warn!("IPNS publication not yet available, retrying"; "error" => ?error, "aggregator" => &aggregator.name());
+                        last_error = Some(error);
+                        Ok(None)
+                    }
+                }
+            }
+        ) {
+            AttemptResult::Ok(ipfs_dir_path) => {
+                info!(
+                    "Success, '{ipns_name}' resolves to '{ipfs_dir_path}' that contains immutable {immutable_file_number:0>5}";
+                    "aggregator" => &aggregator.name()
+                );
+                Ok(())
+            }
+            AttemptResult::Err(error) => Err(error),
+            AttemptResult::Timeout(..) => {
+                let error = anyhow!(
+                    "Timeout exhausted while checking that '{ipns_name}' contains immutable {immutable_file_number:0>5}"
+                );
+                Err(match last_error {
+                    Some(last_error) => last_error.context(error),
+                    None => error,
+                })
+            }
+        }
+        .with_context(|| format!("Checking IPNS publication of aggregator `{}`", aggregator.name()))
     }
 }

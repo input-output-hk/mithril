@@ -388,4 +388,21 @@ impl KuboNode {
 
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
+
+    /// Resolve the given IPNS name and check that the resolved directory contains the given file,
+    /// returning the resolved directory path.
+    pub async fn resolve_file_in_ipns_dir(
+        &self,
+        ipns_name: &str,
+        ipfs_file_name: &str,
+    ) -> StdResult<String> {
+        // Note: we could use `ipfs resolve` directly with the ipns key id, but this would make the
+        // query prone to cache issues since this request does not allow ignoring the cache (contrary
+        // to `ipfs name resolve` which has a `--nocache` option).
+        let ipfs_dir_path = self.ipns_name_resolve(ipns_name).await?;
+        self.ipfs_resolve(&format!("{ipfs_dir_path}/{ipfs_file_name}"))
+            .await?;
+
+        Ok(ipfs_dir_path)
+    }
 }
