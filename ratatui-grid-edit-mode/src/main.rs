@@ -3,7 +3,11 @@ mod signer_config;
 use std::time::Duration;
 
 use color_eyre::eyre::eyre;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+    KeyModifiers, MouseButton, MouseEventKind,
+};
+use crossterm::execute;
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Layout, Rect},
@@ -18,9 +22,11 @@ use signer_config::{Network, SignerConfig, SignerConfigDraft};
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     let app = App::new()?;
+    execute!(std::io::stdout(), EnableMouseCapture)?;
     let terminal = ratatui::init();
     let result = app.run(terminal);
     ratatui::restore();
+    execute!(std::io::stdout(), DisableMouseCapture)?;
     result
 }
 
@@ -126,6 +132,8 @@ pub struct App {
     draft: SignerConfigDraft,
     attributes: Vec<ConfigAttribute>,
     selected: usize,
+    grid_area: Option<Rect>,
+    grid_offset: usize,
     editing: bool,
     input: String,
     error: Option<String>,
@@ -147,6 +155,8 @@ impl App {
             draft,
             attributes,
             selected: 0,
+            grid_area: None,
+            grid_offset: 0,
             editing: false,
             input: String::new(),
             error: None,
@@ -169,7 +179,7 @@ impl App {
         Ok(())
     }
 
-    fn render(&self, frame: &mut Frame) -> color_eyre::Result<()> {
+    fn render(&mut self, frame: &mut Frame) -> color_eyre::Result<()> {
         if self.finished {
             self.render_summary(frame);
             return Ok(());
@@ -182,7 +192,7 @@ impl App {
         Ok(())
     }
 
-    fn render_grid(&self, frame: &mut Frame, area: Rect) -> color_eyre::Result<()> {
+    fn render_grid(&mut self, frame: &mut Frame, area: Rect) -> color_eyre::Result<()> {
         let title = " SignerConfigDraft ".bold().cyan();
         let rows = self
             .attributes
@@ -215,15 +225,18 @@ impl App {
             Constraint::Percentage(15),
         ];
         let table = Table::new(rows, widths)
+            .column_spacing(1)
             .header(
                 Row::new(["Attribute", "Value", "Provenance"])
                     .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             )
             .row_highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
             .block(Block::bordered().title(title));
+        self.grid_area = Some(area);
         let mut state = TableState::default();
         state.select(Some(self.selected));
         frame.render_stateful_widget(table, area, &mut state);
+        self.grid_offset = state.offset();
         Ok(())
     }
 
@@ -283,8 +296,37 @@ impl App {
     fn handle_event(&mut self, event: Event) -> color_eyre::Result<()> {
         match event {
             Event::Key(key) if key.kind == KeyEventKind::Press => self.on_key_event(key)?,
+            Event::Mouse(mouse) if mouse.kind == MouseEventKind::Down(MouseButton::Left) => {
+                self.on_mouse_click(mouse.column, mouse.row)?;
+            }
             Event::Mouse(_) | Event::Resize(_, _) => {}
             _ => {}
+        }
+        Ok(())
+    }
+
+    fn on_mouse_click(&mut self, column: u16, row: u16) -> color_eyre::Result<()> {
+        if self.finished {
+            return Ok(());
+        }
+        let Some(area) = self.grid_area else {
+            return Ok(());
+        };
+        let Some((index, clicked_value)) =
+            grid_hit(area, self.grid_offset, self.attributes.len(), column, row)
+        else {
+            return Ok(());
+        };
+
+        let previously_selected = self.selected;
+        self.selected = index;
+        if clicked_value && (!self.editing || previously_selected != index) {
+            self.editing = false;
+            self.error = None;
+            self.begin_edit()?;
+        } else if self.editing && previously_selected != index {
+            self.editing = false;
+            self.error = None;
         }
         Ok(())
     }
@@ -380,6 +422,46 @@ impl App {
     }
 }
 
+fn grid_hit(
+    area: Rect,
+    first_visible_row: usize,
+    attribute_count: usize,
+    column: u16,
+    row: u16,
+) -> Option<(usize, bool)> {
+    if area.width < 3 || area.height < 4 {
+        return None;
+    }
+
+    let inner_area = Rect::new(area.x + 1, area.y + 1, area.width - 2, area.height - 2);
+    let columns = Layout::horizontal([
+        Constraint::Percentage(38),
+        Constraint::Percentage(47),
+        Constraint::Percentage(15),
+    ])
+    .spacing(1)
+    .areas::<3>(inner_area);
+    let body_start = area.y + 2;
+    if row < body_start {
+        return None;
+    }
+
+    let visible_rows = area.height.saturating_sub(3) as usize;
+    let row_offset = (row - body_start) as usize;
+    if row_offset >= visible_rows {
+        return None;
+    }
+
+    let attribute_index = first_visible_row + row_offset;
+    if attribute_index >= attribute_count {
+        return None;
+    }
+
+    let value_column = columns[1];
+    let clicked_value = column >= value_column.x && column < value_column.right();
+    Some((attribute_index, clicked_value))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -436,7 +518,8 @@ mod tests {
                 "Database Directory",
                 "Cardano CLI Path",
                 "Run Interval",
-                "Store Retention Limit"
+                "Store Retention Limit",
+                "New Value"
             ]
         );
     }
@@ -482,11 +565,15 @@ mod tests {
         attribute_named("Operational Certificate Path")
             .set_value(&mut draft, "./opcert.cert")
             .expect("valid path");
+        attribute_named("New Value")
+            .set_value(&mut draft, "example")
+            .expect("valid value");
 
         let config = SignerConfig::try_from(&draft).expect("complete draft");
         assert_eq!(config.network, Network::Mainnet);
         assert_eq!(config.kes_secret_key_path, PathBuf::from("./kes.skey"));
         assert_eq!(config.run_interval, 5000);
+        assert_eq!(config.new_value, "example");
     }
 
     fn attribute_named(display_name: &str) -> ConfigAttribute {
@@ -517,5 +604,56 @@ mod tests {
             attributes[1].path,
             ["Signer", "Paths", "KES Secret Key Path"]
         );
+    }
+
+    #[test]
+    fn grid_hit_targets_the_clicked_row_and_value_column() {
+        let area = Rect::new(10, 5, 100, 10);
+        let value_column = Layout::horizontal([
+            Constraint::Percentage(38),
+            Constraint::Percentage(47),
+            Constraint::Percentage(15),
+        ])
+        .spacing(1)
+        .areas::<3>(Rect::new(11, 6, 98, 8))[1];
+
+        assert_eq!(grid_hit(area, 0, 7, value_column.x, 7), Some((0, true)));
+        assert_eq!(grid_hit(area, 0, 7, 12, 7), Some((0, false)));
+    }
+
+    #[test]
+    fn clicking_a_value_selects_and_opens_that_attribute_for_editing() {
+        let mut app = App::new().expect("serializable draft");
+        let area = Rect::new(10, 5, 100, 10);
+        app.grid_area = Some(area);
+        let value_column = Layout::horizontal([
+            Constraint::Percentage(38),
+            Constraint::Percentage(47),
+            Constraint::Percentage(15),
+        ])
+        .spacing(1)
+        .areas::<3>(Rect::new(11, 6, 98, 8))[1];
+
+        app.on_mouse_click(value_column.x, area.y + 5)
+            .expect("value can be opened for editing");
+
+        assert_eq!(app.selected, 3);
+        assert!(app.editing);
+        assert_eq!(app.input, "./mithril-signer/db");
+    }
+
+    #[test]
+    fn grid_hit_accounts_for_the_scrolled_selection() {
+        let area = Rect::new(0, 0, 100, 5);
+        let value_column = Layout::horizontal([
+            Constraint::Percentage(38),
+            Constraint::Percentage(47),
+            Constraint::Percentage(15),
+        ])
+        .spacing(1)
+        .areas::<3>(Rect::new(1, 1, 98, 3))[1];
+
+        assert_eq!(grid_hit(area, 3, 7, value_column.x, 2), Some((3, true)));
+        assert_eq!(grid_hit(area, 3, 7, value_column.x, 3), Some((4, true)));
     }
 }
