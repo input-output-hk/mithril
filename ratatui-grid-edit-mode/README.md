@@ -1,6 +1,8 @@
 # ratatui-grid-edit-mode
 
 This is a [Ratatui] terminal app for filling out a `SignerConfigDraft`.
+The grid discovers draft fields recursively from their Serde representation;
+Serde `rename` attributes define the display names shown in the grid.
 
 ## Usage
 

@@ -1,12 +1,15 @@
 use std::{fmt, path::PathBuf};
 
+use serde::{Deserialize, Serialize};
+
 const DEFAULT_DB_DIRECTORY: &str = "./mithril-signer/db";
 const DEFAULT_CARDANO_CLI_PATH: &str = "cardano-cli";
 const DEFAULT_RUN_INTERVAL: u64 = 5000;
 const DEFAULT_STORE_RETENTION_LIMIT: u64 = 10;
 
 /// Cardano network the signer runs on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Network {
     Mainnet,
     Preprod,
@@ -38,18 +41,28 @@ pub struct SignerConfig {
     pub cardano_cli_path: PathBuf,
     pub run_interval: u64,
     pub store_retention_limit: u64,
+    pub new_value: String,
 }
 
 /// [`SignerConfig`] being filled with grid edit mode.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct SignerConfigDraft {
+    #[serde(rename = "Network")]
     pub network: Option<Network>,
+    #[serde(rename = "KES Secret Key Path")]
     pub kes_secret_key_path: Option<PathBuf>,
+    #[serde(rename = "Operational Certificate Path")]
     pub operational_certificate_path: Option<PathBuf>,
+    #[serde(rename = "Database Directory")]
     pub db_directory: Option<PathBuf>,
+    #[serde(rename = "Cardano CLI Path")]
     pub cardano_cli_path: Option<PathBuf>,
+    #[serde(rename = "Run Interval")]
     pub run_interval: Option<u64>,
+    #[serde(rename = "Store Retention Limit")]
     pub store_retention_limit: Option<u64>,
+    #[serde(rename = "New Value")]
+    pub new_value: Option<String>,
 }
 
 impl SignerConfigDraft {
@@ -88,6 +101,7 @@ impl TryFrom<&SignerConfigDraft> for SignerConfig {
             store_retention_limit: draft
                 .store_retention_limit
                 .ok_or("store_retention_limit is required")?,
+            new_value: draft.new_value.clone().ok_or("new_value is required")?,
         })
     }
 }
