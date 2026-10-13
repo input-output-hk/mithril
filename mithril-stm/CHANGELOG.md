@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.13.0 (10-13-2026)
+
+### Changed
+
+- **BREAKING** Renamed the fixed-size bytes functions `to_bytes`/`from_bytes` to `to_canonical_bytes`/`from_canonical_bytes` on the BLS, Schnorr, Jubjub and Merkle tree leaf types, to distinguish them from the versioned CBOR codec. The encoded bytes are unchanged.
+- Hashes only rely on canonical bytes, and each canonical encoding is pinned by a golden test.
+- The canonical bytes decoders of the Merkle tree leaves are only compiled for the tests.
+- The circuit key cache fingerprint uses the rigid parameters bytes, so non-production circuit key caches are regenerated once.
+- Documented in `CODEC.md` that canonical bytes and rigid slot layouts are out of scope of the CBOR codec.
+
 ## 0.12.32 (10-09-2026)
 
 ### Added
