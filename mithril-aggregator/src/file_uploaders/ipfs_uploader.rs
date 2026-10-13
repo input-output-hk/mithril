@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::Context;
-use slog::{Logger, trace, warn};
+use slog::{Logger, debug, trace, warn};
 
 use mithril_common::StdResult;
 use mithril_common::entities::FileUri;
@@ -63,6 +63,7 @@ impl IpfsUploader {
             .await
             .with_context(|| "listing files in IPFS MFS directory")?;
 
+        let mut uploaded_files = 0;
         for file_path in files {
             let filename =
                 file_path
@@ -86,9 +87,14 @@ impl IpfsUploader {
                 format!(" Uploaded file path: {}", file_path.display()),
             )
             .await?;
+            uploaded_files += 1;
         }
 
         let dir_cid = self.get_current_directory_cid().await?;
+        debug!(
+            self.logger, "Batch upload to IPFS finished";
+            "dir_cid" => %dir_cid, "uploaded_files" => uploaded_files, "already_present_files" => files.len() - uploaded_files
+        );
 
         self.publish_directory_to_ipns(&dir_cid).await;
 
@@ -189,7 +195,7 @@ impl IpfsUploader {
 
             match self.rpc_client.publish_dir_to_ipns(dir_cid, key).await {
                 Ok(()) => {
-                    trace!(self.logger, "Directory published to IPNS"; "dir_cid" => dir_cid, "key_name" => key);
+                    debug!(self.logger, "Directory published to IPNS"; "dir_cid" => dir_cid, "key_name" => key);
                 }
                 Err(err) => {
                     warn!(
