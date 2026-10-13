@@ -2,7 +2,7 @@ mod api;
 mod path;
 pub mod query;
 
-pub use api::{KuboRpcClient, KuboRpcQuery};
+pub use api::{DEFAULT_TIMEOUT_SECS, KuboRpcClient, KuboRpcQuery, TIMEOUT_FOR_SLOW_QUERY_SECS};
 pub use path::IpfsMfsDirPath;
 
 #[cfg(test)]
