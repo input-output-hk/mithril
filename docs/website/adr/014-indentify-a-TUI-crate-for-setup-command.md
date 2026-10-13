@@ -36,14 +36,22 @@ Several candidates can help us build a terminal user interface. Here is the sele
 - multiple-choice selection
   - with other text input?
 
+OR
+
+table grid edit mode :
+show a grid with all prefilled values with row selection to edit value (mouse selection + arrows)
+
 #### Render
 - progress bar for installation progress
 - key-value summary
 
 ### Crate comparison
+Dependencies count :
+`grep -c '^\[\[package\]\]$' Cargo.lock`
+
 | Name | Downloads | Size (KiB) | Dependencies | SSH compatible | Testable |
 | --- | --- | --- | --- | --- | --- |
-| Ratatui + crossterm | 59 106 231 | 70.7 + 18.4 | [Ratatui + crossterm + color-eyre](../../../ratatui-question-answer/cargo-tree-result.txt) | todo | [UI output unit test](https://ratatui.rs/tutorials/counter-app/basic-app/#testing-the-ui-output) |
+| Ratatui + crossterm | 59 106 231 | 70.7 + 18.4 | [Ratatui + crossterm + color-eyre](../../../ratatui-question-answer/cargo-tree-result.txt) | 207 | [UI output unit test](https://ratatui.rs/tutorials/counter-app/basic-app/#testing-the-ui-output) |
 | inquire | 21 997 939 | 98.9 |  |  |  |
 | dialoguer | 87 789 311 | 30.5 |  |  |  |
 | cliclack | 3 863 258 | 37.2 |  |  |  |

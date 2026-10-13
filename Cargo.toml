@@ -39,9 +39,10 @@ members = [
     "mithril-stm",
     "mithril-test-lab/mithril-aggregator-fake",
     "mithril-test-lab/mithril-end-to-end",
-    "ratatui-question-answer",
 ]
+exclude = ["ratatui-question-answer"]
 resolver = "2"
+
 
 [workspace.package]
 authors = [
