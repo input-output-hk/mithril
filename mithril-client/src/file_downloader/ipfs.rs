@@ -340,6 +340,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rpc_url_not_answering_as_a_kubo_rpc_api_raise_unreachable_file_downloader_error() {
+        let target_dir = temp_dir_create!();
+        let ipfs_path = "ipfs://QmRoiDvkuGRg4tjWabNp4Y5jxbUS8FFNFn9pDopqfbtfW2/00007.tar.zst";
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/api/v0/version");
+            then.status(401).body("<html><body>Unauthorized</body></html>");
+        });
+        let ipfs_file_downloader = downloader(&server, FeedbackSender::new(&[]));
+
+        let error = ipfs_file_downloader
+            .download_unpack(
+                &FileDownloaderUri::FileUri(FileUri(ipfs_path.to_string())),
+                0,
+                &target_dir,
+                None,
+                DownloadEvent::Digest {
+                    download_id: "id".to_string(),
+                },
+            )
+            .await
+            .unwrap_err();
+
+        assert!(
+            error.downcast_ref::<FileDownloaderUnreachable>().is_some(),
+            "expected an unreachable error: {error:?}"
+        );
+        assert!(
+            error.to_string().contains("does not answer as a Kubo RPC API"),
+            "unexpected error: {error:?}"
+        );
+    }
+
+    #[tokio::test]
     async fn cat_does_not_apply_timeout() {
         let target_dir = temp_dir_create!();
         let ipfs_path = "ipfs://QmRoiDvkuGRg4tjWabNp4Y5jxbUS8FFNFn9pDopqfbtfW2/00007.tar.zst";
