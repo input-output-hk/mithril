@@ -40,9 +40,8 @@ members = [
     "mithril-test-lab/mithril-aggregator-fake",
     "mithril-test-lab/mithril-end-to-end",
 ]
-exclude = ["ratatui-question-answer"]
+exclude = ["ratatui-question-answer", "ratatui-grid-edit-mode"]
 resolver = "2"
-
 
 [workspace.package]
 authors = [
