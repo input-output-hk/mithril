@@ -265,18 +265,6 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
-    /// endpoint and with the given genesis verification key.
-    #[deprecated(
-        since = "0.12.36",
-        note = "Use `new` method instead and set the genesis verification key with `set_genesis_verification_key`"
-    )]
-    pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
-        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).set_genesis_verification_key(
-            GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
-        )
-    }
-
     /// Constructs a new `ClientBuilder` that automatically discovers the aggregator for the given
     /// Mithril network and with the given genesis verification key.
     #[cfg(not(target_family = "wasm"))]
