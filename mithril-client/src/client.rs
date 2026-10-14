@@ -890,4 +890,26 @@ mod tests {
             )])
         );
     }
+
+    #[test]
+    fn aggregator_discovery_type_url_builds_url_variant_from_str_and_string() {
+        let from_str = AggregatorDiscoveryType::url("https://aggregator.mithril");
+        let from_string = AggregatorDiscoveryType::url("https://aggregator.mithril".to_string());
+
+        assert!(
+            matches!(from_str, AggregatorDiscoveryType::Url(url) if url == "https://aggregator.mithril")
+        );
+        assert!(
+            matches!(from_string, AggregatorDiscoveryType::Url(url) if url == "https://aggregator.mithril")
+        );
+    }
+
+    #[test]
+    fn genesis_verification_key_json_hex_builds_json_hex_variant_from_str_and_string() {
+        let from_str = GenesisVerificationKey::json_hex("5b3132");
+        let from_string = GenesisVerificationKey::json_hex("5b3132".to_string());
+
+        assert!(matches!(from_str, GenesisVerificationKey::JsonHex(key) if key == "5b3132"));
+        assert!(matches!(from_string, GenesisVerificationKey::JsonHex(key) if key == "5b3132"));
+    }
 }
