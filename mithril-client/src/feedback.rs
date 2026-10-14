@@ -23,8 +23,8 @@
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, feedback::SlogFeedbackReceiver};
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(build_logger())))
 //!     .build()?;
 //!

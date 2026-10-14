@@ -13,8 +13,8 @@
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .build()?;
 //! let cardano_stake_distribution = client.cardano_stake_distribution().get("CARDANO_STAKE_DISTRIBUTION_HASH").await?.unwrap();
 //!
@@ -36,8 +36,8 @@
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .build()?;
 //! let cardano_stake_distributions = client.cardano_stake_distribution().list().await?;
 //!
@@ -58,8 +58,8 @@
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, common::Epoch};
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .build()?;
 //! // For a specific epoch
 //! let cardano_stake_distribution = client.cardano_stake_distribution().get_by_epoch(Epoch(500)).await?.unwrap();

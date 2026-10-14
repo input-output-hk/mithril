@@ -13,8 +13,8 @@
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .build()?;
 //! let cardano_database = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //!
@@ -36,8 +36,8 @@
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .build()?;
 //! let cardano_databases = client.cardano_database_v2().list().await?;
 //!
@@ -56,8 +56,8 @@
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, common::Epoch};
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .build()?;
 //!
 //! // For a specific epoch
@@ -85,8 +85,8 @@
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, cardano_database_client::{ImmutableFileRange, DownloadUnpackOptions}};
 //! use std::path::Path;
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .build()?;
 //! let cardano_database_snapshot = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //!
@@ -122,8 +122,8 @@
 //! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, cardano_database_client::{ImmutableFileRange, DownloadUnpackOptions}};
 //! use std::path::Path;
 //!
-//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
 //!     .build()?;
 //! let cardano_database_snapshot = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //! let certificate = client.certificate().verify_chain(&cardano_database_snapshot.certificate_hash).await?;

@@ -22,8 +22,8 @@ use std::path::Path;
 
 #[tokio::main]
 async fn main() -> mithril_client::MithrilResult<()> {
-    let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
-        .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+    let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+        .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
         .build()?;
 
     let snapshots = client.cardano_database_v2().list().await?;
