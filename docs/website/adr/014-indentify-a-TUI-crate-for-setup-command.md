@@ -4,13 +4,13 @@ title: |
   14. Choosing a TUI crate for setup command
 authors:
   - name: Mithril Team
-tags: [In progress]
+tags: [Proposed]
 date: 2026-10-12
 ---
 
 ## Status
 
-In progress
+Proposed
 
 ## Context
 
@@ -20,46 +20,60 @@ At present, following the Mithril signer node documentation and installing the s
 We want to simplify this installation process by using a terminal user interface (TUI) to guide users through the signer installation flow.
 We also need to choose a Rust TUI crate that will help us develop a smooth, one-command setup experience for users while remaining easy to maintain.
 
-# How
+### Requirements
 
-Several candidates can help us build a terminal user interface. Here is the selection we made:
-- [Ratatui](https://crates.io/crates/ratatui) with [crossterm](https://crates.io/crates/ratatui-crossterm/0.1.2)
+#### Types of inputs
+
+Two interaction modes were considered:
+
+- **Q&A mode**: a sequence of prompts supporting:
+  - string, with a default value
+  - integer (prevent non-numeric characters or validate after input), with a default value
+  - multiple-choice selection
+- **Grid edit mode**: a grid showing all prefilled values, with row selection (mouse and arrow keys) to edit a value
+
+#### Render
+
+- progress bar for installation progress
+- key-value summary
+
+### Options considered
+
+The following candidates were evaluated:
+
+- [Ratatui](https://crates.io/crates/ratatui) with [crossterm](https://crates.io/crates/crossterm)
 - [inquire](https://crates.io/crates/inquire)
 - [dialoguer](https://crates.io/crates/dialoguer)
 - [cliclack](https://crates.io/crates/cliclack)
 
-### What we will need in the TUI?
-
-#### Inputs
-- string, with a default value
-- integer (prevent non-numeric characters or validate after input), with a default value
-- multiple-choice selection
-  - with other text input?
-
-OR
-
-table grid edit mode :
-show a grid with all prefilled values with row selection to edit value (mouse selection + arrows)
-
-#### Render
-- progress bar for installation progress
-- key-value summary
+For prompt-based crates (inquire, dialoguer, cliclack), the progress bar can be provided by [indicatif](https://crates.io/crates/indicatif).
+Ratatui provides it natively with the `Gauge` widget.
 
 ### Crate comparison
-Dependencies count :
-`grep -c '^\[\[package\]\]$' Cargo.lock`
 
-| Name | Downloads | Size (KiB) | Dependencies | SSH compatible | Testable | Q&A mode | Grid edit mode | mouse support |
-| --- | --- | --- | --- | --- | --- |  --- |  --- | --- |
-| Ratatui + crossterm | 59 106 231 | 70.7 + 18.4 | 207 [Ratatui + crossterm + color-eyre](../../../ratatui-question-answer/cargo-tree-result.txt) |  | [UI output unit test](https://ratatui.rs/tutorials/counter-app/basic-app/#testing-the-ui-output) | ✅ (grid and cell) | ✅ | ✅ |
-| inquire | 21 997 939 | 98.9 |  |  |  | | | |
-| dialoguer | 87 789 311 | 30.5 | 22 |  |  |✅|no real support, but can done manualy with row size formatting | |
-| cliclack | 3 863 258 | 37.2 |  |  |  | | | |
+| Name                | Downloads¹ | Size (KiB)² | Dependencies³ | Testable                                                                                            | Q&A mode                   | Grid edit mode                                               | Mouse support |
+| ------------------- | ---------- | ----------- | ------------- | --------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------ | ------------- |
+| Ratatui + crossterm | 59 106 231 | 70.7 + 18.4 | 207⁴          | ✅ [UI output unit test](https://ratatui.rs/tutorials/counter-app/basic-app/#testing-the-ui-output) | ✅ | ✅ (grid and cell)                                           | ✅            |
+| inquire             | 21 997 939 | 98.9        | 6             | no specific tooling                                                                              | ✅                         | ❌ no real support                                           | ❌            |
+| dialoguer           | 87 789 311 | 30.5        | 22            | no specific tooling                                                                              | ✅                         | ❌ no real support, can be done manually with row formatting | ❌            |
+| cliclack            | 3 863 258  | 37.2        | 8             | no specific tooling                                                                              | ✅                         | ❌ no real support                                           | ❌            |
+
+1. Total downloads on crates.io as of 2026-10-12.
+2. Crate size as displayed on crates.io.
+3. Number of packages in the `Cargo.lock` of a minimal project using the crate (`grep -c '^\[\[package\]\]$' Cargo.lock`).
+4. Includes `color-eyre`, used in the proof of concept.
 
 ## Decision
 
-Todo
+We will use **Ratatui** (with the crossterm backend) for the signer setup command, using a grid edit mode
+where all prefilled values are displayed and can be edited by row selection (keyboard and mouse).
+
+Ratatui is the only evaluated crate that natively supports this layout, it provides first-class UI testing
+via `TestBackend`, and it has a large, active community with extensive documentation.
 
 ## Consequences
 
-Todo
+- The dependency footprint is significantly larger (~200 crates vs ~10-20 for prompt-based crates).
+- Input widgets (text, integer validation, defaults, selection) must be implemented or pulled from
+  companion crates (e.g. `tui-input`).
+- UI rendering can be covered by unit tests using Ratatui's `TestBackend`.
