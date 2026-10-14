@@ -353,7 +353,7 @@ mod tests {
             .await
             .expect_err("an oversized response must fail retrieval");
 
-        assert_eq!(0, registry.hits());
+        assert_eq!(0, registry.calls());
     }
 
     #[tokio::test]
@@ -374,7 +374,7 @@ mod tests {
             .await
             .expect_err("an unmatched aggregator endpoint must fail retrieval");
 
-        assert_eq!(0, registry.hits());
+        assert_eq!(0, registry.calls());
     }
 
     #[tokio::test]
@@ -395,6 +395,6 @@ mod tests {
             .await
             .expect_err("a persistently failing download must fail retrieval");
 
-        assert_eq!(DOWNLOAD_MAX_ATTEMPTS, failing_registry.hits());
+        assert_eq!(DOWNLOAD_MAX_ATTEMPTS, failing_registry.calls());
     }
 }
