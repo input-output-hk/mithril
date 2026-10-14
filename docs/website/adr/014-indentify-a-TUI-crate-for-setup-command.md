@@ -49,12 +49,12 @@ show a grid with all prefilled values with row selection to edit value (mouse se
 Dependencies count :
 `grep -c '^\[\[package\]\]$' Cargo.lock`
 
-| Name | Downloads | Size (KiB) | Dependencies | SSH compatible | Testable |
-| --- | --- | --- | --- | --- | --- |
-| Ratatui + crossterm | 59 106 231 | 70.7 + 18.4 | [Ratatui + crossterm + color-eyre](../../../ratatui-question-answer/cargo-tree-result.txt) | 207 | [UI output unit test](https://ratatui.rs/tutorials/counter-app/basic-app/#testing-the-ui-output) |
-| inquire | 21 997 939 | 98.9 |  |  |  |
-| dialoguer | 87 789 311 | 30.5 |  |  |  |
-| cliclack | 3 863 258 | 37.2 |  |  |  |
+| Name | Downloads | Size (KiB) | Dependencies | SSH compatible | Testable | Q&A mode | Grid edit mode | mouse support |
+| --- | --- | --- | --- | --- | --- |  --- |  --- | --- |
+| Ratatui + crossterm | 59 106 231 | 70.7 + 18.4 | 207 [Ratatui + crossterm + color-eyre](../../../ratatui-question-answer/cargo-tree-result.txt) |  | [UI output unit test](https://ratatui.rs/tutorials/counter-app/basic-app/#testing-the-ui-output) | ✅ (grid and cell) | ✅ | ✅ |
+| inquire | 21 997 939 | 98.9 |  |  |  | | | |
+| dialoguer | 87 789 311 | 30.5 | 22 |  |  |✅|no real support, but can done manualy with row size formatting | |
+| cliclack | 3 863 258 | 37.2 |  |  |  | | | |
 
 ## Decision
 

@@ -40,7 +40,11 @@ members = [
     "mithril-test-lab/mithril-aggregator-fake",
     "mithril-test-lab/mithril-end-to-end",
 ]
-exclude = ["ratatui-question-answer", "ratatui-grid-edit-mode"]
+exclude = [
+    "ratatui-question-answer", 
+    "ratatui-grid-edit-mode",
+    "dialoguer-example"
+    ]
 resolver = "2"
 
 [workspace.package]
