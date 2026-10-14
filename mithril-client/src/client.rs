@@ -71,6 +71,13 @@ pub enum AggregatorDiscoveryType {
     Automatic(MithrilNetwork),
 }
 
+impl AggregatorDiscoveryType {
+    /// Use a specific URL to connect to the aggregator.
+    pub fn url<S: Into<String>>(url: S) -> Self {
+        Self::Url(url.into())
+    }
+}
+
 #[cfg(not(target_family = "wasm"))]
 impl FromStr for AggregatorDiscoveryType {
     type Err = anyhow::Error;
@@ -90,6 +97,13 @@ impl FromStr for AggregatorDiscoveryType {
 pub enum GenesisVerificationKey {
     /// The verification key is provided as a JSON Hex-encoded string.
     JsonHex(String),
+}
+
+impl GenesisVerificationKey {
+    /// Creates a genesis verification key from a JSON Hex-encoded string.
+    pub fn json_hex<S: Into<String>>(json_hex: S) -> Self {
+        Self::JsonHex(json_hex.into())
+    }
 }
 
 /// Options that can be used to configure the client.
