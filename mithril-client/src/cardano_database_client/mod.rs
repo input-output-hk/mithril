@@ -11,9 +11,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
+//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//!     .build()?;
 //! let cardano_database = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //!
 //! println!(
@@ -32,9 +34,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
+//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//!     .build()?;
 //! let cardano_databases = client.cardano_database_v2().list().await?;
 //!
 //! for cardano_database in cardano_databases {
@@ -50,9 +54,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::{ClientBuilder, common::Epoch};
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, common::Epoch};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
+//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//!     .build()?;
 //!
 //! // For a specific epoch
 //! let cardano_databases = client.cardano_database_v2().list_by_epoch(Epoch(8)).await?;
@@ -76,10 +82,12 @@
 //! ```no_run
 //! # #[cfg(feature = "fs")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::{ClientBuilder, cardano_database_client::{ImmutableFileRange, DownloadUnpackOptions}};
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, cardano_database_client::{ImmutableFileRange, DownloadUnpackOptions}};
 //! use std::path::Path;
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
+//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//!     .build()?;
 //! let cardano_database_snapshot = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //!
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
@@ -111,10 +119,12 @@
 //! ```no_run
 //! # #[cfg(feature = "fs")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::{ClientBuilder, MessageBuilder, cardano_database_client::{ImmutableFileRange, DownloadUnpackOptions}};
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, cardano_database_client::{ImmutableFileRange, DownloadUnpackOptions}};
 //! use std::path::Path;
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
+//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//!     .build()?;
 //! let cardano_database_snapshot = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //! let certificate = client.certificate().verify_chain(&cardano_database_snapshot.certificate_hash).await?;
 //!

@@ -11,9 +11,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
+//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//!     .build()?;
 //! let certificate = client.certificate().get("CERTIFICATE_HASH").await?.unwrap();
 //!
 //! println!("Certificate hash={}, signed_message={}", certificate.hash, certificate.signed_message);
@@ -27,9 +29,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = mithril_client::ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
+//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//!     .build()?;
 //! let certificates = client.certificate().list().await?;
 //!
 //! for certificate in certificates {
@@ -45,9 +49,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::Url("YOUR_AGGREGATOR_ENDPOINT".to_string()))
+//!     .set_genesis_verification_key(GenesisVerificationKey::JsonHex("YOUR_GENESIS_VERIFICATION_KEY".to_string()))
+//!     .build()?;
 //! let certificate = client.certificate().verify_chain("CERTIFICATE_HASH").await?;
 //!
 //! println!("Chain of Certificate (hash: {}) is valid", certificate.hash);
