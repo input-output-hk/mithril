@@ -359,14 +359,6 @@ pub struct SnapshotConverterCommand {
     #[clap(long, requires("binary_path"))]
     config_path: Option<PathBuf>,
 
-    /// Cardano network.
-    #[clap(long)]
-    #[deprecated(
-        since = "0.12.12",
-        note = "optional: automatically detected from the protocolMagicId file"
-    )]
-    cardano_network: Option<CardanoNetworkCliArg>,
-
     /// UTxO-HD flavor to convert the ledger snapshot to (`Legacy`, `LMDB` or `LSM`).
     #[clap(long)]
     utxo_hd_flavor: UTxOHDFlavor,
@@ -424,17 +416,13 @@ impl SnapshotConverterCommand {
         let distribution_dir = work_dir.join(CARDANO_DISTRIBUTION_DIR);
 
         let result = {
-            #[allow(deprecated)]
-            let cardano_network = if let Some(network) = &self.cardano_network {
-                network.clone()
-            } else {
+            let cardano_network =
                 Self::detect_cardano_network(&self.db_directory).with_context(|| {
                     format!(
                         "Could not detect Cardano network from the database directory: {}",
                         self.db_directory.display()
                     )
-                })?
-            };
+                })?;
 
             let (converter_bin, config_path) = if is_local_bin_mode {
                 match (&self.binary_path, &self.config_path) {
@@ -1035,7 +1023,6 @@ mod tests {
         }
 
         fn dummy_snapshot_converter_command() -> SnapshotConverterCommand {
-            #[allow(deprecated)]
             SnapshotConverterCommand {
                 db_directory: PathBuf::new(),
                 cardano_node_version: "1.0.0".to_string(),
@@ -1044,7 +1031,6 @@ mod tests {
                 commit: false,
                 utxo_hd_flavor: UTxOHDFlavor::Legacy,
                 github_token: None,
-                cardano_network: None,
             }
         }
 
