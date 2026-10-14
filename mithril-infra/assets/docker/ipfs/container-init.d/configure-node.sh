@@ -34,3 +34,18 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 1024
 ipfs config Datastore.StorageMax "${IPFS_STORAGE_MAX}"
 ipfs config --json Experimental.FilestoreEnabled true
 ipfs config Plugins.Plugins.telemetry.Config.Mode off
+
+# The IPNS signing key is replaced at each start so that a rotated key from the deployment is applied
+if [ -n "${IPFS_IPNS_SIGNING_KEY:-}" ]; then
+  if [ -z "${IPFS_IPNS_SIGNING_KEY_NAME:-}" ]; then
+    echo "configure-node: IPFS_IPNS_SIGNING_KEY_NAME is not set" >&2
+    exit 1
+  fi
+  if ipfs key list | grep -qx "${IPFS_IPNS_SIGNING_KEY_NAME}"; then
+    ipfs key rm "${IPFS_IPNS_SIGNING_KEY_NAME}" > /dev/null
+  fi
+  ipns_key_file=$(mktemp)
+  trap 'rm -f "$ipns_key_file"' EXIT
+  printf '%s\n' "${IPFS_IPNS_SIGNING_KEY}" > "$ipns_key_file"
+  ipfs key import --format=pem-pkcs8-cleartext "${IPFS_IPNS_SIGNING_KEY_NAME}" "$ipns_key_file" > /dev/null
+fi
