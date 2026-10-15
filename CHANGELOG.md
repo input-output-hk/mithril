@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for `Cardano node` `11.1.2` in the signer and the aggregator.
 
+- Preliminary support for upcoming `Cardano node` `11.2` in the signer, aggregator and client.
+
 - Support for the DMQ node `0.7.2.0` stable version.
 
 - **UNSTABLE**:
