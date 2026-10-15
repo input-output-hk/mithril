@@ -453,6 +453,23 @@ Register the service to start on boot:
 sudo systemctl enable mithril-signer
 ```
 
+:::tip
+
+If you deployed the signer with the [guild-operators](https://github.com/cardano-community/guild-operators) scripts (`mithril-signer.sh -d`), the `cnode-mithril-signer.service` is bound to `cnode.service` but installed under `multi-user.target`: stopping and then starting the Cardano node leaves the signer stopped.
+
+The fix is being deployed by the guild-operators ([PR #1915](https://github.com/cardano-community/guild-operators/pull/1915)): once it is available, update your scripts and run `mithril-signer.sh -d` again.
+
+In the meantime, install the signer service under the Cardano node service and start it (replace `cnode` with your `CNODE_VNAME` if you changed it):
+
+```bash
+sudo sed -i 's/^WantedBy=multi-user.target$/WantedBy=cnode.service/' /etc/systemd/system/cnode-mithril-signer.service
+sudo systemctl daemon-reload
+sudo systemctl reenable cnode-mithril-signer.service
+sudo systemctl start cnode-mithril-signer.service
+```
+
+:::
+
 Monitor the status of the service:
 
 ```bash
