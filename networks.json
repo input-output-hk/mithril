@@ -30,6 +30,15 @@
               "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey"
             }
           },
+          "protocol-configuration-reader": {
+            "adapter-type": "cardano-chain",
+            "address": {
+              "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-mainnet/protocol-config.addr"
+            },
+            "verification-key": {
+              "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-mainnet/protocol-config.vkey"
+            }
+          },
           "ancillary": {
             "verification-key": {
               "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
@@ -70,6 +79,15 @@
               "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/era.vkey"
             }
           },
+          "protocol-configuration-reader": {
+            "adapter-type": "cardano-chain",
+            "address": {
+              "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/protocol-config.addr"
+            },
+            "verification-key": {
+              "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/protocol-config.vkey"
+            }
+          },
           "ancillary": {
             "verification-key": {
               "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
@@ -108,6 +126,15 @@
             },
             "verification-key": {
               "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/era.vkey"
+            }
+          },
+          "protocol-configuration-reader": {
+            "adapter-type": "cardano-chain",
+            "address": {
+              "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/protocol-config.addr"
+            },
+            "verification-key": {
+              "url": "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/protocol-config.vkey"
             }
           },
           "ancillary": {
