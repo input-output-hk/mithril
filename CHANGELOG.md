@@ -46,6 +46,10 @@ As a minor extension, we have adopted a slightly different versioning convention
     removal should not impact standard operations using current Mithril distributions.
   - Users relying on older `Gzip` snapshot artifacts or custom aggregators producing `Gzip` archives must migrate to `Zstandard`.
 
+- **REMOVED**: deprecated features in Mithril client library and CLI:
+  - The deprecated `ClientBuilder::aggregator` constructor of the library (use `ClientBuilder::new` with the new `AggregatorDiscoveryType::url` helper and `set_genesis_verification_key` with the new `GenesisVerificationKey::json_hex` helper instead).
+  - The deprecated `--cardano-network` option of the `tools utxo-hd snapshot-converter` command of the CLI (the network is detected from the `protocolMagicId` file of the database).
+
 | Crate               | Version |
 | ------------------- | ------- |
 | mithril-aggregator  | `-`     |
