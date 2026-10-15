@@ -13,13 +13,15 @@ use crate::tools::kubo_rpc_client::{KuboRpcQuery, TIMEOUT_FOR_SLOW_QUERY_SECS};
 pub struct IpfsNamePublishQuery {
     ipfs_object_path: String,
     ipfs_key: String,
+    lifetime: Duration,
+    ttl: Duration,
 }
 
 impl IpfsNamePublishQuery {
-    /// Lifetime in hours of the IPNS record in the DHT (using kubo default: 48 hours).
-    const BASE_LIFETIME_HOURS: u64 = 48;
-    /// Cache TTL in seconds of the IPNS record (using kubo default: 5 minutes).
-    const BASE_TTL_SECONDS: u64 = 60 * 5;
+    /// Default lifetime of the IPNS record in the DHT (using kubo default: 48 hours).
+    const DEFAULT_LIFETIME: Duration = Duration::from_hours(48);
+    /// Default cache TTL of the IPNS record (using kubo default: 5 minutes).
+    const DEFAULT_TTL: Duration = Duration::from_mins(5);
 
     /// Create a query that will publish the given IPFS object to IPNS.
     pub fn publish_to_ipns<P: Into<String>, K: Into<String>>(
@@ -29,7 +31,30 @@ impl IpfsNamePublishQuery {
         Self {
             ipfs_object_path: ipfs_object_path.into(),
             ipfs_key: ipfs_key.into(),
+            lifetime: Self::DEFAULT_LIFETIME,
+            ttl: Self::DEFAULT_TTL,
         }
+    }
+
+    /// Set the lifetime of the IPNS record in the DHT.
+    ///
+    /// Sent to kubo with a seconds precision, sub-second parts are truncated.
+    pub fn with_lifetime(mut self, lifetime: Duration) -> Self {
+        self.lifetime = lifetime;
+        self
+    }
+
+    /// Set the cache TTL of the IPNS record.
+    ///
+    /// Sent to kubo with a seconds precision, sub-second parts are truncated.
+    pub fn with_ttl(mut self, ttl: Duration) -> Self {
+        self.ttl = ttl;
+        self
+    }
+
+    /// Format a duration to a format accepted by kubo (Go `time.ParseDuration`).
+    fn format_duration(duration: Duration) -> String {
+        format!("{}s", duration.as_secs())
     }
 }
 
@@ -48,8 +73,8 @@ impl KuboRpcQuery for IpfsNamePublishQuery {
         Ok(request_builder.query(&[
             ("arg", &self.ipfs_object_path),
             ("key", &self.ipfs_key),
-            ("lifetime", &format!("{}h", Self::BASE_LIFETIME_HOURS)),
-            ("ttl", &format!("{}s", Self::BASE_TTL_SECONDS)),
+            ("lifetime", &Self::format_duration(self.lifetime)),
+            ("ttl", &Self::format_duration(self.ttl)),
         ]))
     }
 
@@ -81,7 +106,7 @@ mod tests {
                     "/ipfs/QmYi7wrRFKVCcTB56A6Pep2j31Q5mHfmmu21RzHXu25RVR",
                 )
                 .query_param("key", "my-key-name")
-                .query_param("lifetime", "48h")
+                .query_param("lifetime", "172800s")
                 .query_param("ttl", "300s");
             then.status(200);
         });
@@ -91,6 +116,30 @@ mod tests {
                 "/ipfs/QmYi7wrRFKVCcTB56A6Pep2j31Q5mHfmmu21RzHXu25RVR",
                 "my-key-name",
             ))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn send_configured_lifetime_and_ttl_in_seconds() {
+        let (server, client) = setup_server_and_client();
+        server.mock(|when, then| {
+            when.method(POST)
+                .path("/api/v0/name/publish")
+                .query_param("lifetime", "120s")
+                .query_param("ttl", "1s");
+            then.status(200);
+        });
+
+        client
+            .send(
+                IpfsNamePublishQuery::publish_to_ipns(
+                    "/ipfs/QmYi7wrRFKVCcTB56A6Pep2j31Q5mHfmmu21RzHXu25RVR",
+                    "my-key-name",
+                )
+                .with_lifetime(Duration::from_mins(2))
+                .with_ttl(Duration::from_millis(1500)),
+            )
             .await
             .unwrap();
     }

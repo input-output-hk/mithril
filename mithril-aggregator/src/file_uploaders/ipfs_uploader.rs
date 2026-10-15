@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use slog::{Logger, debug, trace, warn};
@@ -20,6 +21,11 @@ use crate::tools::kubo_rpc_client::{IpfsMfsDirPath, KuboRpcClient};
 
 /// IPFS Content Identifier (CID)
 pub type IpfsCid = String;
+
+/// Lifetime of the IPNS records published by the uploader in the DHT.
+const IPNS_RECORD_LIFETIME: Duration = Duration::from_hours(5 * 24);
+/// Cache TTL of the IPNS records published by the uploader.
+const IPNS_RECORD_TTL: Duration = Duration::from_mins(30);
 
 /// File uploader that stores files to IPFS
 pub struct IpfsUploader {
@@ -290,8 +296,12 @@ impl IpfsBackendUploader for KuboRpcClient {
 
     async fn publish_dir_to_ipns(&self, dir_cid: &IpfsCid, key_name: &str) -> StdResult<()> {
         let object_path = format!("/ipfs/{dir_cid}");
-        self.send(IpfsNamePublishQuery::publish_to_ipns(object_path, key_name))
-            .await
+        self.send(
+            IpfsNamePublishQuery::publish_to_ipns(object_path, key_name)
+                .with_lifetime(IPNS_RECORD_LIFETIME)
+                .with_ttl(IPNS_RECORD_TTL),
+        )
+        .await
     }
 
     async fn list_ipns_key_names(&self) -> StdResult<Vec<String>> {
