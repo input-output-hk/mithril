@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
+## Mithril Distribution [XXXX] - UNRELEASED
+
+| Crate               | Version |
+| ------------------- | ------- |
+| mithril-aggregator  | `-`     |
+| mithril-client      | `-`     |
+| mithril-client-cli  | `-`     |
+| mithril-client-wasm | `-`     |
+| mithril-common      | `-`     |
+| mithril-signer      | `-`     |
+| mithril-stm         | `-`     |
+
 ## Mithril Distribution [2642.0] - UNRELEASED
 
 - **REMOVED** support for `Gzip` compression in the Mithril aggregator and client:
