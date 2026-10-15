@@ -16,13 +16,15 @@
 Below is a basic example of how to use most of the functions exposed by the Mithril client library:
 
 ```rust
-use mithril_client::{ClientBuilder, MessageBuilder};
+use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder};
 use mithril_client::cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange};
 use std::path::Path;
 
 #[tokio::main]
 async fn main() -> mithril_client::MithrilResult<()> {
-    let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+    let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+        .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
+        .build()?;
 
     let snapshots = client.cardano_database_v2().list().await?;
 

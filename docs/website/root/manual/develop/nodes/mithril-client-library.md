@@ -69,14 +69,17 @@ Mithril client is an asynchronous library. You will need a runtime to execute yo
 Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
+};
 
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.release-preprod.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
-    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+    let client = ClientBuilder::new(AggregatorDiscoveryType::url(AGGREGATOR_ENDPOINT))
+        .set_genesis_verification_key(GenesisVerificationKey::json_hex(GENESIS_VERIFICATION_KEY))
         .with_origin_tag(Some("EXAMPLE".to_string()))
         .build()?;
 
@@ -145,14 +148,17 @@ cargo run
 Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
+};
 
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.release-preprod.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
-    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+    let client = ClientBuilder::new(AggregatorDiscoveryType::url(AGGREGATOR_ENDPOINT))
+        .set_genesis_verification_key(GenesisVerificationKey::json_hex(GENESIS_VERIFICATION_KEY))
         .with_origin_tag(Some("EXAMPLE".to_string()))
         .build()?;
 
@@ -210,14 +216,17 @@ async fn main() -> MithrilResult<()> {
 Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
+};
 
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.release-preprod.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
-    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+    let client = ClientBuilder::new(AggregatorDiscoveryType::url(AGGREGATOR_ENDPOINT))
+        .set_genesis_verification_key(GenesisVerificationKey::json_hex(GENESIS_VERIFICATION_KEY))
         .with_origin_tag(Some("EXAMPLE".to_string()))
         .build()?;
 
@@ -275,14 +284,17 @@ async fn main() -> MithrilResult<()> {
 Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
+};
 
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.release-preprod.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
-    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+    let client = ClientBuilder::new(AggregatorDiscoveryType::url(AGGREGATOR_ENDPOINT))
+        .set_genesis_verification_key(GenesisVerificationKey::json_hex(GENESIS_VERIFICATION_KEY))
         .with_origin_tag(Some("EXAMPLE".to_string()))
         .build()?;
 
@@ -348,7 +360,7 @@ wget -q -O - https://aggregator.testing-preview.api.mithril.network/aggregator |
 ```rust title="/src/main.rs"
 use mithril_client::{
     cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange},
-    ClientBuilder, MessageBuilder,
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
 };
 use std::path::Path;
 
@@ -358,7 +370,8 @@ async fn main() -> mithril_client::MithrilResult<()> {
         "https://aggregator.testing-preview.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
     const ANCILLARY_VERIFICATION_KEY: &str = "5b3138392c3139322c3231362c3135302c3131342c3231362c3233372c3231302c34352c31382c32312c3139362c3230382c3234362c3134362c322c3235322c3234332c3235312c3139372c32382c3135372c3230342c3134352c33302c31342c3232382c3136382c3132392c38332c3133362c33365d";
-    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+    let client = ClientBuilder::new(AggregatorDiscoveryType::url(AGGREGATOR_ENDPOINT))
+        .set_genesis_verification_key(GenesisVerificationKey::json_hex(GENESIS_VERIFICATION_KEY))
         .set_ancillary_verification_key(ANCILLARY_VERIFICATION_KEY.to_string())
         .with_origin_tag(Some("EXAMPLE".to_string()))
         .build()?;
@@ -478,7 +491,7 @@ use chrono::TimeDelta;
 use mithril_client::certificate_client::{
     CertificateVerifierCacheMode, FileCertificateVerifierCache,
 };
-use mithril_client::{ClientBuilder, MithrilResult};
+use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MithrilResult};
 
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
@@ -489,7 +502,8 @@ async fn main() -> MithrilResult<()> {
         Path::new("./certificate-chain-cache"),
         TimeDelta::weeks(1),
     ));
-    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+    let client = ClientBuilder::new(AggregatorDiscoveryType::url(AGGREGATOR_ENDPOINT))
+        .set_genesis_verification_key(GenesisVerificationKey::json_hex(GENESIS_VERIFICATION_KEY))
         .with_certificate_verifier_cache(
             Some(certificate_verifier_cache),
             CertificateVerifierCacheMode::FullVerification,

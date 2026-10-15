@@ -15,9 +15,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
+//!     .build()?;
 //!
 //! let fetched_era = client.mithril_era_client().fetch_current().await?;
 //! match fetched_era.to_supported_era() {

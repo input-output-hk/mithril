@@ -1,6 +1,3 @@
-// TODO: Remove this allow once migration from deprecated AggregatorClient types is complete
-#![allow(deprecated)]
-
 mod extensions;
 
 use mithril_client::{

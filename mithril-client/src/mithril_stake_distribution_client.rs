@@ -10,9 +10,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
+//!     .build()?;
 //! let mithril_stake_distribution = client.mithril_stake_distribution().get("MITHRIL_STAKE_DISTRIBUTION_HASH").await?.unwrap();
 //!
 //! println!("Mithril stake distribution hash={}, epoch={}", mithril_stake_distribution.hash, mithril_stake_distribution.epoch);
@@ -26,9 +28,11 @@
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
+//!     .build()?;
 //! let mithril_stake_distributions = client.mithril_stake_distribution().list().await?;
 //!
 //! for mithril_stake_distribution in mithril_stake_distributions {

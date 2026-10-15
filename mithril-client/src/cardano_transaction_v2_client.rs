@@ -18,9 +18,11 @@
 //! ```no_run
 //!  #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::{ClientBuilder, MessageBuilder};
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
+//!     .build()?;
 //!
 //! // 1 - Get a proof from the aggregator and verify it
 //! let cardano_transaction_proof = client.cardano_transaction_v2().get_proof(&["tx-1", "tx-2"]).await?;
@@ -48,9 +50,11 @@
 //! ```no_run
 //!  #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
+//!     .build()?;
 //! let cardano_transaction_snapshot = client.cardano_transaction_v2().get_snapshot("CARDANO_TRANSACTION_SNAPSHOT_HASH").await?.unwrap();
 //!
 //! println!("Cardano transaction snapshot hash={}, epoch={}, block_number_signed={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.epoch, cardano_transaction_snapshot.block_number_signed);
@@ -65,9 +69,11 @@
 //! ```no_run
 //! #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
+//! use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let client = ClientBuilder::new(AggregatorDiscoveryType::url("YOUR_AGGREGATOR_ENDPOINT"))
+//!     .set_genesis_verification_key(GenesisVerificationKey::json_hex("YOUR_GENESIS_VERIFICATION_KEY"))
+//!     .build()?;
 //! let cardano_transaction_snapshots = client.cardano_transaction_v2().list_snapshots().await?;
 //!
 //! for cardano_transaction_snapshot in cardano_transaction_snapshots {

@@ -71,6 +71,13 @@ pub enum AggregatorDiscoveryType {
     Automatic(MithrilNetwork),
 }
 
+impl AggregatorDiscoveryType {
+    /// Use a specific URL to connect to the aggregator.
+    pub fn url<S: Into<String>>(url: S) -> Self {
+        Self::Url(url.into())
+    }
+}
+
 #[cfg(not(target_family = "wasm"))]
 impl FromStr for AggregatorDiscoveryType {
     type Err = anyhow::Error;
@@ -90,6 +97,13 @@ impl FromStr for AggregatorDiscoveryType {
 pub enum GenesisVerificationKey {
     /// The verification key is provided as a JSON Hex-encoded string.
     JsonHex(String),
+}
+
+impl GenesisVerificationKey {
+    /// Creates a genesis verification key from a JSON Hex-encoded string.
+    pub fn json_hex<S: Into<String>>(json_hex: S) -> Self {
+        Self::JsonHex(json_hex.into())
+    }
 }
 
 /// Options that can be used to configure the client.
@@ -265,18 +279,6 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
-    /// endpoint and with the given genesis verification key.
-    #[deprecated(
-        since = "0.12.36",
-        note = "Use `new` method instead and set the genesis verification key with `set_genesis_verification_key`"
-    )]
-    pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
-        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).set_genesis_verification_key(
-            GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
-        )
-    }
-
     /// Constructs a new `ClientBuilder` that automatically discovers the aggregator for the given
     /// Mithril network and with the given genesis verification key.
     #[cfg(not(target_family = "wasm"))]
@@ -901,5 +903,27 @@ mod tests {
                 "client type".to_string()
             )])
         );
+    }
+
+    #[test]
+    fn aggregator_discovery_type_url_builds_url_variant_from_str_and_string() {
+        let from_str = AggregatorDiscoveryType::url("https://aggregator.mithril");
+        let from_string = AggregatorDiscoveryType::url("https://aggregator.mithril".to_string());
+
+        assert!(
+            matches!(from_str, AggregatorDiscoveryType::Url(url) if url == "https://aggregator.mithril")
+        );
+        assert!(
+            matches!(from_string, AggregatorDiscoveryType::Url(url) if url == "https://aggregator.mithril")
+        );
+    }
+
+    #[test]
+    fn genesis_verification_key_json_hex_builds_json_hex_variant_from_str_and_string() {
+        let from_str = GenesisVerificationKey::json_hex("5b3132");
+        let from_string = GenesisVerificationKey::json_hex("5b3132".to_string());
+
+        assert!(matches!(from_str, GenesisVerificationKey::JsonHex(key) if key == "5b3132"));
+        assert!(matches!(from_string, GenesisVerificationKey::JsonHex(key) if key == "5b3132"));
     }
 }
