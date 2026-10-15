@@ -18,7 +18,7 @@ pub struct IpfsNamePublishQuery {
 impl IpfsNamePublishQuery {
     /// Lifetime in hours of the IPNS record in the DHT (using kubo default: 48 hours).
     const BASE_LIFETIME_HOURS: u64 = 48;
-    /// Cache TTL in seconds of the IPNS record in the Kubo node (using kubo default: 5 minutes).
+    /// Cache TTL in seconds of the IPNS record (using kubo default: 5 minutes).
     const BASE_TTL_SECONDS: u64 = 60 * 5;
 
     /// Create a query that will publish the given IPFS object to IPNS.

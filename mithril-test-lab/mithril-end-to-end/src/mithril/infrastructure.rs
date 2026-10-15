@@ -377,8 +377,9 @@ impl MithrilInfrastructure {
         certificate_chain_aggregator_endpoint: Option<String>,
     ) -> StdResult<Aggregator> {
         let aggregator_name = Aggregator::name_suffix(index);
+        let is_leader = index == 0;
 
-        if let Some(kubo_node) = ipfs_kubo_node {
+        if is_leader && let Some(kubo_node) = ipfs_kubo_node {
             kubo_node
                 .create_ipns_keypair(IPNS_KEY_NAME_FOR_SNAPSHOT)
                 .await

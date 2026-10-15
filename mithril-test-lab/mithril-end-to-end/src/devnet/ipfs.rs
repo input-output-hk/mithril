@@ -25,7 +25,6 @@ pub enum IpfsDevnetMode {
 
 #[derive(Debug, Clone)]
 pub struct IpfsDevnet {
-    swarm_dir: PathBuf,
     topology: Vec<KuboNode>,
     mode: IpfsDevnetMode,
     command_builder: IpfsCommandBuilder,
@@ -214,7 +213,6 @@ impl IpfsDevnet {
 
         let command_builder = IpfsCommandBuilder::new(&devnet_script_path, &swarm_dir);
         Ok(IpfsDevnet {
-            swarm_dir: bootstrap_args.swarm_target_dir.to_owned(),
             topology: Self::build_topology(
                 bootstrap_args.number_of_nodes,
                 &bootstrap_args.swarm_target_dir,
@@ -250,7 +248,6 @@ impl IpfsDevnet {
 
         match bootstrap_command.execute().await?.code() {
             Some(0) => Ok(IpfsDevnet {
-                swarm_dir: bootstrap_args.swarm_target_dir.to_owned(),
                 topology: Self::build_topology(
                     bootstrap_args.number_of_nodes,
                     &bootstrap_args.swarm_target_dir,
@@ -264,10 +261,6 @@ impl IpfsDevnet {
             )))),
             None => Err(anyhow!("IPFS Bootstrap devnet terminated by signal")),
         }
-    }
-
-    pub fn swarm_dir(&self) -> PathBuf {
-        self.swarm_dir.clone()
     }
 
     pub fn topology(&self) -> &[KuboNode] {

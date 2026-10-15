@@ -54,7 +54,9 @@ impl CheckCardanoDatabaseToolkit {
         )
         .await?;
 
-        if let Some(client_kubo_node) = client_ipfs_node {
+        if aggregator.is_leader()
+            && let Some(client_kubo_node) = client_ipfs_node
+        {
             let aggregator_kubo_node = aggregator.ipfs_kubo_node().with_context(|| {
                 format!(
                     "IPFS devnet is enabled but {} has no Kubo node",
