@@ -7,7 +7,9 @@ use serde::Deserialize;
 
 use mithril_common::StdResult;
 
-use crate::tools::kubo_rpc_client::{IpfsMfsDirPath, KuboRpcQuery};
+use crate::tools::kubo_rpc_client::{
+    DEFAULT_TIMEOUT_SECS, IpfsMfsDirPath, KuboRpcQuery, TIMEOUT_FOR_SLOW_QUERY_SECS,
+};
 
 /// Query to add a file to IPFS via the Kubo RPC API.
 ///
@@ -30,9 +32,6 @@ pub struct IpfsAddResponse {
 }
 
 impl IpfsAddQuery {
-    const BASE_TIMEOUT_SECS: u64 = 10;
-    const MAX_TIMEOUT_SECS: u64 = 3 * 60;
-
     /// Create a query that will add the given file to IPFS.
     #[cfg(test)]
     pub fn new<P: AsRef<Path>>(file_path: P) -> Self {
@@ -77,12 +76,12 @@ impl IpfsAddQuery {
         const BYTES_PER_MIB: u64 = 1024 * 1024;
 
         match file_size_in_bytes {
-            None => Duration::from_secs(Self::MAX_TIMEOUT_SECS),
+            None => Duration::from_secs(TIMEOUT_FOR_SLOW_QUERY_SECS),
             Some(size_in_bytes) => {
                 let file_size_mib = size_in_bytes.div_ceil(BYTES_PER_MIB);
-                let timeout_secs = Self::BASE_TIMEOUT_SECS
+                let timeout_secs = DEFAULT_TIMEOUT_SECS
                     .saturating_add(file_size_mib)
-                    .min(Self::MAX_TIMEOUT_SECS);
+                    .min(TIMEOUT_FOR_SLOW_QUERY_SECS);
 
                 Duration::from_secs(timeout_secs)
             }
@@ -276,7 +275,7 @@ mod tests {
         #[test]
         fn timeout_duration_adds_one_second_for_each_started_mib() {
             let cases = [
-                (0, IpfsAddQuery::BASE_TIMEOUT_SECS),
+                (0, DEFAULT_TIMEOUT_SECS),
                 (1, 11),
                 (MIB, 11),
                 (MIB + 1, 12),
@@ -294,13 +293,13 @@ mod tests {
         }
 
         #[test]
-        fn timeout_duration_is_capped_at_three_minutes() {
+        fn timeout_duration_is_capped_at_slow_query_timeout() {
             let cases = [
                 (169 * MIB, 179),
-                (169 * MIB + 1, IpfsAddQuery::MAX_TIMEOUT_SECS),
-                (170 * MIB, IpfsAddQuery::MAX_TIMEOUT_SECS),
-                (171 * MIB, IpfsAddQuery::MAX_TIMEOUT_SECS),
-                (u64::MAX, IpfsAddQuery::MAX_TIMEOUT_SECS),
+                (169 * MIB + 1, TIMEOUT_FOR_SLOW_QUERY_SECS),
+                (170 * MIB, TIMEOUT_FOR_SLOW_QUERY_SECS),
+                (171 * MIB, TIMEOUT_FOR_SLOW_QUERY_SECS),
+                (u64::MAX, TIMEOUT_FOR_SLOW_QUERY_SECS),
             ];
 
             for (file_size, expected_timeout_secs) in cases {

@@ -152,6 +152,10 @@ For node `N`, the default local ports are:
 | Gateway | `5100 + N`   | `5101`             |
 | Swarm   | `5200 + N`   | `5201`             |
 
+> [!IMPORTANT]
+> `init` fails if any of these ports is already in use (e.g. by a swarm still running from this or another
+> directory). Stop that swarm first, see [Troubleshooting](#some-kubo-nodes-are-still-running-after-stop).
+
 #### Re-initialize an existing swarm
 
 If the target swarm directory already contains node configurations, use `--overwrite`:
@@ -374,8 +378,11 @@ SWARM_DIR=./swarm ./ipfs-devnet.sh query -- --node 2 swarm peers
 Download the Kubo Web UI as a CAR archive and import it into the first swarm node, making it available inside the
 private IPFS network.
 
+The CAR archive is downloaded from the [ipfs-webui GitHub release](https://github.com/ipfs/ipfs-webui/releases) whose
+CID matches the Web UI expected by the running Kubo node. The command fails if no release matches this CID.
+
 > [!IMPORTANT]
-> The swarm must be running before using this command. The download may take some time.
+> The swarm must be running before using this command, and `jq` must be installed.
 
 ```shell
 ./ipfs-devnet.sh load-webui [OPTIONS]

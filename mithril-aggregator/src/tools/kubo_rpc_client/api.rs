@@ -9,6 +9,12 @@ use mithril_common::{StdError, StdResult};
 
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
+/// Default timeout for the RPC request.
+pub const DEFAULT_TIMEOUT_SECS: u64 = 10;
+
+/// Timeout for slow queries (large uploads, DHT publication).
+pub const TIMEOUT_FOR_SLOW_QUERY_SECS: u64 = 3 * 60;
+
 /// Trait for defining RPC queries to the Kubo IPFS node.
 #[async_trait::async_trait]
 pub trait KuboRpcQuery: Sync {
@@ -30,9 +36,9 @@ pub trait KuboRpcQuery: Sync {
         Ok(request_builder)
     }
 
-    /// Timeout for the RPC request, defaults to 10 seconds.
+    /// Timeout for the RPC request, defaults to [DEFAULT_TIMEOUT_SECS] seconds.
     fn timeout(&self) -> Duration {
-        Duration::from_secs(10)
+        Duration::from_secs(DEFAULT_TIMEOUT_SECS)
     }
 
     /// Handles a successful RPC response and converts it to the expected response type.

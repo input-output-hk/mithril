@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use slog_scope::info;
 use std::collections::BTreeSet;
@@ -18,8 +19,8 @@ use crate::mithril::relay_signer::RelaySignerConfiguration;
 use crate::toolkit::ScenarioToolkit;
 use crate::{
     AggregateSignatureType, Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet,
-    DmqNodeFlavor, FullNode, GenesisKeys, IpfsDevnet, KuboNode, PoolNode, RelayAggregator,
-    RelayPassive, RelaySigner, Signer,
+    DmqNodeFlavor, FullNode, GenesisKeys, IPNS_KEY_NAME_FOR_SNAPSHOT, IpfsDevnet, KuboNode,
+    PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer,
 };
 
 use super::signer::SignerConfig;
@@ -376,6 +377,17 @@ impl MithrilInfrastructure {
         certificate_chain_aggregator_endpoint: Option<String>,
     ) -> StdResult<Aggregator> {
         let aggregator_name = Aggregator::name_suffix(index);
+        let is_leader = index == 0;
+
+        if is_leader && let Some(kubo_node) = ipfs_kubo_node {
+            kubo_node
+                .create_ipns_keypair(IPNS_KEY_NAME_FOR_SNAPSHOT)
+                .await
+                .with_context(|| {
+                    format!("Failed to create IPNS keypair for aggregator {aggregator_name}")
+                })?;
+        }
+
         let aggregator_artifacts_dir = config
             .artifacts_dir
             .join(format!("mithril-aggregator-{aggregator_name}"));

@@ -4,12 +4,14 @@ use slog_scope::{info, warn};
 
 use mithril_common::{
     StdResult,
-    entities::{Epoch, EpochSpecifier},
+    entities::{Epoch, EpochSpecifier, ImmutableFileNumber},
     messages::{CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListItemMessage},
 };
 
 use crate::{
-    Aggregator, CardanoDbV2Command, Client, ClientCommand, poll_until,
+    Aggregator, CardanoDbV2Command, Client, ClientCommand, KuboNode,
+    mithril::IPNS_KEY_NAME_FOR_SNAPSHOT,
+    poll_until,
     toolkit::{CheckCertificateToolkit, ScenarioToolkitContext},
     utils::AttemptResult,
 };
@@ -30,7 +32,7 @@ impl CheckCardanoDatabaseToolkit {
         &self,
         aggregator: &Aggregator,
         client: &mut Client,
-        ipfs_rpc_url: Option<Url>,
+        client_ipfs_node: Option<&KuboNode>,
         expected_epoch_min: Epoch,
         total_signers_expected: usize,
     ) -> StdResult<()> {
@@ -45,7 +47,30 @@ impl CheckCardanoDatabaseToolkit {
             )
             .await?;
         self.node_producing_cardano_database_digests_map(aggregator).await?;
-        self.verify_with_client(client, ipfs_rpc_url, &artifact.hash).await?;
+        self.verify_with_client(
+            client,
+            client_ipfs_node.map(|n| n.rpc_url.clone()),
+            &artifact.hash,
+        )
+        .await?;
+
+        if aggregator.is_leader()
+            && let Some(client_kubo_node) = client_ipfs_node
+        {
+            let aggregator_kubo_node = aggregator.ipfs_kubo_node().with_context(|| {
+                format!(
+                    "IPFS devnet is enabled but {} has no Kubo node",
+                    aggregator.name()
+                )
+            })?;
+            self.check_immutable_published_to_ipns(
+                aggregator,
+                aggregator_kubo_node,
+                client_kubo_node,
+                artifact.beacon.immutable_file_number,
+            )
+            .await?;
+        }
 
         Ok(())
     }
@@ -168,5 +193,72 @@ impl CheckCardanoDatabaseToolkit {
         }
 
         Ok(())
+    }
+
+    pub async fn check_immutable_published_to_ipns(
+        &self,
+        aggregator: &Aggregator,
+        aggregator_kubo_node: &KuboNode,
+        client_kubo_node: &KuboNode,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<()> {
+        info!(
+            "Checking IPNS publication of immutable file #{immutable_file_number}";
+            "aggregator" => &aggregator.name(),
+        );
+
+        let ipns_key_id = aggregator_kubo_node
+            .get_ipns_key_id(IPNS_KEY_NAME_FOR_SNAPSHOT)
+            .await?
+            .with_context(|| {
+                format!(
+                    "Failed to get IPNS key ID for key '{IPNS_KEY_NAME_FOR_SNAPSHOT}' and {}",
+                    aggregator.name()
+                )
+            })?;
+        info!("IPNS key ID for key '{IPNS_KEY_NAME_FOR_SNAPSHOT}': '{ipns_key_id}'"; "aggregator" => &aggregator.name());
+
+        let ipns_name = format!("/ipns/{ipns_key_id}");
+        let ipfs_file_name_for_immutable = format!("{immutable_file_number:0>5}.tar.zst");
+        let mut last_error = None;
+
+        match poll_until!(
+            self.context.existing_artifact_fetch_timeout(),
+            self.context.poll_backoff(),
+            {
+                match client_kubo_node.resolve_file_in_ipns_dir(
+                    &ipns_name,
+                    &ipfs_file_name_for_immutable,
+                )
+                .await
+                {
+                    Ok(ipfs_dir_path) => Ok(Some(ipfs_dir_path)),
+                    Err(error) => {
+                        warn!("IPNS publication not yet available, retrying"; "error" => ?error, "aggregator" => &aggregator.name());
+                        last_error = Some(error);
+                        Ok(None)
+                    }
+                }
+            }
+        ) {
+            AttemptResult::Ok(ipfs_dir_path) => {
+                info!(
+                    "Success, '{ipns_name}' resolves to '{ipfs_dir_path}' that contains immutable {immutable_file_number:0>5}";
+                    "aggregator" => &aggregator.name()
+                );
+                Ok(())
+            }
+            AttemptResult::Err(error) => Err(error),
+            AttemptResult::Timeout(..) => {
+                let error = anyhow!(
+                    "Timeout exhausted while checking that '{ipns_name}' contains immutable {immutable_file_number:0>5}"
+                );
+                Err(match last_error {
+                    Some(last_error) => last_error.context(error),
+                    None => error,
+                })
+            }
+        }
+        .with_context(|| format!("Checking IPNS publication of aggregator `{}`", aggregator.name()))
     }
 }

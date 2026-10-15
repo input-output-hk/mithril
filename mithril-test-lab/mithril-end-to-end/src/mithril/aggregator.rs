@@ -19,7 +19,7 @@ use crate::utils::{EnvVars, MithrilCommand, NodeVersion};
 use crate::{
     ANCILLARY_MANIFEST_SECRET_KEY, AggregateSignatureType, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID,
     DmqNodeFlavor, ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, FullNode, GenesisKeys,
-    KuboNode, PROTOCOL_CONFIGURATION_MARKERS_SECRET_KEY,
+    IPNS_KEY_NAME_FOR_SNAPSHOT, KuboNode, PROTOCOL_CONFIGURATION_MARKERS_SECRET_KEY,
     PROTOCOL_CONFIGURATION_MARKERS_VERIFICATION_KEY, RetryableDevnetError,
 };
 
@@ -64,6 +64,7 @@ pub struct Aggregator {
     process: RwLock<Option<Child>>,
     chain_observer: Arc<dyn ChainObserver>,
     full_node: FullNode,
+    ipfs_kubo_node: Option<KuboNode>,
     aggregate_signature_type: AggregateSignatureType,
     startup_protocol_parameters: ProtocolParameters,
 }
@@ -223,8 +224,8 @@ impl Aggregator {
             env.insert(
                 "IPFS_RPC_SERVER_CONFIG",
                 format!(
-                    r#"{{"url": "{}", "mfs_folder_name": "mithril-snapshots"}}"#,
-                    node.rpc_url
+                    r#"{{"url": "{}", "mfs_folder_name": "mithril-snapshots", "ipns_key_name": "{}"}}"#,
+                    node.rpc_url, IPNS_KEY_NAME_FOR_SNAPSHOT
                 ),
             );
         }
@@ -258,6 +259,7 @@ impl Aggregator {
             process: RwLock::new(None),
             chain_observer,
             full_node: aggregator_config.full_node.clone(),
+            ipfs_kubo_node: aggregator_config.ipfs_kubo_node.cloned(),
             aggregate_signature_type: aggregator_config.aggregate_signature_type,
             startup_protocol_parameters: aggregator_config.startup_protocol_parameters.clone(),
         })
@@ -324,6 +326,7 @@ impl Aggregator {
             process: RwLock::new(None),
             chain_observer: other.chain_observer.clone(),
             full_node: other.full_node.clone(),
+            ipfs_kubo_node: other.ipfs_kubo_node.clone(),
             aggregate_signature_type: other.aggregate_signature_type,
             startup_protocol_parameters: other.startup_protocol_parameters.clone(),
         }
@@ -363,6 +366,10 @@ impl Aggregator {
 
     pub fn full_node(&self) -> &FullNode {
         &self.full_node
+    }
+
+    pub fn ipfs_kubo_node(&self) -> Option<&KuboNode> {
+        self.ipfs_kubo_node.as_ref()
     }
 
     /// Get the version of the mithril-aggregator binary.

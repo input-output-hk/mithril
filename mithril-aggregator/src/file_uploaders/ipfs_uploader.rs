@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
-use slog::{Logger, trace};
+use slog::{Logger, debug, trace, warn};
 
 use mithril_common::StdResult;
 use mithril_common::entities::FileUri;
@@ -13,17 +14,24 @@ use crate::FileUploader;
 use crate::file_uploaders::FileUploadRetryPolicy;
 use crate::file_uploaders::interface::retry;
 use crate::tools::kubo_rpc_client::query::{
-    IpfsAddQuery, IpfsFilesLsQuery, IpfsFilesMkdirQuery, IpfsFilesStatQuery,
+    IpfsAddQuery, IpfsFilesLsQuery, IpfsFilesMkdirQuery, IpfsFilesStatQuery, IpfsKeyLsQuery,
+    IpfsNamePublishQuery,
 };
 use crate::tools::kubo_rpc_client::{IpfsMfsDirPath, KuboRpcClient};
 
 /// IPFS Content Identifier (CID)
 pub type IpfsCid = String;
 
+/// Lifetime of the IPNS records published by the uploader in the DHT.
+const IPNS_RECORD_LIFETIME: Duration = Duration::from_hours(5 * 24);
+/// Cache TTL of the IPNS records published by the uploader.
+const IPNS_RECORD_TTL: Duration = Duration::from_mins(30);
+
 /// File uploader that stores files to IPFS
 pub struct IpfsUploader {
     rpc_client: Arc<dyn IpfsBackendUploader>,
     ipfs_dir_path: IpfsMfsDirPath,
+    ipns_key_name: Option<String>,
     retry_policy: FileUploadRetryPolicy,
     logger: Logger,
 }
@@ -33,12 +41,14 @@ impl IpfsUploader {
     pub fn new(
         rpc_client: Arc<dyn IpfsBackendUploader>,
         ipfs_dir_path: IpfsMfsDirPath,
+        ipns_key_name: Option<String>,
         retry_policy: FileUploadRetryPolicy,
         logger: &Logger,
     ) -> Self {
         Self {
             rpc_client,
             ipfs_dir_path,
+            ipns_key_name,
             retry_policy,
             logger: logger.new_with_component_name::<Self>(),
         }
@@ -59,6 +69,7 @@ impl IpfsUploader {
             .await
             .with_context(|| "listing files in IPFS MFS directory")?;
 
+        let mut uploaded_files = 0;
         for file_path in files {
             let filename =
                 file_path
@@ -82,9 +93,18 @@ impl IpfsUploader {
                 format!(" Uploaded file path: {}", file_path.display()),
             )
             .await?;
+            uploaded_files += 1;
         }
 
-        self.get_current_directory_cid().await
+        let dir_cid = self.get_current_directory_cid().await?;
+        debug!(
+            self.logger, "Batch upload to IPFS finished";
+            "dir_cid" => %dir_cid, "uploaded_files" => uploaded_files, "already_present_files" => files.len() - uploaded_files
+        );
+
+        self.publish_directory_to_ipns(&dir_cid).await;
+
+        Ok(dir_cid)
     }
 
     /// Get the current directory CID, reflecting the latest state of the directory
@@ -146,6 +166,52 @@ impl IpfsUploader {
 
         Ok(FileUri(cid))
     }
+
+    /// Check that the given IPNS key is available in the IPFS node keystore, logging a warning
+    /// if it is not or if the check fails.
+    ///
+    /// Allows logging a cleaner message than just relying on the error returned by the IPFS node.
+    async fn check_ipns_key_availability(&self, ipns_key_name: &str) -> bool {
+        match self.rpc_client.list_ipns_key_names().await {
+            Ok(key_names) if key_names.iter().any(|name| name == ipns_key_name) => true,
+            Ok(_) => {
+                warn!(
+                    self.logger, "IPNS key not found in the IPFS node, skipping publication of the directory to IPNS. The key must be imported in the IPFS node keystore";
+                    "key_name" => ipns_key_name
+                );
+                false
+            }
+            Err(err) => {
+                warn!(
+                    self.logger, "Failed to list the IPFS node keys, skipping publication of the directory to IPNS";
+                    "err" => ?err, "key_name" => ipns_key_name
+                );
+                false
+            }
+        }
+    }
+
+    async fn publish_directory_to_ipns(&self, dir_cid: &IpfsCid) {
+        if let Some(key) = &self.ipns_key_name {
+            if !self.check_ipns_key_availability(key).await {
+                return;
+            }
+
+            trace!(self.logger, "Publishing dir to IPNS"; "dir_cid" => dir_cid, "key_name" => key);
+
+            match self.rpc_client.publish_dir_to_ipns(dir_cid, key).await {
+                Ok(()) => {
+                    debug!(self.logger, "Directory published to IPNS"; "dir_cid" => dir_cid, "key_name" => key);
+                }
+                Err(err) => {
+                    warn!(
+                        self.logger, "Failed to publish directory to an IPNS record";
+                        "err" => ?err, "dir_cid" => dir_cid, "key_name" => key
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -181,6 +247,12 @@ pub trait IpfsBackendUploader: Sync + Send {
         mfs_dir_path: &IpfsMfsDirPath,
         file_path: &Path,
     ) -> StdResult<Option<IpfsCid>>;
+
+    /// Publish a directory to IPNS using a given key
+    async fn publish_dir_to_ipns(&self, dir_cid: &IpfsCid, key_name: &str) -> StdResult<()>;
+
+    /// List the names of the keys available in the IPFS node keystore
+    async fn list_ipns_key_names(&self) -> StdResult<Vec<String>>;
 }
 
 #[async_trait::async_trait]
@@ -221,6 +293,21 @@ impl IpfsBackendUploader for KuboRpcClient {
             .await?;
         Ok(stat.map(|stat| stat.hash))
     }
+
+    async fn publish_dir_to_ipns(&self, dir_cid: &IpfsCid, key_name: &str) -> StdResult<()> {
+        let object_path = format!("/ipfs/{dir_cid}");
+        self.send(
+            IpfsNamePublishQuery::publish_to_ipns(object_path, key_name)
+                .with_lifetime(IPNS_RECORD_LIFETIME)
+                .with_ttl(IPNS_RECORD_TTL),
+        )
+        .await
+    }
+
+    async fn list_ipns_key_names(&self) -> StdResult<Vec<String>> {
+        let keys = self.send(IpfsKeyLsQuery::new()).await?;
+        Ok(keys.into_iter().map(|key| key.name).collect())
+    }
 }
 
 #[cfg(test)]
@@ -241,9 +328,20 @@ mod tests {
             Self::new(
                 MockBuilder::configure(mock_config),
                 mfs_dir.into(),
+                None,
                 FileUploadRetryPolicy::never(),
                 &TestLogger::stdout(),
             )
+        }
+
+        fn with_ipns_key_name(mut self, key_name: &str) -> Self {
+            self.ipns_key_name = Some(key_name.to_string());
+            self
+        }
+
+        fn with_logger(mut self, logger: Logger) -> Self {
+            self.logger = logger;
+            self
         }
     }
 
@@ -335,6 +433,7 @@ mod tests {
                     .with(eq(IpfsMfsDirPath::from(MFS_DIR)))
                     .return_once(|_| Ok("directory-cid".to_string()))
                     .once();
+                mock.expect_publish_dir_to_ipns().never();
             });
 
             let directory_cid = uploader
@@ -343,6 +442,47 @@ mod tests {
                     PathBuf::from("/local/new-file-1.txt"),
                     PathBuf::from("/other/new-file-2.txt"),
                 ])
+                .await
+                .unwrap();
+
+            assert_eq!("directory-cid", directory_cid);
+        }
+
+        #[tokio::test]
+        async fn publish_directory_cid_to_ipns_using_key_name_if_configured() {
+            let uploader = IpfsUploader::new_for_test(MFS_DIR, move |mock| {
+                mock.expect_create_dir()
+                    .with(eq(IpfsMfsDirPath::from(MFS_DIR)))
+                    .return_once(|_| Ok(()))
+                    .once();
+                mock.expect_list_directory_files()
+                    .with(eq(IpfsMfsDirPath::from(MFS_DIR)))
+                    .return_once(move |_| Ok(HashSet::new()))
+                    .once();
+                mock.expect_file_exists().never();
+                mock.expect_upload_file()
+                    .with(
+                        eq(PathBuf::from("/local/new-file-1.txt")),
+                        eq(IpfsMfsDirPath::from(MFS_DIR)),
+                    )
+                    .return_once(|_, _| Ok("file-1-cid".to_string()))
+                    .once();
+                mock.expect_get_dir_cid()
+                    .with(eq(IpfsMfsDirPath::from(MFS_DIR)))
+                    .return_once(|_| Ok("directory-cid".to_string()))
+                    .once();
+                mock.expect_list_ipns_key_names()
+                    .return_once(|| Ok(vec!["self".to_string(), "test-key-name".to_string()]))
+                    .once();
+                mock.expect_publish_dir_to_ipns()
+                    .with(eq("directory-cid".to_string()), eq("test-key-name"))
+                    .return_once(|_, _| Ok(()))
+                    .once();
+            })
+            .with_ipns_key_name("test-key-name");
+
+            let directory_cid = uploader
+                .batch_upload_to_dir(&[PathBuf::from("/local/new-file-1.txt")])
                 .await
                 .unwrap();
 
@@ -534,6 +674,110 @@ mod tests {
                 .batch_upload_to_dir(&[])
                 .await
                 .expect_err("directory CID retrieval failure should be returned");
+        }
+
+        #[tokio::test]
+        async fn log_error_as_warning_and_continue_without_failing_if_publishing_to_ipns_fails() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let uploader = IpfsUploader::new_for_test(MFS_DIR, move |mock| {
+                mock.expect_create_dir().return_once(|_| Ok(())).once();
+                mock.expect_list_directory_files()
+                    .return_once(|_| Ok(HashSet::new()))
+                    .once();
+                mock.expect_upload_file().never();
+                mock.expect_get_dir_cid()
+                    .return_once(|_| Ok("directory-cid".to_string()))
+                    .once();
+                mock.expect_list_ipns_key_names()
+                    .return_once(|| Ok(vec!["test-key-name".to_string()]))
+                    .once();
+                mock.expect_publish_dir_to_ipns()
+                    .return_once(|_, _| Err(anyhow!("publish dir to ipns failure")))
+                    .once();
+            })
+            .with_ipns_key_name("test-key-name")
+            .with_logger(logger);
+
+            let directory_cid = uploader.batch_upload_to_dir(&[]).await.unwrap();
+
+            assert_eq!("directory-cid", directory_cid);
+            assert!(log_inspector.contains_log("publish dir to ipns failure"));
+        }
+
+        #[tokio::test]
+        async fn skip_publishing_to_ipns_without_failing_if_ipns_key_is_not_available() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let uploader = IpfsUploader::new_for_test(MFS_DIR, move |mock| {
+                mock.expect_create_dir().return_once(|_| Ok(())).once();
+                mock.expect_list_directory_files()
+                    .return_once(|_| Ok(HashSet::new()))
+                    .once();
+                mock.expect_upload_file().never();
+                mock.expect_get_dir_cid()
+                    .return_once(|_| Ok("directory-cid".to_string()))
+                    .once();
+                mock.expect_list_ipns_key_names()
+                    .return_once(|| Ok(vec!["self".to_string()]))
+                    .once();
+                mock.expect_publish_dir_to_ipns().never();
+            })
+            .with_ipns_key_name("test-key-name")
+            .with_logger(logger);
+
+            let directory_cid = uploader.batch_upload_to_dir(&[]).await.unwrap();
+
+            assert_eq!("directory-cid", directory_cid);
+            assert!(log_inspector.contains_log("IPNS key not found in the IPFS node"));
+        }
+    }
+
+    mod check_ipns_key_availability {
+        use anyhow::anyhow;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn key_is_available_if_listed_in_the_ipfs_node_keys() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let uploader = IpfsUploader::new_for_test("/test", |mock| {
+                mock.expect_list_ipns_key_names()
+                    .return_once(|| Ok(vec!["self".to_string(), "test-key-name".to_string()]))
+                    .once();
+            })
+            .with_logger(logger);
+
+            assert!(uploader.check_ipns_key_availability("test-key-name").await);
+            assert!(!log_inspector.contains_log("test-key-name"));
+        }
+
+        #[tokio::test]
+        async fn key_is_not_available_and_warn_if_not_listed_in_the_ipfs_node_keys() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let uploader = IpfsUploader::new_for_test("/test", |mock| {
+                mock.expect_list_ipns_key_names()
+                    .return_once(|| Ok(vec!["self".to_string(), "another-key".to_string()]))
+                    .once();
+            })
+            .with_logger(logger);
+
+            assert!(!uploader.check_ipns_key_availability("test-key-name").await);
+            assert!(log_inspector.contains_log("IPNS key not found in the IPFS node"));
+            assert!(log_inspector.contains_log("test-key-name"));
+        }
+
+        #[tokio::test]
+        async fn key_is_not_available_and_warn_if_listing_the_ipfs_node_keys_fails() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let uploader = IpfsUploader::new_for_test("/test", |mock| {
+                mock.expect_list_ipns_key_names()
+                    .return_once(|| Err(anyhow!("list ipns keys failure")))
+                    .once();
+            })
+            .with_logger(logger);
+
+            assert!(!uploader.check_ipns_key_availability("test-key-name").await);
+            assert!(log_inspector.contains_log("Failed to list the IPFS node keys"));
+            assert!(log_inspector.contains_log("list ipns keys failure"));
         }
     }
 }
