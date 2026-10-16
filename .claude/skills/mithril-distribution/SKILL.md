@@ -31,6 +31,8 @@ Scripts live in this skill's `scripts/` folder and are always called through the
 | `env-commands.sh` | Environment variable batch, `print` and `verify` |
 | `tag-commands.sh` | Tag blocks for the user, `check` of the result |
 | `release-notes.sh` | Pre-release notes file and edit command, `--guard-only` |
+| `release-publish.sh` | Release publication command with its guards, `verify` |
+| `release-compatibility.sh` | Networks and node compatibility tables of the release notes |
 | `client-test-command.sh` | Client test dispatch command with certified hashes |
 | `prover-benchmark.sh` | Benchmark `run`, `previous` results, `comment` |
 | `announcement.sh` | Raw source of one announcement message, `--list` |

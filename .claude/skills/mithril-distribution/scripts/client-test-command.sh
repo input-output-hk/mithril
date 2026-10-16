@@ -4,11 +4,12 @@
 # Exit codes: 0 command rendered, 1 not enough certified hashes or unknown workflow input, 2 usage or network error.
 # Usage:
 #   bash client-test-command.sh --commit <sha> --image-id <image id> --network <cardano network> --aggregator <endpoint>
-#                               --genesis-key-url <url> --transactions-file <file> --blocks-file <file> [--count <n>]
+#                               --genesis-key-url <url> [--ancillary-key-url <url>] --transactions-file <file> --blocks-file <file>
+#                               [--count <n>]
 set -uo pipefail
 
 REPO="${MITHRIL_REPO:-IntersectMBO/mithril}"
-COMMIT="" IMAGE_ID="" NETWORK="" AGGREGATOR="" GENESIS_KEY_URL="" TRANSACTIONS_FILE="" BLOCKS_FILE="" COUNT=3
+COMMIT="" IMAGE_ID="" NETWORK="" AGGREGATOR="" GENESIS_KEY_URL="" ANCILLARY_KEY_URL="" TRANSACTIONS_FILE="" BLOCKS_FILE="" COUNT=3
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --commit) COMMIT="${2:?}"; shift 2 ;;
@@ -16,6 +17,7 @@ while [[ $# -gt 0 ]]; do
     --network) NETWORK="${2:?}"; shift 2 ;;
     --aggregator) AGGREGATOR="${2:?}"; shift 2 ;;
     --genesis-key-url) GENESIS_KEY_URL="${2:?}"; shift 2 ;;
+    --ancillary-key-url) ANCILLARY_KEY_URL="${2:?}"; shift 2 ;;
     --transactions-file) TRANSACTIONS_FILE="${2:?}"; shift 2 ;;
     --blocks-file) BLOCKS_FILE="${2:?}"; shift 2 ;;
     --count) COUNT="${2:?}"; shift 2 ;;
@@ -23,7 +25,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 for value in "$COMMIT" "$IMAGE_ID" "$NETWORK" "$AGGREGATOR" "$GENESIS_KEY_URL" "$TRANSACTIONS_FILE" "$BLOCKS_FILE"; do
-  [[ -n "$value" ]] || { sed -n '5,7p' "$0" >&2; exit 2; }
+  [[ -n "$value" ]] || { sed -n '5,8p' "$0" >&2; exit 2; }
 done
 
 certified_hashes() {
@@ -50,4 +52,4 @@ for input in commit_sha docker_image_id network aggregator_endpoint genesis_veri
 done
 
 echo
-echo "gh workflow run test-client.yml --repo $REPO -f commit_sha=$COMMIT -f docker_image_id=$IMAGE_ID -f network=$NETWORK -f aggregator_endpoint=$AGGREGATOR -f genesis_verification_key=$GENESIS_KEY_URL -f transactions_hashes_to_certify=$TRANSACTIONS -f blocks_hashes_to_certify=$BLOCKS"
+echo "gh workflow run test-client.yml --repo $REPO -f commit_sha=$COMMIT -f docker_image_id=$IMAGE_ID -f network=$NETWORK -f aggregator_endpoint=$AGGREGATOR -f genesis_verification_key=$GENESIS_KEY_URL -f transactions_hashes_to_certify=$TRANSACTIONS -f blocks_hashes_to_certify=$BLOCKS${ANCILLARY_KEY_URL:+ -f ancillary_verification_key=$ANCILLARY_KEY_URL}"
