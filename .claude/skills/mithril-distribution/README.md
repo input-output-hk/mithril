@@ -13,7 +13,6 @@ The skill checks the state of each step, renders the exact commands to run, dete
 | `git` with a GPG signing key (`git config user.signingkey`)                                            | Signed distribution tag                                        |
 | `jq`, `curl`, `python3`, GNU `date`, `awk`, `sed`                                                      | Scripts                                                        |
 | `ab` (Apache Bench, `apache2-utils` package)                                                           | Prover benchmark                                               |
-| `gcloud` (run by you only)                                                                             | KMS key rotation of the release phase                          |
 
 The skill never connects to GCP, SSH hosts or hosting platforms, and never posts to Discord or Slack.
 
@@ -91,7 +90,7 @@ Every script stands alone (explicit arguments, usage in its header) and is read-
 | `release-compatibility.sh`       | Networks and node compatibility tables of the release notes            |
 | `client-test-command.sh`         | Client multi-platform test dispatch with certified hashes              |
 | `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                         |
-| `kms-rotation-commands.sh`       | Ancillary signer key rotation commands, `verify` of the secret         |
+| `secret-date-check.sh`           | Update date of an environment secret (never reads a value)             |
 | `announcement.sh`                | Raw source of one announcement message                                 |
 
 Example, outside the skill:

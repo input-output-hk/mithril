@@ -22,21 +22,21 @@ Walks one phase of a Mithril distribution rollout step by step with the user, us
 
 Scripts live in this skill's `scripts/` folder and are always called through their interpreter: `bash scripts/<name>.sh`, `python3 -I scripts/issue-steps.py`. Each one is usable on its own (explicit arguments, usage in its header). None writes to GitHub: they print the write commands. Only `prover-benchmark.sh run` loads the aggregator under test.
 
-| Script                           | Use                                                                         |
-| -------------------------------- | --------------------------------------------------------------------------- |
-| `resolve-context.sh`             | Distribution context                                                        |
-| `issue-steps.py`                 | How and What scope steps, tick or strike body, `--print-command`            |
-| `detect-step.sh`, `wait-step.sh` | Probe a step once, poll it in the background                                |
-| `network-check.sh`               | Network health, baseline, `--deployed-at`, `--epochs`, `--wait-target`      |
-| `env-commands.sh`                | Environment variable batch, `print` and `verify`                            |
-| `tag-commands.sh`                | Tag blocks for the user, `check` of the result                              |
-| `release-notes.sh`               | Pre-release notes file and edit command, `--guard-only`                     |
-| `release-publish.sh`             | Release publication command with its guards, `verify`                       |
-| `release-compatibility.sh`       | Networks and node compatibility tables of the release notes                 |
-| `client-test-command.sh`         | Client test dispatch command with certified hashes                          |
-| `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                              |
-| `kms-rotation-commands.sh`       | Ancillary signer key rotation commands for the user, `verify` of the secret |
-| `announcement.sh`                | Raw source of one announcement message, `--list`                            |
+| Script                           | Use                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `resolve-context.sh`             | Distribution context                                                          |
+| `issue-steps.py`                 | How and What scope steps, tick or strike body, `--print-command`              |
+| `detect-step.sh`, `wait-step.sh` | Probe a step once, poll it in the background                                  |
+| `network-check.sh`               | Network health, baseline, `--deployed-at`, `--epochs`, `--wait-target`        |
+| `env-commands.sh`                | Environment variable batch, `print` and `verify`                              |
+| `tag-commands.sh`                | Tag blocks for the user, `check` of the result                                |
+| `release-notes.sh`               | Pre-release notes file and edit command, `--guard-only`                       |
+| `release-publish.sh`             | Release publication command with its guards, `verify`                         |
+| `release-compatibility.sh`       | Networks and node compatibility tables of the release notes                   |
+| `client-test-command.sh`         | Client test dispatch command with certified hashes                            |
+| `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                                |
+| `secret-date-check.sh`           | Update date of an environment secret after a given time (never reads a value) |
+| `announcement.sh`                | Raw source of one announcement message, `--list`                              |
 
 ## Output
 
