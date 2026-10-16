@@ -75,7 +75,7 @@ It prints the issue, tags, commit, versions and the log and drafts locations.
 ## Usage
 
 ```
-/mithril-distribution <distribution> <phase> [--dry-run] [--no-issue-tick] [--allow-run-commands]
+/mithril-distribution <distribution> <phase> [--dry-run] [--all-steps] [--no-issue-tick] [--allow-run-commands]
 /mithril-distribution help [<phase>]
 ```
 
@@ -83,6 +83,7 @@ It prints the issue, tags, commit, versions and the log and drafts locations.
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `<phase>`              | `prepare` (How Phase 1), `pre-release` (Phase 2), `release` (Phase 3)                                             |
 | `--dry-run`            | Rehearse the phase: real read-only checks, no write at all                                                        |
+| `--all-steps`          | With `--dry-run` only: rehearse the checked steps too, every step shows its command                               |
 | `--no-issue-tick`      | No tick command, you check the boxes on the issue and the skill waits for your check                              |
 | `--allow-run-commands` | Let the skill run the write commands after your `run` (default: it displays them, you run them and answer `done`) |
 

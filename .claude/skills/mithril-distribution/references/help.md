@@ -3,7 +3,7 @@
 ## Usage
 
 ```
-/mithril-distribution <distribution> <phase> [--dry-run] [--no-issue-tick] [--allow-run-commands]
+/mithril-distribution <distribution> <phase> [--dry-run] [--all-steps] [--no-issue-tick] [--allow-run-commands]
 /mithril-distribution help [<phase>]
 ```
 
@@ -12,6 +12,7 @@
 | `<distribution>`       | Distribution number, e.g. `2642`. Used to find the release issue (`Release \`2642\` distribution`), the tags, the rollout log and the announcements file |
 | `<phase>`              | `prepare` (How "Phase 1"), `pre-release` (How "Phase 2"), `release` (How "Phase 3")                                                                      |
 | `--dry-run`            | Rehearse the phase: real read-only checks, no write at all                                                                                               |
+| `--all-steps`          | With `--dry-run` only: rehearse the checked steps too, so every step of the phase shows its command from the start                                       |
 | `--no-issue-tick`      | No tick command: you check the boxes on the issue, the skill waits for your check before moving on                                                       |
 | `--allow-run-commands` | Let the skill run the write commands after your `run` (default: it only displays them, you run them and answer `done`)                                   |
 

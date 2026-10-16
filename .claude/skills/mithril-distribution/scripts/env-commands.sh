@@ -42,7 +42,7 @@ for operation in "${OPERATIONS[@]}"; do
     CHECKS+=("$NAME|set|$VALUE")
   else
     NAMES="$(jq -r --arg p "$argument" '.[] | .name | select(test("^" + ($p | gsub("\\*"; ".*")) + "$"))' <<<"$VARIABLES")"
-    [[ -n "$NAMES" || "$MODE" == verify ]] || { echo "No variable matches $argument in $ENVIRONMENT" >&2; exit 1; }
+    [[ -n "$NAMES" || "$MODE" == verify || "$argument" != *'*'* ]] || { echo "No variable matches $argument in $ENVIRONMENT" >&2; exit 1; }
     [[ -n "$NAMES" ]] || NAMES="$argument"
     for NAME in $NAMES; do
       COMMANDS+=("gh variable delete $NAME --env $ENVIRONMENT --repo $REPO")
