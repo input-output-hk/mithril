@@ -3,18 +3,19 @@
 ## Usage
 
 ```
-/mithril-distribution <distribution> <phase> [--dry-run | --plan] [--no-issue-tick] [--allow-run-commands]
+/mithril-distribution <distribution> <phase> [--dry-run | --plan | --check] [--no-issue-tick] [--allow-run-commands]
 /mithril-distribution help [<phase>]
 ```
 
-| Argument               | Values                                                                                                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<distribution>`       | Distribution number, e.g. `2642`. Used to find the release issue (`Release \`2642\` distribution`), the tags, the rollout log and the announcements file |
-| `<phase>`              | `prepare` (How "Phase 1"), `pre-release` (How "Phase 2"), `release` (How "Phase 3")                                                                      |
-| `--dry-run`            | Rehearse the phase: real read-only checks, no write at all                                                                                               |
-| `--plan`               | Print every command of the phase from its first step, in order, then stop, also written to `<distribution>-<phase>-PLAN.md` in the log directory         |
-| `--no-issue-tick`      | No tick command: you check the boxes on the issue, the skill waits for your check before moving on                                                       |
-| `--allow-run-commands` | Let the skill run the write commands after your `run` (default: it only displays them, you run them and answer `done`)                                   |
+| Argument               | Values                                                                                                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<distribution>`       | Distribution number, e.g. `2642`. Used to find the release issue (`Release \`2642\` distribution`), the tags, the rollout log and the announcements file                         |
+| `<phase>`              | `prepare` (How "Phase 1"), `pre-release` (How "Phase 2"), `release` (How "Phase 3")                                                                                              |
+| `--dry-run`            | Rehearse the phase: real read-only checks, no write at all                                                                                                                       |
+| `--plan`               | Print every command of the phase from its first step, in order, then stop, also written to `<distribution>-<phase>-PLAN.md` in the log directory                                 |
+| `--check`              | Report each step of the phase: 🟢 done and checked, 🟡 done not checked, 🔴 checked not done, ⚪ not done not checked, ⚫ checked with no probe, then stop (no answer, no write) |
+| `--no-issue-tick`      | No tick command: you check the boxes on the issue, the skill waits for your check before moving on                                                                               |
+| `--allow-run-commands` | Let the skill run the write commands after your `run` (default: it only displays them, you run them and answer `done`)                                                           |
 
 Examples: `/mithril-distribution 2642 prepare --dry-run`, `/mithril-distribution 2642 pre-release`, `/mithril-distribution help release`.
 
