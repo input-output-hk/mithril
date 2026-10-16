@@ -61,8 +61,8 @@ Same flow on the same issue and networks. Checks run for real. Commands are rend
 
 | File | Content |
 |---|---|
-| `~/markdowns/mithril/releases/<distribution>-ROLLOUT.md` | Rollout log: runs, steps, commands, `ack`, baselines, waits, dry run reports |
-| `~/Desktop/mithril/distributions/mithril-<distribution>.md` | Discord and Slack announcement drafts |
+| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-ROLLOUT.md` (default `~/.mithril-distribution/logs`) | Rollout log: runs, steps, commands, `ack`, baselines, waits, dry run reports |
+| `$MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR/mithril-<distribution>.md` (default `~/.mithril-distribution/announcements`) | Discord and Slack announcement drafts |
 
 ## Rules
 

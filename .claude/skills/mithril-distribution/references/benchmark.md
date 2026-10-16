@@ -11,7 +11,7 @@ The benchmark loads the aggregator VM, so it runs only after the user's `run`, g
 Printed for the user (run by the skill only with `--allow-run-commands` after `run`), about 2 minutes, work folder in the scratchpad:
 
 ```bash
-bash scripts/prover-benchmark.sh run --aggregator https://aggregator.pre-release-preview.api.mithril.network/aggregator --benchmark-dir <repository>/mithril-test-lab/benchmark/aggregator-prover --transactions-file <repository>/mithril-test-lab/benchmark/aggregator-prover/transactions-preview.txt --work-dir <work folder>
+bash scripts/prover-benchmark.sh run --aggregator https://aggregator.pre-release-preview.api.mithril.network/aggregator --benchmark-dir $REPOSITORY_DIR/mithril-test-lab/benchmark/aggregator-prover --transactions-file $REPOSITORY_DIR/mithril-test-lab/benchmark/aggregator-prover/transactions-preview.txt --work-dir <work folder>
 ```
 
 It writes `benchmark.csv` and `benchmark.log` (paths made relative) in the work folder. A `>>>> Failure` line (exit `1`) stops the step.

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Resolves the rollout context of a Mithril distribution and prints it as KEY=value lines.
 # Read-only: only GitHub API reads.
+# Locations: MITHRIL_DISTRIBUTION_LOG_DIR (rollout logs) and MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR (announcement drafts),
+# both under ~/.mithril-distribution by default; REPOSITORY_DIR is the main checkout of the current git repository.
 # Usage: bash resolve-context.sh <distribution> [--commit <sha>] [--patch <n>]
 set -euo pipefail
 
@@ -110,7 +112,12 @@ emit CLIENT_CLI_VERSION "$(read_version "$COMMIT" mithril-client-cli/Cargo.toml 
 emit CLIENT_LIBRARY_VERSION "$(read_version "$COMMIT" mithril-client/Cargo.toml toml)"
 emit CLIENT_WASM_VERSION "$(read_version "$COMMIT" mithril-client-wasm/package.json json)"
 
-emit LOG_FILE "$HOME/markdowns/mithril/releases/$DISTRIBUTION-ROLLOUT.md"
-emit ANNOUNCEMENT_FILE "$HOME/Desktop/mithril/distributions/mithril-$DISTRIBUTION.md"
-emit ANNOUNCEMENT_STYLE_FILES "$(ls "$HOME"/Desktop/mithril/distributions/mithril-[0-9][0-9][0-9][0-9].md 2>/dev/null \
+LOG_DIR="${MITHRIL_DISTRIBUTION_LOG_DIR:-$HOME/.mithril-distribution/logs}"
+ANNOUNCEMENTS_DIR="${MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR:-$HOME/.mithril-distribution/announcements}"
+emit REPOSITORY_DIR "$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+emit LOG_DIR "$LOG_DIR"
+emit LOG_FILE "$LOG_DIR/$DISTRIBUTION-ROLLOUT.md"
+emit ANNOUNCEMENTS_DIR "$ANNOUNCEMENTS_DIR"
+emit ANNOUNCEMENT_FILE "$ANNOUNCEMENTS_DIR/mithril-$DISTRIBUTION.md"
+emit ANNOUNCEMENT_STYLE_FILES "$(ls "$ANNOUNCEMENTS_DIR"/mithril-[0-9][0-9][0-9][0-9].md 2>/dev/null \
   | awk -F'mithril-|\\.md' -v d="$DISTRIBUTION" '$(NF-1) < d' | sort -V | tail -3 | tac | tr '\n' ' ' | sed 's/ $//')"

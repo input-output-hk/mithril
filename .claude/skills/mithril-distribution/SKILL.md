@@ -120,7 +120,7 @@ Validation without running: tag (Tag blocks rendered, commit equal to the head o
 
 ## Log format
 
-`LOG_FILE` (create `~/markdowns/mithril/releases/` if missing), each paragraph on one line:
+`LOG_FILE` (create `LOG_DIR` if missing), each paragraph on one line:
 
 ```markdown
 # Distribution <distribution> rollout

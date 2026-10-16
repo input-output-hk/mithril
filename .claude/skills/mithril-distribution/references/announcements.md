@@ -1,6 +1,6 @@
 # Announcement templates
 
-Templates extracted from `~/Desktop/mithril/distributions/mithril-*.md`. Read the files listed in `ANNOUNCEMENT_STYLE_FILES` for the current wording before drafting, but fill every value from the resolved context: these files are copies of each other and carry stale blocks (old warnings, reused Discord links).
+Templates extracted from the `mithril-*.md` drafts of `ANNOUNCEMENTS_DIR`. Read the files listed in `ANNOUNCEMENT_STYLE_FILES` for the current wording before drafting, but fill every value from the resolved context: these files are copies of each other and carry stale blocks (old warnings, reused Discord links).
 
 Placeholders: `<TAG>` (e.g. `2642.0`), `<DISTRIBUTION>` (e.g. `2642`), `<SIGNER_VERSION>`, `<HIGHLIGHTS>` (bullets `- **Topic**: sentence.` drafted from the What scope and the `CHANGELOG.md` entry, edited by the user), `<TIMING>` (asked, e.g. "expected early next week").
 
