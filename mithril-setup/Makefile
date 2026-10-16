@@ -12,10 +12,10 @@ build:
 	cp ../target/release/mithril-setup .
 
 run: build
-	@./mithril-setup $(call args,defaultstring)
+	@./mithril-setup $(call args, "signer --unstable")
 
 debug:
-	@${CARGO} run -- -vvv $(call args,defaultstring)
+	@${CARGO} run -- -vvv $(call args, "signer --unstable")
 
 test:
 	${CARGO} test
