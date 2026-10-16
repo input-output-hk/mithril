@@ -27,31 +27,46 @@ Examples: `/mithril-distribution 2642 prepare --dry-run`, `/mithril-distribution
 
 ## Steps
 
-The skill reads the unchecked How checkboxes of the phase from the release issue and handles them in order.
+The skill reads the unchecked How checkboxes of the phase from the release issue and handles them in order. Each step has a kind:
 
-| Kind     | What the skill does                                                                                                         | What you answer                                                                                        |
-| -------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `check`  | Runs a read-only check and shows the result                                                                                 | Nothing, or `retry` / `investigate` / `skip <reason>` on failure                                       |
-| `action` | Shows the exact command and the expected result, detects the result                                                         | You run it and answer `done` (with `--allow-run-commands`: `run` or `I'll run it`), or `skip <reason>` |
-| `impact` | Same as `action`, for operations that change an environment (variables, secrets, tag push, release), shown after your `ack` | `ack` once the team agrees, then as `action`                                                           |
-| `manual` | Gives the instructions and waits for the checkbox                                                                           | Check the box on GitHub (or `skip <reason>`)                                                           |
-| `wait`   | Records the target epoch and pauses the phase                                                                               | Run the same command again after the target epoch                                                      |
+| Kind     | What the skill does                                                                                                                          |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`  | Runs a read-only check and shows the result                                                                                                  |
+| `action` | Shows the exact write command (or batch) and its expected result, then detects the result                                                    |
+| `impact` | Same as `action`, for a command that changes an environment (variables, secrets, tag push, release publication): shown only after your `ack` |
+| `manual` | Gives the instructions and polls the checkbox of the step on the issue                                                                       |
+| `wait`   | Records the target epoch and pauses the phase                                                                                                |
 
-After each step, the skill shows the checkbox tick as a `gh issue edit` command for you to run (with `--allow-run-commands`, it runs it after your `run`, with `--no-issue-tick`, it waits for your check instead). The same edit ticks the What items of the distribution being built (never the next one) whose How steps are all checked, including steps you checked yourself.
+## Answers by option
 
-## Answers
+What you can answer depends on the options of the run. A cell with "—" means the answer is refused.
 
-| Answer                        | Effect                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------- |
-| `go`                          | Start the phase after the context summary                                             |
-| `run`                         | Run the previewed command (for `impact`, only after `ack`)                            |
-| `ack`                         | Records that the team agreed to the previewed `impact` command                        |
-| `I'll run it`                 | You run the command yourself, the skill detects the effect (every 30 s, up to 30 min) |
-| `skip <reason>`               | Skip the step, logged with the reason                                                 |
-| `retry` / `investigate`       | After a failure: re-run the check, or start debugging                                 |
-| `wait more`                   | Keep polling after the 30 min timeout                                                 |
-| `rehearsed` / `issue: <text>` | Dry run answers for `manual` steps                                                    |
-| `stop`                        | Stop the phase, the next run resumes from the issue checkboxes and the log            |
+| Situation                          | Default                                         | `--allow-run-commands`                                    | `--dry-run`                  |
+| ---------------------------------- | ----------------------------------------------- | --------------------------------------------------------- | ---------------------------- |
+| Context summary shown              | `go`                                            | `go`                                                      | `go`                         |
+| `action` command shown             | `done` (you ran it), `skip <reason>`            | `run` (the skill runs it), `I'll run it`, `skip <reason>` | `rehearsed`, `issue: <text>` |
+| `impact` command announced         | `ack`, then as `action`                         | `ack`, then as `action`                                   | `ack`, then as `action`      |
+| Tag blocks (step 1, then the push) | `done` after each block (`ack` before the push) | same as default (always run by you)                       | `rehearsed`, `issue: <text>` |
+| `manual` instructions              | check the box on the issue, or `skip <reason>`  | same as default                                           | `rehearsed`, `issue: <text>` |
+| Tick command (`gh issue edit`)     | `done` (you ran it), `skip <reason>`            | `run`, `I'll run it`, `skip <reason>`                     | — (diff shown only)          |
+| Failed check or probe              | `retry`, `investigate`, `skip <reason>`         | same as default                                           | same as default              |
+| Poll timeout (30 min)              | `wait more`, `stop`                             | same as default                                           | same as default              |
+| Any time                           | `stop`                                          | `stop`                                                    | `stop`                       |
+
+With `--no-issue-tick`, no tick command is shown in any mode: you check the box on the issue, and the skill polls it before moving on (every minute, up to 8 minutes, then `wait more` or `stop`). The What items of the distribution being built are ticked with the same edit as their last How step, in default and `--allow-run-commands` modes only.
+
+| Answer                        | Effect                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| `go`                          | Start the phase                                                                    |
+| `ack`                         | Record that the team agreed to the announced `impact` command, which is then shown |
+| `done`                        | You ran the shown command, the skill detects its effect (every 30 s, up to 30 min) |
+| `run`                         | The skill runs the shown command (`--allow-run-commands` only)                     |
+| `I'll run it`                 | You run it instead, same as `done` (`--allow-run-commands` only)                   |
+| `skip <reason>`               | Skip the step, logged with the reason                                              |
+| `retry` / `investigate`       | After a failure: re-run the check, or start debugging                              |
+| `wait more`                   | Keep polling after the timeout                                                     |
+| `rehearsed` / `issue: <text>` | Dry run: the step would work, or what would block it                               |
+| `stop`                        | Stop the phase, the next run resumes from the issue checkboxes and the log         |
 
 ## Dry run
 
