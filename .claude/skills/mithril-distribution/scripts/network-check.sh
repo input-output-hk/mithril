@@ -14,12 +14,17 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands curl jq awk sort
 require_gnu_date
 
 NETWORK="${1:-}"
-[[ -n "$NETWORK" && "$NETWORK" != -* ]] || usage_error
+[[ -n "$NETWORK" && "$NETWORK" != -* ]] || usage
 shift
 
 EXPECT_COMMIT="" EXPECT_TYPES="" SINCE="" DEPLOYED_AT="" SAVE_BASELINE="" BASELINE="" MAX_DROP=10 EPOCH_FROM="" EPOCH_TO="" DEPLOYMENT_EPOCH="" EPOCHS_TO_WAIT=""
@@ -34,7 +39,7 @@ while [[ $# -gt 0 ]]; do
     --max-drop) MAX_DROP="${2:?}"; shift 2 ;;
     --epochs) EPOCH_FROM="${2:?}"; EPOCH_TO="${3:?}"; shift 3 ;;
     --wait-target) DEPLOYMENT_EPOCH="${2:?}"; EPOCHS_TO_WAIT="${3:?}"; shift 3 ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
 

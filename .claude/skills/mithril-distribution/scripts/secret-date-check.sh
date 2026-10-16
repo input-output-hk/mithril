@@ -10,6 +10,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands gh
 require_gnu_date
@@ -21,10 +26,10 @@ while [[ $# -gt 0 ]]; do
     --environment) ENVIRONMENT="${2:?}"; shift 2 ;;
     --secret) SECRET="${2:?}"; shift 2 ;;
     --since) SINCE="${2:?}"; shift 2 ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
-[[ -n "$ENVIRONMENT" && -n "$SECRET" && -n "$SINCE" ]] || usage_error
+[[ -n "$ENVIRONMENT" && -n "$SECRET" && -n "$SINCE" ]] || usage
 
 role_warning() {
   local role

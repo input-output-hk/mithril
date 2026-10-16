@@ -5,11 +5,6 @@
 
 script_help() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 
-usage_error() {
-  script_help >&2
-  exit 2
-}
-
 handle_help() {
   local argument
   for argument in "$@"; do

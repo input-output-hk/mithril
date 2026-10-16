@@ -11,6 +11,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands gh
 
@@ -24,10 +29,10 @@ while [[ $# -gt 0 ]]; do
     --tag) TAG="${2:?}"; shift 2 ;;
     --previous-tag) PREVIOUS_TAG="${2:?}"; shift 2 ;;
     --baseline) BASELINES+=("${2:?}"); shift 2 ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
-[[ "$MODE" =~ ^(print|verify)$ && -n "$TAG" && ( "$MODE" == verify || -n "$PREVIOUS_TAG" ) ]] || usage_error
+[[ "$MODE" =~ ^(print|verify)$ && -n "$TAG" && ( "$MODE" == verify || -n "$PREVIOUS_TAG" ) ]] || usage
 
 RELEASE="$(gh release view "$TAG" --repo "$REPO" --json isPrerelease,isDraft --jq '"\(.isPrerelease) \(.isDraft)"')" || { echo "No release $TAG" >&2; exit 2; }
 read -r PRERELEASE DRAFT <<<"$RELEASE"

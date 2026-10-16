@@ -14,6 +14,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands awk sed
 
@@ -36,10 +41,9 @@ while [[ $# -gt 0 ]]; do
     --vcpus) VCPUS="${2:?}"; shift 2 ;;
     --ram-gb) RAM_GB="${2:?}"; shift 2 ;;
     --tolerance) TOLERANCE="${2:?}"; shift 2 ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
-usage() { usage_error; }
 parameter() { sed -n "s/^$1=//p" "$WORK_DIR/benchmark.env"; }
 
 table() {

@@ -12,6 +12,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands git
 
@@ -22,10 +27,10 @@ while [[ $# -gt 0 ]]; do
     --key-file) KEY_FILE="${2:?}"; shift 2 ;;
     --project) PROJECT="${2:?}"; shift 2 ;;
     --previous-key-id) PREVIOUS_KEY_ID="${2:?}"; shift 2 ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
-[[ "$SERVICE_ACCOUNT" == *@*.iam.gserviceaccount.com && -n "$KEY_FILE" ]] || usage_error
+[[ "$SERVICE_ACCOUNT" == *@*.iam.gserviceaccount.com && -n "$KEY_FILE" ]] || usage
 git -C "$(dirname "$KEY_FILE")" rev-parse --show-toplevel >/dev/null 2>&1 \
   && { echo "Key file $KEY_FILE is inside a git repository, choose a path outside any repository" >&2; exit 2; }
 

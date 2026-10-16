@@ -12,6 +12,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands gh curl jq awk
 
@@ -28,11 +33,11 @@ while [[ $# -gt 0 ]]; do
     --transactions-file) TRANSACTIONS_FILE="${2:?}"; shift 2 ;;
     --blocks-file) BLOCKS_FILE="${2:?}"; shift 2 ;;
     --count) COUNT="${2:?}"; shift 2 ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
 for value in "$COMMIT" "$IMAGE_ID" "$NETWORK" "$AGGREGATOR" "$GENESIS_KEY_URL" "$TRANSACTIONS_FILE" "$BLOCKS_FILE"; do
-  [[ -n "$value" ]] || usage_error
+  [[ -n "$value" ]] || usage
 done
 
 certified_hashes() {

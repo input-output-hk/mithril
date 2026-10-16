@@ -12,6 +12,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands gh jq awk sed diff
 
@@ -24,12 +29,12 @@ while [[ $# -gt 0 ]]; do
     --networks-json) NETWORKS_JSON="${2:?}"; shift 2 ;;
     --repository) REPOSITORY="${2:?}"; shift 2 ;;
     --out) OUT="${2:?}"; shift 2 ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
 GENERATORS="$REPOSITORY/.github/workflows/scripts"
 [[ -n "$TAG" && -n "$COMPATIBLE" && -f "$NETWORKS_JSON" && -f "$GENERATORS/compute-cardano-compatibility.sh" && -n "$OUT" ]] \
-  || usage_error
+  || usage
 
 BODY="$(gh release view "$TAG" --repo "$REPO" --json body --jq .body)" || { echo "No release $TAG" >&2; exit 2; }
 CARDANO="$(bash "$GENERATORS/compute-cardano-compatibility.sh" "$NETWORKS_JSON")" || exit 2

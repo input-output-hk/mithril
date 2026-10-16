@@ -13,6 +13,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands gh jq
 
@@ -25,10 +30,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --environment) ENVIRONMENT="${2:?}"; shift 2 ;;
     set | delete) OPERATIONS+=("$1 ${2:?}"); shift 2 ;;
-    *) echo "Unknown argument $1" >&2; exit 2 ;;
+    *) echo "Unknown argument $1" >&2; usage ;;
   esac
 done
-[[ "$MODE" =~ ^(print|verify)$ && -n "$ENVIRONMENT" && ${#OPERATIONS[@]} -gt 0 ]] || usage_error
+[[ "$MODE" =~ ^(print|verify)$ && -n "$ENVIRONMENT" && ${#OPERATIONS[@]} -gt 0 ]] || usage
 
 role_warning() {
   local role

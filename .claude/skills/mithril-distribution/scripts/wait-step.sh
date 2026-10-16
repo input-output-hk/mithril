@@ -8,6 +8,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,7 +25,7 @@ while [[ $# -gt 0 ]]; do
     *) break ;;
   esac
 done
-[[ $# -ge 1 ]] || usage_error
+[[ $# -ge 1 ]] || usage
 
 DEADLINE=$(( $(date +%s) + TIMEOUT_MINUTES * 60 ))
 while true; do

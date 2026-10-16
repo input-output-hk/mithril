@@ -11,6 +11,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands awk sed cut sort grep
 grep -qP '' <<<'' 2>/dev/null || { echo "grep with -P (GNU grep) is required" >&2; exit 2; }
@@ -21,10 +26,10 @@ while [[ $# -gt 0 ]]; do
     --file) FILE="${2:?}"; shift 2 ;;
     --message) MESSAGE="${2:?}"; shift 2 ;;
     --list) LIST=yes; shift ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
-[[ -f "$FILE" && ( -n "$LIST" || "$MESSAGE" =~ ^[0-9]+$ ) ]] || usage_error
+[[ -f "$FILE" && ( -n "$LIST" || "$MESSAGE" =~ ^[0-9]+$ ) ]] || usage
 
 split() { awk -v wanted="$1" 'BEGIN { n = 1 } /^-------+$/ { n++; next } n == wanted || wanted == 0 { print n "\t" $0 }' "$FILE"; }
 

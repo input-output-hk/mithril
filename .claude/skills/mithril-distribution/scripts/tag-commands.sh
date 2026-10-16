@@ -12,6 +12,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands git
 
@@ -23,10 +28,10 @@ while [[ $# -gt 0 ]]; do
     --tag) TAG="${2:?}"; shift 2 ;;
     --commit) COMMIT="${2:?}"; shift 2 ;;
     --repository) REPOSITORY="${2:?}"; shift 2 ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
-[[ "$MODE" =~ ^(print|check)$ && "$TAG" =~ ^[0-9]{4}\.[0-9]+ && -n "$COMMIT" ]] || usage_error
+[[ "$MODE" =~ ^(print|check)$ && "$TAG" =~ ^[0-9]{4}\.[0-9]+ && -n "$COMMIT" ]] || usage
 
 if [[ "$MODE" == print ]]; then
   cat <<EOF

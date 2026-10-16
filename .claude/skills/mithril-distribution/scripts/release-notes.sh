@@ -11,6 +11,11 @@ set -uo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands gh grep
 
@@ -24,11 +29,11 @@ while [[ $# -gt 0 ]]; do
     --highlights) HIGHLIGHTS="${2:?}"; shift 2 ;;
     --out) OUT="${2:?}"; shift 2 ;;
     --guard-only) GUARD_ONLY=yes; shift ;;
-    *) echo "Unknown option $1" >&2; exit 2 ;;
+    *) echo "Unknown option $1" >&2; usage ;;
   esac
 done
-[[ -n "$TAG" && -n "$PREVIOUS_TAG" ]] || usage_error
-[[ -n "$GUARD_ONLY" || ( -n "$COMMIT" && -n "$HIGHLIGHTS" && -n "$OUT" ) ]] || usage_error
+[[ -n "$TAG" && -n "$PREVIOUS_TAG" ]] || usage
+[[ -n "$GUARD_ONLY" || ( -n "$COMMIT" && -n "$HIGHLIGHTS" && -n "$OUT" ) ]] || usage
 [[ -n "$GUARD_ONLY" || -s "$HIGHLIGHTS" ]] || { echo "Highlights file $HIGHLIGHTS is missing or empty" >&2; exit 2; }
 
 guard() {

@@ -10,12 +10,17 @@ set -euo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+
+usage() {
+  script_help >&2
+  exit 2
+}
 handle_help "$@"
 require_commands gh git jq base64 awk
 
 REPO="${MITHRIL_REPO:-IntersectMBO/mithril}"
 
-[[ $# -ge 1 ]] || usage_error
+[[ $# -ge 1 ]] || usage
 DISTRIBUTION="$1"
 shift
 [[ "$DISTRIBUTION" =~ ^[0-9]{4}$ ]] || { echo "Distribution must be 4 digits, got '$DISTRIBUTION'" >&2; exit 2; }
@@ -26,7 +31,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --commit) COMMIT_OVERRIDE="${2:?}"; shift 2 ;;
     --patch) PATCH_OVERRIDE="${2:?}"; shift 2 ;;
-    *) usage_error ;;
+    *) usage ;;
   esac
 done
 
