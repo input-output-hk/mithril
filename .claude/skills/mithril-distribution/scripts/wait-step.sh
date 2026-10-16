@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Polls a detect-step.sh probe until it is done, failed or the timeout is reached.
+# Rights: those of the polled detect-step.sh probe.
 # Exit codes: those of detect-step.sh (0 done, 2 probe error, 3 failed), 4 timeout.
 # Usage: bash wait-step.sh [--interval <seconds>] [--timeout <minutes>] <probe> <args...>
 set -uo pipefail
@@ -14,7 +15,7 @@ while [[ $# -gt 0 ]]; do
     *) break ;;
   esac
 done
-[[ $# -ge 1 ]] || { sed -n '4p' "$0" >&2; exit 2; }
+[[ $# -ge 1 ]] || { sed -n '5p' "$0" >&2; exit 2; }
 
 DEADLINE=$(( $(date +%s) + TIMEOUT_MINUTES * 60 ))
 while true; do

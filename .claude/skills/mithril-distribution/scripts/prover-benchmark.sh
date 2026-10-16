@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cardano transactions prover benchmark: runs it, extracts previous results from an issue, renders the results comment.
 # Only `run` sends requests (to the aggregator under test), the other modes are read-only and print the comment command.
+# Rights: none for run and previous (public aggregator and issue); the printed comment needs an authenticated account.
 # Exit codes: 0 done, 1 benchmark failure or a row below the tolerance, 2 usage or network error.
 # Usage:
 #   bash prover-benchmark.sh run --aggregator <endpoint> --benchmark-dir <mithril-test-lab/benchmark/aggregator-prover>
@@ -30,7 +31,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
 done
-usage() { sed -n '5,10p' "$0" >&2; exit 2; }
+usage() { sed -n '6,11p' "$0" >&2; exit 2; }
 
 table() {
   echo "| **total_requests** | **concurrency** | **transactions/request** | **requests/s** |"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Renders the publication of a pre-release as the Latest release (it fires release.yml, which deploys the release networks), or verifies it.
 # Read-only: prints the command, never edits the release.
+# Rights: public reads; the printed release edit needs repository Write role (Contents write).
 # Exit codes: 0 printed or verified, 1 a guard or the verification failed, 2 usage or GitHub error.
 # Usage:
 #   bash release-publish.sh print  --tag <tag> --previous-tag <latest release tag> [--baseline <file>]...
@@ -20,7 +21,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
 done
-[[ "$MODE" =~ ^(print|verify)$ && -n "$TAG" && ( "$MODE" == verify || -n "$PREVIOUS_TAG" ) ]] || { sed -n '5,7p' "$0" >&2; exit 2; }
+[[ "$MODE" =~ ^(print|verify)$ && -n "$TAG" && ( "$MODE" == verify || -n "$PREVIOUS_TAG" ) ]] || { sed -n '6,8p' "$0" >&2; exit 2; }
 
 RELEASE="$(gh release view "$TAG" --repo "$REPO" --json isPrerelease,isDraft --jq '"\(.isPrerelease) \(.isDraft)"')" || { echo "No release $TAG" >&2; exit 2; }
 read -r PRERELEASE DRAFT <<<"$RELEASE"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Renders the dispatch command of the client multi-platform test, with transactions and blocks hashes certified by the aggregator.
 # Read-only: queries the aggregator proof routes and the workflow definition, prints the command.
+# Rights: public reads; the printed workflow dispatch needs Actions write.
 # Exit codes: 0 command rendered, 1 not enough certified hashes or unknown workflow input, 2 usage or network error.
 # Usage:
 #   bash client-test-command.sh --commit <sha> --image-id <image id> --network <cardano network> --aggregator <endpoint>
@@ -25,7 +26,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 for value in "$COMMIT" "$IMAGE_ID" "$NETWORK" "$AGGREGATOR" "$GENESIS_KEY_URL" "$TRANSACTIONS_FILE" "$BLOCKS_FILE"; do
-  [[ -n "$value" ]] || { sed -n '5,8p' "$0" >&2; exit 2; }
+  [[ -n "$value" ]] || { sed -n '6,9p' "$0" >&2; exit 2; }
 done
 
 certified_hashes() {

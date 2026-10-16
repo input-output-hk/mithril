@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Read-only probe of one rollout step.
+# Rights: public reads, except env-var and env-secret probes (Admin role, token Environments read)
+#         and workflow-run and cache-empty probes (Actions read).
 # Exit codes: 0 done, 1 not done yet, 2 probe error, 3 failed (e.g. workflow run concluded with failure).
 # Usage: bash detect-step.sh <probe> <args...>   (bash detect-step.sh help for the list)
 set -uo pipefail

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Read-only health check of a Mithril network aggregator, printed as a Markdown table.
+# Rights: none (public aggregator routes, networks.json and Koios).
 # Exit codes: 0 all checks pass, 1 at least one check fails, 2 usage or network error,
 #             3 no failure but the --wait-target epoch is not reached, or neither CardanoTransactions nor CardanoBlocksTransactions has an artifact
 #               created after --deployed-at yet (the other types are checked with --epochs after 2 epochs).
@@ -11,7 +12,7 @@
 set -uo pipefail
 
 NETWORK="${1:-}"
-[[ -n "$NETWORK" && "$NETWORK" != -* ]] || { sed -n '6,10p' "$0" >&2; exit 2; }
+[[ -n "$NETWORK" && "$NETWORK" != -* ]] || { sed -n '7,11p' "$0" >&2; exit 2; }
 shift
 
 EXPECT_COMMIT="" EXPECT_TYPES="" SINCE="" DEPLOYED_AT="" SAVE_BASELINE="" BASELINE="" MAX_DROP=10 EPOCH_FROM="" EPOCH_TO="" DEPLOYMENT_EPOCH="" EPOCHS_TO_WAIT=""

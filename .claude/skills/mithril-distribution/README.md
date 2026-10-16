@@ -16,6 +16,23 @@ The skill checks the state of each step, renders the exact commands to run, dete
 
 The skill never connects to GCP, SSH hosts or hosting platforms, and never posts to Discord or Slack.
 
+## Rights
+
+The scripts only read. The commands they print need the following rights on `IntersectMBO/mithril` (role of your GitHub account, and the matching permission of a fine-grained token). ⚠️ marks the commands that need more than the Write role: `env-commands.sh` and `secret-date-check.sh` print a warning when your role is below Admin.
+
+| Command                                                                        | Phase                | Role                                               | Token permission          |
+| ------------------------------------------------------------------------------ | -------------------- | -------------------------------------------------- | ------------------------- |
+| Read the issue, releases, workflow runs, aggregators                           | all                  | none (public)                                      | none                      |
+| `gh issue edit` (ticks), `gh issue comment` (benchmark)                        | all                  | Triage (edit), any account (comment)               | Issues write              |
+| ⚠️ `gh variable set` / `gh variable delete`, `gh variable list --env`          | pre-release, release | Admin                                              | Environments write / read |
+| ⚠️ `gh secret list --env` (update dates only)                                  | release              | Admin                                              | Environments read         |
+| `git push origin <tag>` (signed with your GPG key, public key on your account) | pre-release          | Write                                              | Contents write            |
+| `gh api …/releases/generate-notes`, `gh release edit`                          | pre-release, release | Write                                              | Contents write            |
+| `gh workflow run test-client.yml`                                              | prepare, pre-release | Write                                              | Actions write             |
+| `gh pr merge`                                                                  | prepare, release     | Write (plus the branch protection rules)           | Pull requests write       |
+| `gh cache delete --all`                                                        | prepare              | Write                                              | Actions write             |
+| KMS key rotation in GCP                                                        | release              | GCP rights on the ancillary signer service account | outside GitHub            |
+
 ## Setup
 
 1. Install the skill, either as a project skill (shared with the repository):

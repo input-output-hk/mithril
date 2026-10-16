@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Resolves the rollout context of a Mithril distribution and prints it as KEY=value lines.
 # Read-only: only GitHub API reads.
+# Rights: an authenticated gh (public reads of IntersectMBO/mithril only).
 # Locations: MITHRIL_DISTRIBUTION_LOG_DIR (rollout logs) and MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR (announcement drafts),
 # both under ~/.mithril-distribution by default; REPOSITORY_DIR is the main checkout of the current git repository.
 # Usage: bash resolve-context.sh <distribution> [--commit <sha>] [--patch <n>]

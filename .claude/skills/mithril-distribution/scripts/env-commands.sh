@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Renders one batch of GitHub environment variable changes, or verifies that the batch is applied.
 # Read-only: reads the variables of the environment, prints the commands.
+# Rights: Admin role on the repository (environment variables are repository settings), token Environments read to list
+#         and Environments write for the printed set and delete commands. A warning is printed below the Admin role.
 # A name with '*' is expanded against the variables of the environment.
 # Exit codes: 0 printed or verified, 1 verification failed or nothing to change, 2 usage or GitHub error.
 # Usage:
@@ -20,8 +22,14 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown argument $1" >&2; exit 2 ;;
   esac
 done
-[[ "$MODE" =~ ^(print|verify)$ && -n "$ENVIRONMENT" && ${#OPERATIONS[@]} -gt 0 ]] || { sed -n '6,8p' "$0" >&2; exit 2; }
+[[ "$MODE" =~ ^(print|verify)$ && -n "$ENVIRONMENT" && ${#OPERATIONS[@]} -gt 0 ]] || { sed -n '8,10p' "$0" >&2; exit 2; }
 
+role_warning() {
+  local role
+  role="$(gh api "repos/$REPO" --jq '.permissions | if .admin then "admin" elif .maintain then "maintain" elif .push then "write" elif .triage then "triage" else "read" end' 2>/dev/null)"
+  [[ "$role" == admin ]] || echo "⚠️  $1 needs the Admin role on $REPO (more than Write), your role: ${role:-unknown}" >&2
+}
+role_warning "Managing environment variables"
 VARIABLES="$(gh variable list --env "$ENVIRONMENT" --repo "$REPO" --json name,value)" || { echo "Cannot read $ENVIRONMENT" >&2; exit 2; }
 current() { jq -r --arg n "$1" '.[] | select(.name == $n) | .value' <<<"$VARIABLES"; }
 

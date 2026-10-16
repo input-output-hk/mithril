@@ -40,7 +40,7 @@ Scripts live in this skill's `scripts/` folder and are always called through the
 
 ## Output
 
-Be brief: per step, one line of state, the command block, and what is awaited (`run`, `ack`, `done`). Before every command the skill runs itself, even a read-only check or probe, show it as a one-line `bash` block (the script call with its arguments), never only a description. No recap of earlier steps, no restated rules, tables only for check results. Paths are given once, when a file is first produced.
+Be brief: per step, one line of state, the command block, and what is awaited (`run`, `ack`, `done`). Before displaying a command that needs more than the Write role (environment variables and secrets, see "Rights" in `README.md`), warn the user with a ⚠️ line naming the role needed. Before every command the skill runs itself, even a read-only check or probe, show it as a one-line `bash` block (the script call with its arguments), never only a description. No recap of earlier steps, no restated rules, tables only for check results. Paths are given once, when a file is first produced.
 
 Stay responsive: one tool call per step where possible (probe, render and log chained in one `bash` call), background polls started in the same message as the instructions, no re-reading of files or issue sections already in context, and no extra verification beyond the step's probe.
 

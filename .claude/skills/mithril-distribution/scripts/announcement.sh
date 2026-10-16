@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Prints one announcement message of a drafts file as raw Markdown, and checks it is ready to post.
 # Messages are separated by a line of dashes ('-------').
+# Rights: none (local file).
 # Exit codes: 0 printed and ready, 1 printed with leftover placeholders or Unicode emojis, 2 usage error.
 # Usage:
 #   bash announcement.sh --file <drafts file> --list
@@ -16,7 +17,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
 done
-[[ -f "$FILE" && ( -n "$LIST" || "$MESSAGE" =~ ^[0-9]+$ ) ]] || { sed -n '5,7p' "$0" >&2; exit 2; }
+[[ -f "$FILE" && ( -n "$LIST" || "$MESSAGE" =~ ^[0-9]+$ ) ]] || { sed -n '6,8p' "$0" >&2; exit 2; }
 
 split() { awk -v wanted="$1" 'BEGIN { n = 1 } /^-------+$/ { n++; next } n == wanted || wanted == 0 { print n "\t" $0 }' "$FILE"; }
 

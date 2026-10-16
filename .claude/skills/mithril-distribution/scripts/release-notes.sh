@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Renders the notes of a pre-release: highlights file, GitHub generated notes, then the current body unchanged.
 # Read-only: the generate-notes call creates nothing, the notes are written to a local file and the edit command is printed.
+# Rights: Contents write (generate-notes and the printed release edit), public reads otherwise.
 # Exit codes: 0 notes rendered, 1 guard failed (not a pre-release or Latest changed), 2 usage or GitHub error.
 # Usage:
 #   bash release-notes.sh --tag <tag> --previous-tag <latest release tag> --commit <sha> --highlights <file> --out <file>
@@ -20,8 +21,8 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
 done
-[[ -n "$TAG" && -n "$PREVIOUS_TAG" ]] || { sed -n '5,7p' "$0" >&2; exit 2; }
-[[ -n "$GUARD_ONLY" || ( -n "$COMMIT" && -n "$HIGHLIGHTS" && -n "$OUT" ) ]] || { sed -n '5,7p' "$0" >&2; exit 2; }
+[[ -n "$TAG" && -n "$PREVIOUS_TAG" ]] || { sed -n '6,8p' "$0" >&2; exit 2; }
+[[ -n "$GUARD_ONLY" || ( -n "$COMMIT" && -n "$HIGHLIGHTS" && -n "$OUT" ) ]] || { sed -n '6,8p' "$0" >&2; exit 2; }
 [[ -n "$GUARD_ONLY" || -s "$HIGHLIGHTS" ]] || { echo "Highlights file $HIGHLIGHTS is missing or empty" >&2; exit 2; }
 
 guard() {

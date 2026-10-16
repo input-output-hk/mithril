@@ -2,6 +2,7 @@
 # Renders the release notes with the networks marked compatible and the Cardano and DMQ node compatibility tables
 # regenerated from a networks.json file with the repository generators, the rest of the body unchanged.
 # Read-only: writes the notes to a local file and prints the edit command.
+# Rights: public reads; the printed release edit needs repository Write role (Contents write).
 # Exit codes: 0 rendered, 1 nothing to change, 2 usage or GitHub error.
 # Usage:
 #   bash release-compatibility.sh --tag <tag> --compatible <network>[,<network>...] --networks-json <file>
@@ -22,7 +23,7 @@ while [[ $# -gt 0 ]]; do
 done
 GENERATORS="$REPOSITORY/.github/workflows/scripts"
 [[ -n "$TAG" && -n "$COMPATIBLE" && -f "$NETWORKS_JSON" && -f "$GENERATORS/compute-cardano-compatibility.sh" && -n "$OUT" ]] \
-  || { sed -n '6,8p' "$0" >&2; exit 2; }
+  || { sed -n '7,9p' "$0" >&2; exit 2; }
 
 BODY="$(gh release view "$TAG" --repo "$REPO" --json body --jq .body)" || { echo "No release $TAG" >&2; exit 2; }
 CARDANO="$(bash "$GENERATORS/compute-cardano-compatibility.sh" "$NETWORKS_JSON")" || exit 2

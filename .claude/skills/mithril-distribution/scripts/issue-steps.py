@@ -1,6 +1,7 @@
 """Lists the How checkboxes of a release issue phase, and renders a body with some of them ticked.
 
 Read-only: reads the issue with `gh issue view`, writes the new body only to a local file.
+Rights: public read of the issue; the printed `gh issue edit` needs the Triage or Write role on the repository.
 
 Usage:
   python3 -I issue-steps.py <issue> <phase-number> [--json]
