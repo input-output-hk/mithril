@@ -35,6 +35,7 @@ Scripts live in this skill's `scripts/` folder and are always called through the
 | `release-compatibility.sh` | Networks and node compatibility tables of the release notes |
 | `client-test-command.sh` | Client test dispatch command with certified hashes |
 | `prover-benchmark.sh` | Benchmark `run`, `previous` results, `comment` |
+| `kms-rotation-commands.sh` | Ancillary signer key rotation commands for the user, `verify` of the secret |
 | `announcement.sh` | Raw source of one announcement message, `--list` |
 
 ## Output
