@@ -36,6 +36,7 @@ Scripts live in this skill's `scripts/` folder and are always called through the
 | `client-test-command.sh`         | Client test dispatch command with certified hashes                            |
 | `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                                |
 | `secret-date-check.sh`           | Update date of an environment secret after a given time (never reads a value) |
+| `kms-rotation-gcloud.sh`         | `gcloud` commands of the ancillary signer key rotation, for the user          |
 | `announcement.sh`                | Raw source of one announcement message, `--list`                              |
 
 ## Output

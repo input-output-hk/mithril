@@ -20,18 +20,18 @@ The skill never connects to GCP, SSH hosts or hosting platforms, and never posts
 
 The scripts only read. The commands they print need the following rights on `IntersectMBO/mithril` (role of your GitHub account, and the matching permission of a fine-grained token). ⚠️ marks the commands that need more than the Write role: `env-commands.sh` and `secret-date-check.sh` print a warning when your role is below Admin.
 
-| Command                                                                        | Phase                | Role                                               | Token permission          |
-| ------------------------------------------------------------------------------ | -------------------- | -------------------------------------------------- | ------------------------- |
-| Read the issue, releases, workflow runs, aggregators                           | all                  | none (public)                                      | none                      |
-| `gh issue edit` (ticks), `gh issue comment` (benchmark)                        | all                  | Triage (edit), any account (comment)               | Issues write              |
-| ⚠️ `gh variable set` / `gh variable delete`, `gh variable list --env`          | pre-release, release | Admin                                              | Environments write / read |
-| ⚠️ `gh secret list --env` (update dates only)                                  | release              | Admin                                              | Environments read         |
-| `git push origin <tag>` (signed with your GPG key, public key on your account) | pre-release          | Write                                              | Contents write            |
-| `gh api …/releases/generate-notes`, `gh release edit`                          | pre-release, release | Write                                              | Contents write            |
-| `gh workflow run test-client.yml`                                              | prepare, pre-release | Write                                              | Actions write             |
-| `gh pr merge`                                                                  | prepare, release     | Write (plus the branch protection rules)           | Pull requests write       |
-| `gh cache delete --all`                                                        | prepare              | Write                                              | Actions write             |
-| KMS key rotation in GCP                                                        | release              | GCP rights on the ancillary signer service account | outside GitHub            |
+| Command                                                                        | Phase                | Role                                                                                                   | Token permission          |
+| ------------------------------------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------- |
+| Read the issue, releases, workflow runs, aggregators                           | all                  | none (public)                                                                                          | none                      |
+| `gh issue edit` (ticks), `gh issue comment` (benchmark)                        | all                  | Triage (edit), any account (comment)                                                                   | Issues write              |
+| ⚠️ `gh variable set` / `gh variable delete`, `gh variable list --env`          | pre-release, release | Admin                                                                                                  | Environments write / read |
+| ⚠️ `gh secret list --env` (update dates only)                                  | release              | Admin                                                                                                  | Environments read         |
+| `git push origin <tag>` (signed with your GPG key, public key on your account) | pre-release          | Write                                                                                                  | Contents write            |
+| `gh api …/releases/generate-notes`, `gh release edit`                          | pre-release, release | Write                                                                                                  | Contents write            |
+| `gh workflow run test-client.yml`                                              | prepare, pre-release | Write                                                                                                  | Actions write             |
+| `gh pr merge`                                                                  | prepare, release     | Write (plus the branch protection rules)                                                               | Pull requests write       |
+| `gh cache delete --all`                                                        | prepare              | Write                                                                                                  | Actions write             |
+| KMS key rotation commands of `kms-rotation-gcloud.sh`                          | release              | Service Account Key Admin (`roles/iam.serviceAccountKeyAdmin`) on the ancillary signer service account | outside GitHub            |
 
 ## Setup
 
@@ -108,6 +108,7 @@ Every script stands alone (explicit arguments, usage in its header) and is read-
 | `client-test-command.sh`         | Client multi-platform test dispatch with certified hashes              |
 | `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                         |
 | `secret-date-check.sh`           | Update date of an environment secret (never reads a value)             |
+| `kms-rotation-gcloud.sh`         | `gcloud` commands of the ancillary signer key rotation, run by you     |
 | `announcement.sh`                | Raw source of one announcement message                                 |
 
 Example, outside the skill:
