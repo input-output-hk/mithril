@@ -82,6 +82,28 @@ Same flow on the same issue and networks. Checks run for real. Commands are rend
 | `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-<phase>-PLAN.md`                                                        | Plan of a phase written by `--plan`: every step and its commands             |
 | `$MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR/mithril-<distribution>.md` (default `~/.mithril-distribution/announcements`) | Discord and Slack announcement drafts                                        |
 
+## Script help
+
+Each script prints its purpose, rights, requirements, exit codes and usage with `--help`, from `~/.claude/skills/mithril-distribution`:
+
+```bash
+bash scripts/resolve-context.sh --help
+bash scripts/detect-step.sh --help
+bash scripts/wait-step.sh --help
+bash scripts/network-check.sh --help
+bash scripts/env-commands.sh --help
+bash scripts/tag-commands.sh --help
+bash scripts/release-notes.sh --help
+bash scripts/release-publish.sh --help
+bash scripts/release-compatibility.sh --help
+bash scripts/client-test-command.sh --help
+bash scripts/prover-benchmark.sh --help
+bash scripts/secret-date-check.sh --help
+bash scripts/kms-rotation-gcloud.sh --help
+bash scripts/announcement.sh --help
+python3 -I scripts/issue-steps.py --help
+```
+
 ## Rules
 
 - By default the skill runs no write command, you run what it displays. With `--allow-run-commands`, nothing is published without your `run` on the exact command shown, and one `run` covers one command or one batch (the commands of a step grouped by default, e.g. all the variables of an environment).

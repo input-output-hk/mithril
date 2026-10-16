@@ -120,6 +120,26 @@ Example, outside the skill:
 bash scripts/network-check.sh pre-release-preview --expect-commit <sha>
 ```
 
+Help of each script (purpose, rights, requirements, exit codes, usage), from the skill folder:
+
+```bash
+bash scripts/resolve-context.sh --help
+bash scripts/detect-step.sh --help
+bash scripts/wait-step.sh --help
+bash scripts/network-check.sh --help
+bash scripts/env-commands.sh --help
+bash scripts/tag-commands.sh --help
+bash scripts/release-notes.sh --help
+bash scripts/release-publish.sh --help
+bash scripts/release-compatibility.sh --help
+bash scripts/client-test-command.sh --help
+bash scripts/prover-benchmark.sh --help
+bash scripts/secret-date-check.sh --help
+bash scripts/kms-rotation-gcloud.sh --help
+bash scripts/announcement.sh --help
+python3 -I scripts/issue-steps.py --help
+```
+
 ## Safety rules
 
 - A pre-release is never marked Latest: `release.yml` runs on `released` and deploys `release-preprod` and `release-mainnet`.

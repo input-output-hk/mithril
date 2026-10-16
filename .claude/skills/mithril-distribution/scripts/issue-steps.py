@@ -159,7 +159,7 @@ def print_command(issue, original, lines, out, rendered_from):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("issue")
     parser.add_argument("phase", nargs="?")
     parser.add_argument("--json", action="store_true")
