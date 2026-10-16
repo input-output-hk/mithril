@@ -11,10 +11,10 @@ Walks one phase of a Mithril distribution rollout step by step with the user, us
 
 ## Arguments
 
-`/mithril-distribution <distribution> <phase> [--dry-run] [--all-steps] [--no-issue-tick] [--allow-run-commands]` or `/mithril-distribution help [<phase>]`.
+`/mithril-distribution <distribution> <phase> [--dry-run | --plan] [--no-issue-tick] [--allow-run-commands]` or `/mithril-distribution help [<phase>]`.
 
 - `--allow-run-commands`: the skill may run the write commands (`action`, `impact`, ticks, comments) after the user's `run`. Without it (default), every write command is only displayed and run by the user. Read-only checks and probes always run. The Tag blocks are always run by the user.
-- `--all-steps` (with `--dry-run` only): checked steps are rehearsed as if open, so every step of the phase shows its command block from the start (probes still show the real state). Without `--dry-run` it is refused.
+- `--plan`: print the plan of the phase and stop: for every step from the start of the phase (checked or not), in order, its kind and the exact command block rendered by the scripts with the resolved values (writes, Tag blocks, checks, baselines, ticks, wait), with the ⚠️ role warnings. No probe loop, no answer awaited, no write, no log entry.
 - `--no-issue-tick`: no tick command is prepared. Once a step is done, the skill polls its checkbox (`wait-step.sh --interval 60 --timeout 480 checkbox …`, in the background) and moves on only when the user has checked it on the issue.
 
 - `help`: print `references/help.md` (no other call). `help <phase>`: also print one table of the catalog entries that apply to the phase (the phase table, then the common entries), with match, kind, command template, probe and `ack` needed, followed by the ordering rules. No script, no network or GitHub call.
