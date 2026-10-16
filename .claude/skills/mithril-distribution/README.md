@@ -79,13 +79,13 @@ It prints the issue, tags, commit, versions and the log and drafts locations.
 /mithril-distribution help [<phase>]
 ```
 
-| Argument               | Meaning                                                                                                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `<phase>`              | `prepare` (How Phase 1), `pre-release` (Phase 2), `release` (Phase 3)                                             |
-| `--dry-run`            | Rehearse the phase: real read-only checks, no write at all                                                        |
-| `--plan`               | Print every command of the phase from its first step, in order, then stop                                         |
-| `--no-issue-tick`      | No tick command, you check the boxes on the issue and the skill waits for your check                              |
-| `--allow-run-commands` | Let the skill run the write commands after your `run` (default: it displays them, you run them and answer `done`) |
+| Argument               | Meaning                                                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<phase>`              | `prepare` (How Phase 1), `pre-release` (Phase 2), `release` (Phase 3)                                                                            |
+| `--dry-run`            | Rehearse the phase: real read-only checks, no write at all                                                                                       |
+| `--plan`               | Print every command of the phase from its first step, in order, then stop, also written to `<distribution>-<phase>-PLAN.md` in the log directory |
+| `--no-issue-tick`      | No tick command, you check the boxes on the issue and the skill waits for your check                                                             |
+| `--allow-run-commands` | Let the skill run the write commands after your `run` (default: it displays them, you run them and answer `done`)                                |
 
 Examples: `/mithril-distribution 2642 pre-release --dry-run`, `/mithril-distribution 2642 release`.
 
@@ -127,12 +127,13 @@ bash scripts/network-check.sh pre-release-preview --expect-commit <sha>
 
 ## Files
 
-| File                                                                | Content                                               |
-| ------------------------------------------------------------------- | ----------------------------------------------------- |
-| `SKILL.md`                                                          | Skill instructions                                    |
-| `references/catalog.md`                                             | How each step is matched, run and detected            |
-| `references/benchmark.md`                                           | Prover benchmark procedure                            |
-| `references/announcements.md`                                       | Announcement templates                                |
-| `references/help.md`                                                | Output of `/mithril-distribution help`                |
-| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-ROLLOUT.md`           | Rollout log (runs, steps, commands, baselines, waits) |
-| `$MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR/mithril-<distribution>.md` | Discord and Slack drafts                              |
+| File                                                                | Content                                                          |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `SKILL.md`                                                          | Skill instructions                                               |
+| `references/catalog.md`                                             | How each step is matched, run and detected                       |
+| `references/benchmark.md`                                           | Prover benchmark procedure                                       |
+| `references/announcements.md`                                       | Announcement templates                                           |
+| `references/help.md`                                                | Output of `/mithril-distribution help`                           |
+| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-ROLLOUT.md`           | Rollout log (runs, steps, commands, baselines, waits)            |
+| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-<phase>-PLAN.md`      | Plan of a phase written by `--plan`: every step and its commands |
+| `$MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR/mithril-<distribution>.md` | Discord and Slack drafts                                         |

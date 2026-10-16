@@ -12,7 +12,7 @@
 | `<distribution>`       | Distribution number, e.g. `2642`. Used to find the release issue (`Release \`2642\` distribution`), the tags, the rollout log and the announcements file |
 | `<phase>`              | `prepare` (How "Phase 1"), `pre-release` (How "Phase 2"), `release` (How "Phase 3")                                                                      |
 | `--dry-run`            | Rehearse the phase: real read-only checks, no write at all                                                                                               |
-| `--plan`               | Print every command of the phase from its first step, in order, then stop (no answer, no write)                                                          |
+| `--plan`               | Print every command of the phase from its first step, in order, then stop, also written to `<distribution>-<phase>-PLAN.md` in the log directory         |
 | `--no-issue-tick`      | No tick command: you check the boxes on the issue, the skill waits for your check before moving on                                                       |
 | `--allow-run-commands` | Let the skill run the write commands after your `run` (default: it only displays them, you run them and answer `done`)                                   |
 
@@ -78,6 +78,7 @@ Same flow on the same issue and networks. Checks run for real. Commands are rend
 | File                                                                                                                  | Content                                                                      |
 | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-ROLLOUT.md` (default `~/.mithril-distribution/logs`)                    | Rollout log: runs, steps, commands, `ack`, baselines, waits, dry run reports |
+| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-<phase>-PLAN.md`                                                        | Plan of a phase written by `--plan`: every step and its commands             |
 | `$MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR/mithril-<distribution>.md` (default `~/.mithril-distribution/announcements`) | Discord and Slack announcement drafts                                        |
 
 ## Rules
