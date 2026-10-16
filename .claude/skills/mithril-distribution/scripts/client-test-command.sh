@@ -2,12 +2,18 @@
 # Renders the dispatch command of the client multi-platform test, with transactions and blocks hashes certified by the aggregator.
 # Read-only: queries the aggregator proof routes and the workflow definition, prints the command.
 # Rights: public reads; the printed workflow dispatch needs Actions write.
+# Requirements: gh, curl, jq, awk.
 # Exit codes: 0 command rendered, 1 not enough certified hashes or unknown workflow input, 2 usage or network error.
 # Usage:
 #   bash client-test-command.sh --commit <sha> --image-id <image id> --network <cardano network> --aggregator <endpoint>
 #                               --genesis-key-url <url> [--ancillary-key-url <url>] --transactions-file <file> --blocks-file <file>
 #                               [--count <n>]
 set -uo pipefail
+
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
+require_commands gh curl jq awk
 
 REPO="${MITHRIL_REPO:-IntersectMBO/mithril}"
 COMMIT="" IMAGE_ID="" NETWORK="" AGGREGATOR="" GENESIS_KEY_URL="" ANCILLARY_KEY_URL="" TRANSACTIONS_FILE="" BLOCKS_FILE="" COUNT=3
@@ -26,7 +32,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 for value in "$COMMIT" "$IMAGE_ID" "$NETWORK" "$AGGREGATOR" "$GENESIS_KEY_URL" "$TRANSACTIONS_FILE" "$BLOCKS_FILE"; do
-  [[ -n "$value" ]] || { sed -n '6,9p' "$0" >&2; exit 2; }
+  [[ -n "$value" ]] || usage_error
 done
 
 certified_hashes() {
@@ -35,7 +41,12 @@ certified_hashes() {
     [[ -n "$hash" ]] || continue
     local response
     response="$(curl -sf -m 30 "$AGGREGATOR$route?$parameter=$hash")" || continue
-    [[ "$(jq -r --arg h "$hash" ".$uncertified_field | index(\$h) // empty" <<<"$response")" == "" ]] && found+=("$hash")
+    case "$(jq -r --arg h "$hash" --arg f "$uncertified_field" \
+      'if (.[$f] | type) != "array" then "unknown" elif (.[$f] | index($h)) == null then "certified" else "uncertified" end' <<<"$response")" in
+      certified) found+=("$hash") ;;
+      uncertified) ;;
+      *) echo "Unexpected answer of $route for $hash, no $uncertified_field list" >&2 ;;
+    esac
   done <"$file"
   [[ ${#found[@]} -eq $COUNT ]] || { echo "Only ${#found[@]} of $COUNT hashes of $file are certified by $AGGREGATOR" >&2; return 1; }
   (IFS=,; echo "${found[*]}")

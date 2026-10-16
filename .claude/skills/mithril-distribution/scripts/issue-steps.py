@@ -8,15 +8,20 @@ Usage:
   python3 -I issue-steps.py <issue> <phase-number> --tick <index>[,<index>...] --out <file>
   python3 -I issue-steps.py <issue> <phase-number> --strike <index>[,<index>...] --out <file>
   Any form takes --in <file> to read the body from a local file (to chain edits) instead of the issue.
-  A form with --out takes --print-command to print the changed lines and the `gh issue edit` command.
+  A form with --out takes --print-command to print the changed lines and the `gh issue edit` command, guarded by --unchanged.
+  python3 -I issue-steps.py <issue> --unchanged <sha256>   Exit 1 when the issue body changed since it was rendered.
+Requirements: python3, gh (unless every read uses --in).
   python3 -I issue-steps.py <issue> --scope <distribution> [--json]
   python3 -I issue-steps.py <issue> [<phase-number> --tick <index>[,...]] --scope <distribution> --scope-tick <index>[,...] --out <file>
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 
@@ -30,12 +35,22 @@ def read_body(issue, source):
             body = handle.read()
     else:
         body = subprocess.run(
-            ["gh", "issue", "view", str(issue), "--repo", REPO, "--json", "body", "--jq", ".body"],
+            [require_gh(), "issue", "view", str(issue), "--repo", REPO, "--json", "body", "--jq", ".body"],
             check=True,
             capture_output=True,
             text=True,
         ).stdout
     return body.replace("\r\n", "\n").rstrip("\n").split("\n")
+
+
+def require_gh():
+    if shutil.which("gh") is None:
+        sys.exit("Missing required command: gh")
+    return "gh"
+
+
+def body_hash(lines):
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
 
 
 def section_bounds(lines, heading_pattern, level):
@@ -134,12 +149,13 @@ def parse_indexes(value):
     return [int(index) for index in value.split(",")]
 
 
-def print_command(issue, original, lines, out):
+def print_command(issue, original, lines, out, rendered_from):
     for before, after in zip(original, lines):
         if before != after:
             print(after.lstrip(" >"))
     print()
-    print(f"gh issue edit {issue} --repo {REPO} --body-file {out}")
+    guard = shlex.join(["python3", "-I", os.path.abspath(__file__), str(issue), "--unchanged", body_hash(rendered_from)])
+    print(f"{guard} && gh issue edit {issue} --repo {REPO} --body-file {shlex.quote(out)}")
 
 
 def main():
@@ -154,7 +170,13 @@ def main():
     parser.add_argument("--scope")
     parser.add_argument("--scope-tick")
     parser.add_argument("--print-command", action="store_true")
+    parser.add_argument("--unchanged", metavar="SHA256")
     arguments = parser.parse_args()
+
+    if arguments.unchanged:
+        if body_hash(read_body(arguments.issue, None)) != arguments.unchanged:
+            sys.exit("Issue %s changed since its new body was rendered, render it again" % arguments.issue)
+        return
 
     if (arguments.tick or arguments.strike or arguments.scope_tick) and not arguments.out:
         parser.error("--tick, --strike and --scope-tick require --out")
@@ -177,7 +199,8 @@ def main():
         with open(arguments.out, "w", encoding="utf-8") as handle:
             handle.write("\n".join(lines) + "\n")
         if arguments.print_command:
-            print_command(arguments.issue, original, lines, arguments.out)
+            rendered_from = original if not arguments.source else read_body(arguments.issue, None)
+            print_command(arguments.issue, original, lines, arguments.out, rendered_from)
         return
     if arguments.scope:
         print_steps(scope_steps(lines, arguments.scope), arguments.json)

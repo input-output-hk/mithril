@@ -3,11 +3,17 @@
 # Read-only: never creates, signs nor pushes a tag.
 # Rights: none to print or check; the printed push needs repository Write role (Contents write, tag rulesets apply)
 #         and the tag signature needs a local GPG secret key whose public key is on the pusher's GitHub account.
+# Requirements: git.
 # Exit codes: 0 printed or check passed, 1 check failed, 2 usage error.
 # Usage:
 #   bash tag-commands.sh print --tag <distribution>.<patch> --commit <sha>
 #   bash tag-commands.sh check --tag <distribution>.<patch> --commit <sha> [--repository <path>]
 set -uo pipefail
+
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
+require_commands git
 
 MODE="${1:-}"
 shift || true
@@ -20,7 +26,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
 done
-[[ "$MODE" =~ ^(print|check)$ && "$TAG" =~ ^[0-9]{4}\.[0-9]+ && -n "$COMMIT" ]] || { sed -n '7,9p' "$0" >&2; exit 2; }
+[[ "$MODE" =~ ^(print|check)$ && "$TAG" =~ ^[0-9]{4}\.[0-9]+ && -n "$COMMIT" ]] || usage_error
 
 if [[ "$MODE" == print ]]; then
   cat <<EOF

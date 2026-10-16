@@ -3,11 +3,17 @@
 # Read-only: never calls gcloud nor GitHub, never reads, prints nor stores key material.
 # Rights: none to print; the printed commands need the Service Account Key Admin role (roles/iam.serviceAccountKeyAdmin)
 #         on the service account, and updating the GitHub secret needs the Admin role on the repository (more than Write).
+# Requirements: git (gcloud only to run the printed commands).
 # Exit codes: 0 printed, 2 usage error.
 # Usage:
 #   bash kms-rotation-gcloud.sh --service-account <email> --key-file <path outside any repository>
 #                               [--project <project id>] [--previous-key-id <key id>]
 set -uo pipefail
+
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
+require_commands git
 
 SERVICE_ACCOUNT="" KEY_FILE="" PROJECT="" PREVIOUS_KEY_ID=""
 while [[ $# -gt 0 ]]; do
@@ -19,7 +25,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
 done
-[[ "$SERVICE_ACCOUNT" == *@*.iam.gserviceaccount.com && -n "$KEY_FILE" ]] || { sed -n '7,9p' "$0" >&2; exit 2; }
+[[ "$SERVICE_ACCOUNT" == *@*.iam.gserviceaccount.com && -n "$KEY_FILE" ]] || usage_error
 git -C "$(dirname "$KEY_FILE")" rev-parse --show-toplevel >/dev/null 2>&1 \
   && { echo "Key file $KEY_FILE is inside a git repository, choose a path outside any repository" >&2; exit 2; }
 

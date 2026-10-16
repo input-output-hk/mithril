@@ -3,9 +3,16 @@
 # Read-only: lists the secret names and update dates of the environment, never reads nor changes a secret value.
 # Rights: Admin role on the repository (environment secrets are repository settings), token Environments read
 #         (secret names and update dates only). A warning is printed below the Admin role.
+# Requirements: gh, GNU date.
 # Exit codes: 0 updated after the time, 1 not updated (or absent), 2 usage or GitHub error.
 # Usage: bash secret-date-check.sh --environment <environment> --secret <name> --since <ISO>
 set -uo pipefail
+
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
+require_commands gh
+require_gnu_date
 
 REPO="${MITHRIL_REPO:-IntersectMBO/mithril}"
 ENVIRONMENT="" SECRET="" SINCE=""
@@ -17,7 +24,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
 done
-[[ -n "$ENVIRONMENT" && -n "$SECRET" && -n "$SINCE" ]] || { sed -n '7p' "$0" >&2; exit 2; }
+[[ -n "$ENVIRONMENT" && -n "$SECRET" && -n "$SINCE" ]] || usage_error
 
 role_warning() {
   local role

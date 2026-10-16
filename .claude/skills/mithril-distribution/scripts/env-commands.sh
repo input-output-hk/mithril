@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 # Renders one batch of GitHub environment variable changes, or verifies that the batch is applied.
-# Read-only: reads the variables of the environment, prints the commands.
+# Read-only: reads the variables of the environment, prints the commands still needed, chained with &&.
 # Rights: Admin role on the repository (environment variables are repository settings), token Environments read to list
 #         and Environments write for the printed set and delete commands. A warning is printed below the Admin role.
+# Requirements: gh, jq.
 # A name with '*' is expanded against the variables of the environment.
 # Exit codes: 0 printed or verified, 1 verification failed or nothing to change, 2 usage or GitHub error.
 # Usage:
 #   bash env-commands.sh print  --environment <environment> [set <NAME>=<value>]... [delete <NAME or pattern>]...
 #   bash env-commands.sh verify --environment <environment> [set <NAME>=<value>]... [delete <NAME or pattern>]...
 set -uo pipefail
+
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
+require_commands gh jq
 
 REPO="${MITHRIL_REPO:-IntersectMBO/mithril}"
 MODE="${1:-}"
@@ -22,7 +28,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown argument $1" >&2; exit 2 ;;
   esac
 done
-[[ "$MODE" =~ ^(print|verify)$ && -n "$ENVIRONMENT" && ${#OPERATIONS[@]} -gt 0 ]] || { sed -n '8,10p' "$0" >&2; exit 2; }
+[[ "$MODE" =~ ^(print|verify)$ && -n "$ENVIRONMENT" && ${#OPERATIONS[@]} -gt 0 ]] || usage_error
 
 role_warning() {
   local role
@@ -38,7 +44,8 @@ for operation in "${OPERATIONS[@]}"; do
   read -r verb argument <<<"$operation"
   if [[ "$verb" == set ]]; then
     NAME="${argument%%=*}" VALUE="${argument#*=}"
-    COMMANDS+=("gh variable set $NAME --env $ENVIRONMENT --repo $REPO --body '$VALUE'")
+    [[ "$NAME" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "Invalid variable name $NAME" >&2; exit 2; }
+    COMMANDS+=("gh variable set $NAME --env $ENVIRONMENT --repo $REPO --body '${VALUE//\'/\'\\\'\'}'")
     CHECKS+=("$NAME|set|$VALUE")
   else
     NAMES="$(jq -r --arg p "$argument" '.[] | .name | select(test("^" + ($p | gsub("\\*"; ".*")) + "$"))' <<<"$VARIABLES")"
@@ -51,11 +58,11 @@ for operation in "${OPERATIONS[@]}"; do
   fi
 done
 
-FAILURES=0
+FAILURES=0 PENDING_COMMANDS=()
 echo "| Variable | Current | Expected | |"
 echo "|---|---|---|---|"
-for check in "${CHECKS[@]}"; do
-  IFS='|' read -r NAME VERB VALUE <<<"$check"
+for index in "${!CHECKS[@]}"; do
+  IFS='|' read -r NAME VERB VALUE <<<"${CHECKS[$index]}"
   NOW="$(current "$NAME")"
   if [[ "$VERB" == set ]]; then
     [[ "$NOW" == "$VALUE" ]] && STATE="🟢" || STATE="🔴"
@@ -64,7 +71,7 @@ for check in "${CHECKS[@]}"; do
     [[ -z "$NOW" ]] && STATE="🟢" || STATE="🔴"
     echo "| \`$NAME\` | \`${NOW:-absent}\` | absent | $STATE |"
   fi
-  [[ "$STATE" == "🟢" ]] || FAILURES=$((FAILURES + 1))
+  [[ "$STATE" == "🟢" ]] || { FAILURES=$((FAILURES + 1)); PENDING_COMMANDS+=("${COMMANDS[$index]}"); }
 done
 
 if [[ "$MODE" == verify ]]; then
@@ -72,4 +79,8 @@ if [[ "$MODE" == verify ]]; then
   exit $?
 fi
 echo
-printf '%s\n' "${COMMANDS[@]}"
+[[ ${#PENDING_COMMANDS[@]} -gt 0 ]] || { echo "Nothing to change"; exit 1; }
+LAST=$((${#PENDING_COMMANDS[@]} - 1))
+for index in "${!PENDING_COMMANDS[@]}"; do
+  if [[ $index -lt $LAST ]]; then echo "${PENDING_COMMANDS[$index]} && \\"; else echo "${PENDING_COMMANDS[$index]}"; fi
+done

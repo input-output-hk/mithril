@@ -2,9 +2,14 @@
 # Read-only probe of one rollout step.
 # Rights: public reads, except env-var and env-secret probes (Admin role, token Environments read)
 #         and workflow-run and cache-empty probes (Actions read).
+# Requirements: gh, curl, jq, python3 (checkbox probe).
 # Exit codes: 0 done, 1 not done yet, 2 probe error, 3 failed (e.g. workflow run concluded with failure).
 # Usage: bash detect-step.sh <probe> <args...>   (bash detect-step.sh help for the list)
 set -uo pipefail
+
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+require_commands gh curl jq
 
 REPO="${MITHRIL_REPO:-IntersectMBO/mithril}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,6 +21,8 @@ error() { echo "ERROR: $*" >&2; exit 2; }
 failed() { echo "FAILED: $*"; exit 3; }
 
 usage() {
+  script_help
+  echo
   cat <<'EOF'
 Probes:
   tag <tag>                                       Tag exists on GitHub
@@ -50,7 +57,7 @@ case "$PROBE" in
     ;;
   tag)
     TAG="${1:?tag}"
-    SHA="$(gh api "repos/$REPO/commits/$TAG" --jq .sha 2>/dev/null)" && done_ "tag $TAG on $SHA"
+    SHA="$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha 2>/dev/null)" && done_ "tag $TAG on $SHA"
     pending "tag $TAG not on GitHub"
     ;;
   workflow-run)
@@ -114,6 +121,7 @@ case "$PROBE" in
     ;;
   checkbox)
     ISSUE="${1:?issue}" PHASE="${2:?phase}" TEXT="${3:?step text}"
+    require_commands python3
     STEPS="$(python3 -I "$SCRIPT_DIR/issue-steps.py" "$ISSUE" "$PHASE" --json)" || error "cannot read issue $ISSUE"
     MATCHES="$(jq -c --arg text "$TEXT" '
       . as $steps

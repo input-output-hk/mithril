@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Polls a detect-step.sh probe until it is done, failed or the timeout is reached.
 # Rights: those of the polled detect-step.sh probe.
+# Requirements: those of the polled detect-step.sh probe.
 # Exit codes: those of detect-step.sh (0 done, 2 probe error, 3 failed), 4 timeout.
 # Usage: bash wait-step.sh [--interval <seconds>] [--timeout <minutes>] <probe> <args...>
 set -uo pipefail
+
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTERVAL=30
@@ -15,7 +20,7 @@ while [[ $# -gt 0 ]]; do
     *) break ;;
   esac
 done
-[[ $# -ge 1 ]] || { sed -n '5p' "$0" >&2; exit 2; }
+[[ $# -ge 1 ]] || usage_error
 
 DEADLINE=$(( $(date +%s) + TIMEOUT_MINUTES * 60 ))
 while true; do

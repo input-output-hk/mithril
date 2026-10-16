@@ -2,6 +2,7 @@
 # Cardano transactions prover benchmark: runs it, extracts previous results from an issue, renders the results comment.
 # Only `run` sends requests (to the aggregator under test), the other modes are read-only and print the comment command.
 # Rights: none for run and previous (public aggregator and issue); the printed comment needs an authenticated account.
+# Requirements: awk, sed, ab (run), gh (previous), join and sort (comment).
 # Exit codes: 0 done, 1 benchmark failure or a row below the tolerance, 2 usage or network error.
 # Usage:
 #   bash prover-benchmark.sh run --aggregator <endpoint> --benchmark-dir <mithril-test-lab/benchmark/aggregator-prover>
@@ -11,10 +12,17 @@
 #                                    --issue <number> [--tolerance <percent>]
 set -uo pipefail
 
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
+require_commands awk sed
+
 REPO="${MITHRIL_REPO:-IntersectMBO/mithril}"
 MODE="${1:-}"
 shift || true
 AGGREGATOR="" BENCHMARK_DIR="" TRANSACTIONS_FILE="" WORK_DIR="" ISSUE="" OUT="" PREVIOUS="" MACHINE_TYPE="" VCPUS="" RAM_GB="" TOLERANCE=20
+TRANSACTIONS_PER_REQUEST_MIN=0 TRANSACTIONS_PER_REQUEST_MAX=50 TRANSACTIONS_PER_REQUEST_STEP=10
+AB_TOTAL_REQUESTS=500 AB_CONCURRENCY_MIN=50 AB_CONCURRENCY_MAX=50 AB_CONCURRENCY_STEP=50
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --aggregator) AGGREGATOR="${2:?}"; shift 2 ;;
@@ -31,7 +39,8 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
 done
-usage() { sed -n '6,11p' "$0" >&2; exit 2; }
+usage() { usage_error; }
+parameter() { sed -n "s/^$1=//p" "$WORK_DIR/benchmark.env"; }
 
 table() {
   echo "| **total_requests** | **concurrency** | **transactions/request** | **requests/s** |"
@@ -42,10 +51,15 @@ table() {
 case "$MODE" in
   run)
     [[ -n "$AGGREGATOR" && -d "$BENCHMARK_DIR" && -f "$TRANSACTIONS_FILE" && -n "$WORK_DIR" ]] || usage
-    mkdir -p "$WORK_DIR" && cd "$WORK_DIR" || exit 2
+    require_commands ab
+    WORK_DIR="$(mkdir -p "$WORK_DIR" && cd "$WORK_DIR" && pwd)" || exit 2
+    BENCHMARK_DIR="$(cd "$BENCHMARK_DIR" && pwd)" || exit 2
+    TRANSACTIONS_FILE="$(cd "$(dirname "$TRANSACTIONS_FILE")" && pwd)/$(basename "$TRANSACTIONS_FILE")" || exit 2
+    cd "$WORK_DIR" || exit 2
+    printf 'AGGREGATOR_ENDPOINT=%s\nTRANSACTIONS_FILE=%s\n' "$AGGREGATOR" "$(basename "$TRANSACTIONS_FILE")" >"$WORK_DIR/benchmark.env"
     export AGGREGATOR_ENDPOINT="$AGGREGATOR" TRANSACTIONS_FILE OUT_FILE="$WORK_DIR/benchmark.csv"
-    export TRANSACTIONS_PER_REQUEST_MIN=0 TRANSACTIONS_PER_REQUEST_MAX=50 TRANSACTIONS_PER_REQUEST_STEP=10
-    export AB_TOTAL_REQUESTS=500 AB_CONCURRENCY_MIN=50 AB_CONCURRENCY_MAX=50 AB_CONCURRENCY_STEP=50
+    export TRANSACTIONS_PER_REQUEST_MIN TRANSACTIONS_PER_REQUEST_MAX TRANSACTIONS_PER_REQUEST_STEP
+    export AB_TOTAL_REQUESTS AB_CONCURRENCY_MIN AB_CONCURRENCY_MAX AB_CONCURRENCY_STEP
     bash "$BENCHMARK_DIR/benchmark-aggregator-prover.sh" 2>&1 \
       | sed -e "s|$TRANSACTIONS_FILE|$(basename "$TRANSACTIONS_FILE")|" -e "s|$WORK_DIR/||" | tee "$WORK_DIR/benchmark.log"
     STATUS=${PIPESTATUS[0]}
@@ -54,6 +68,7 @@ case "$MODE" in
     ;;
   previous)
     [[ -n "$ISSUE" && -n "$OUT" ]] || usage
+    require_commands gh
     gh issue view "$ISSUE" --repo "$REPO" --comments --json comments --jq '.comments[].body' \
       | awk '/^## Cardano transactions prover benchmark/ { found = 1 } found && /^vs previous results/ { exit } found' \
       | awk -F'|' 'BEGIN { print "total_requests,concurrency,transactions/request,requests/s" }
@@ -62,7 +77,8 @@ case "$MODE" in
     cat "$OUT"
     ;;
   comment)
-    [[ -f "$WORK_DIR/benchmark.csv" && -f "$WORK_DIR/benchmark.log" && -f "$PREVIOUS" && -n "$MACHINE_TYPE" && -n "$VCPUS" && -n "$RAM_GB" && -n "$ISSUE" ]] || usage
+    require_commands join sort
+    [[ -f "$WORK_DIR/benchmark.csv" && -f "$WORK_DIR/benchmark.log" && -f "$WORK_DIR/benchmark.env" && -f "$PREVIOUS" && -n "$MACHINE_TYPE" && -n "$VCPUS" && -n "$RAM_GB" && -n "$ISSUE" ]] || usage
     RESULTS="$WORK_DIR/benchmark.csv" COMMENT="$WORK_DIR/benchmark-comment.md"
     {
       echo "## Cardano transactions prover benchmark"
@@ -81,25 +97,25 @@ case "$MODE" in
       echo
       echo "- Command run:"
       echo '```bash'
-      cat <<'EOF'
+      cat <<EOF
 # Aggregator endpoint
-export AGGREGATOR_ENDPOINT=https://aggregator.pre-release-preview.api.mithril.network/aggregator
+export AGGREGATOR_ENDPOINT=$(parameter AGGREGATOR_ENDPOINT)
 
 # Transactions file to prove
-export TRANSACTIONS_FILE=transactions-preview.txt
+export TRANSACTIONS_FILE=$(parameter TRANSACTIONS_FILE)
 
 # Transactions proved per request range definition
-export TRANSACTIONS_PER_REQUEST_MIN=0
-export TRANSACTIONS_PER_REQUEST_MAX=50
-export TRANSACTIONS_PER_REQUEST_STEP=10
+export TRANSACTIONS_PER_REQUEST_MIN=$TRANSACTIONS_PER_REQUEST_MIN
+export TRANSACTIONS_PER_REQUEST_MAX=$TRANSACTIONS_PER_REQUEST_MAX
+export TRANSACTIONS_PER_REQUEST_STEP=$TRANSACTIONS_PER_REQUEST_STEP
 
 # Apache benchmark total request sent per benchmark
-export AB_TOTAL_REQUESTS=500
+export AB_TOTAL_REQUESTS=$AB_TOTAL_REQUESTS
 
 # Apache benchmark concurrency level range definition
-export AB_CONCURRENCY_MIN=50
-export AB_CONCURRENCY_MAX=50
-export AB_CONCURRENCY_STEP=50
+export AB_CONCURRENCY_MIN=$AB_CONCURRENCY_MIN
+export AB_CONCURRENCY_MAX=$AB_CONCURRENCY_MAX
+export AB_CONCURRENCY_STEP=$AB_CONCURRENCY_STEP
 
 # Run the benchmark:
 ./benchmark-aggregator-prover.sh

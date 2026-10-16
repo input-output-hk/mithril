@@ -4,6 +4,7 @@
 # Exit codes: 0 all checks pass, 1 at least one check fails, 2 usage or network error,
 #             3 no failure but the --wait-target epoch is not reached, or neither CardanoTransactions nor CardanoBlocksTransactions has an artifact
 #               created after --deployed-at yet (the other types are checked with --epochs after 2 epochs).
+# Requirements: curl, jq, awk, sort, GNU date.
 # Usage:
 #   bash network-check.sh <network> [--expect-commit <sha>] [--expect-types <A,B>] [--since <ISO>] [--deployed-at <ISO>]
 #                                   [--save-baseline <file>] [--baseline <file>] [--max-drop <percent>]
@@ -11,8 +12,14 @@
 #   bash network-check.sh <network> --wait-target <deployment epoch> <epochs to wait>
 set -uo pipefail
 
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
+require_commands curl jq awk sort
+require_gnu_date
+
 NETWORK="${1:-}"
-[[ -n "$NETWORK" && "$NETWORK" != -* ]] || { sed -n '7,11p' "$0" >&2; exit 2; }
+[[ -n "$NETWORK" && "$NETWORK" != -* ]] || usage_error
 shift
 
 EXPECT_COMMIT="" EXPECT_TYPES="" SINCE="" DEPLOYED_AT="" SAVE_BASELINE="" BASELINE="" MAX_DROP=10 EPOCH_FROM="" EPOCH_TO="" DEPLOYMENT_EPOCH="" EPOCHS_TO_WAIT=""
@@ -182,7 +189,7 @@ for TYPE in ${TYPES//,/ }; do
   fi
   LATEST_EPOCH="$(jq -r .epoch <<<"$LATEST")"
   CREATED_AT="$(jq -r .created_at <<<"$LATEST")"
-  AGE_HOURS="$(( (NOW - $(date -u -d "${CREATED_AT%%.*}Z" +%s)) / 3600 ))"
+  AGE_HOURS="$(( (NOW - $(to_seconds "$CREATED_AT")) / 3600 ))"
   RESULT="$([[ "$LATEST_EPOCH" -ge $((EPOCH - 1)) ]] && echo pass || echo fail)"
   if [[ -n "$SINCE" && "$TYPE" != "MithrilStakeDistribution" && "$TYPE" != "CardanoStakeDistribution" && "$CREATED_AT" < "$SINCE" ]]; then
     RESULT="fail"

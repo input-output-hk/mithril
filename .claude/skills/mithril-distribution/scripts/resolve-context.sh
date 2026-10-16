@@ -4,17 +4,18 @@
 # Rights: an authenticated gh (public reads of IntersectMBO/mithril only).
 # Locations: MITHRIL_DISTRIBUTION_LOG_DIR (rollout logs) and MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR (announcement drafts),
 # both under ~/.mithril-distribution by default; REPOSITORY_DIR is the main checkout of the current git repository.
+# Requirements: gh, git, jq, base64, awk.
 # Usage: bash resolve-context.sh <distribution> [--commit <sha>] [--patch <n>]
 set -euo pipefail
 
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh" || exit 2
+handle_help "$@"
+require_commands gh git jq base64 awk
+
 REPO="${MITHRIL_REPO:-IntersectMBO/mithril}"
 
-usage() {
-  echo "Usage: bash resolve-context.sh <distribution> [--commit <sha>] [--patch <n>]" >&2
-  exit 2
-}
-
-[[ $# -ge 1 ]] || usage
+[[ $# -ge 1 ]] || usage_error
 DISTRIBUTION="$1"
 shift
 [[ "$DISTRIBUTION" =~ ^[0-9]{4}$ ]] || { echo "Distribution must be 4 digits, got '$DISTRIBUTION'" >&2; exit 2; }
@@ -25,7 +26,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --commit) COMMIT_OVERRIDE="${2:?}"; shift 2 ;;
     --patch) PATCH_OVERRIDE="${2:?}"; shift 2 ;;
-    *) usage ;;
+    *) usage_error ;;
   esac
 done
 
@@ -78,7 +79,7 @@ emit EXISTING_TAGS "$(tr '\n' ' ' <<<"$EXISTING_TAGS" | sed 's/ $//')"
 LATEST_TAG="$(tail -1 <<<"$EXISTING_TAGS")"
 emit LATEST_TAG "$LATEST_TAG"
 if [[ -n "$LATEST_TAG" ]]; then
-  LATEST_TAG_COMMIT="$(gh api "repos/$REPO/commits/$LATEST_TAG" --jq .sha)"
+  LATEST_TAG_COMMIT="$(gh api "repos/$REPO/commits/refs/tags/$LATEST_TAG" --jq .sha)"
   emit LATEST_TAG_COMMIT "$LATEST_TAG_COMMIT"
   emit LATEST_IMAGE_ID "$LATEST_TAG-${LATEST_TAG_COMMIT:0:7}"
 else

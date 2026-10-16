@@ -94,7 +94,7 @@ A run starts with the context and the steps of the phase, then waits for `go`. F
 
 ## Scripts
 
-Every script stands alone (explicit arguments, usage in its header) and is read-only: write commands are printed, not run. Only `prover-benchmark.sh run` sends load to the aggregator under test.
+Every script stands alone (explicit arguments, `--help` prints its header, requirements checked first with exit 2 when one is missing) and is read-only: write commands are printed, not run. Only `prover-benchmark.sh run` sends load to the aggregator under test.
 
 | Script                           | Purpose                                                                |
 | -------------------------------- | ---------------------------------------------------------------------- |
@@ -112,6 +112,7 @@ Every script stands alone (explicit arguments, usage in its header) and is read-
 | `secret-date-check.sh`           | Update date of an environment secret (never reads a value)             |
 | `kms-rotation-gcloud.sh`         | `gcloud` commands of the ancillary signer key rotation, run by you     |
 | `announcement.sh`                | Raw source of one announcement message                                 |
+| `common.sh`                      | Help and requirement checks, sourced by the other scripts              |
 
 Example, outside the skill:
 
