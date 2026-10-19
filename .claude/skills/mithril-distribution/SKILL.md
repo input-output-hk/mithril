@@ -93,7 +93,7 @@ Now run this command to verify <expected result>:
 - Every `impact` command, and every irreversible operation (e.g. destroying a key), is preceded by a `> ⚠️ High impact: <effect>.` line asking for the team's ack, and a command needing more than the Write role by a `> ⚠️ <role> role needed` line.
 - A command longer than one line of 120 characters is split one option per line with `\`.
 - Baselines (not a How step) are a plan step of their own, right before the section of the step that deploys the network.
-- The tick commands are one `## Ticking the issue` section at the end, since they follow every step.
+- Every plan step that matches How checkboxes ends with "Optionally, run this command to tick the step (and the What items of `<distribution>` it completes) on the issue, then run the edit command it prints:" and its `issue-steps.py --tick <indexes> [--scope <distribution> --scope-tick <scope indexes>] --out $LOGS/<issue>-body.md --print-command` call, with the current indexes (see "What scope ticks"). A plan step done in two times (e.g. the destroy of the previous KMS key) ticks each part in the plan step where it is done. The plan ends with a `## Ticking the issue` section giving the date of the indexes and the two listing commands to take new ones when the issue is edited.
 
 ## Start of a run
 
