@@ -142,7 +142,7 @@ The What section lists the scope of `### Distribution <distribution>` and of the
 ## Ordering rules
 
 - Every `github-environment-variable` and `github-environment-secret` step of the phase is checked or skipped with a reason before the tag push (`pre-release`) or the release publication (`release`) is prepared. Refuse to prepare those commands otherwise.
-- Save a baseline of each network right before the step that deploys it: `bash scripts/network-check.sh <network> --save-baseline <log dir>/<distribution>-<network>-baseline.json`. The tag push deploys `pre-release-preview`, the release publication deploys `release-preprod` and `release-mainnet`. A dry run saves baselines too, with a `-dry-run` suffix.
+- Save a baseline of each network right before the step that deploys it: `bash scripts/network-check.sh <network> --save-baseline <log dir>/<distribution>-<network>-baseline.json`. The tag push deploys `pre-release-preview`, the release publication deploys `release-preprod` and `release-mainnet`.
 - Networks: `pre-release` checks `pre-release-preview`, `release` checks `release-preprod` and `release-mainnet`. `pre-release-2-preview` is not part of the process (see its catalog entry).
 - The wait step pauses the phase (see "Wait" in `references/catalog.md`). There is no polling loop for it, the user resumes the phase after the target epoch.
 
@@ -159,20 +159,18 @@ During `prepare`, look for breaking changes in the `<distribution>.0` entry of `
 
 ## Dry run
 
-Same flow, same issue, networks and log file (its run section is marked `dry run` and never changes the state of a real run), with these differences:
+A walkthrough of the phase on the same issue and log file (its run section is marked `dry run` and never changes the state of a real run): no command is run, by the skill or by the user, only the local log is written.
 
-| Kind                      | Dry run                                              |
-| ------------------------- | ---------------------------------------------------- |
-| `check`                   | Run for real                                         |
-| `action`, `impact`        | Render and validate, never run. `ack` is still asked |
-| `manual`                  | Instructions, then `rehearsed` or `issue: <text>`    |
-| `wait`                    | Target epochs and dates computed, no pause recorded  |
-| Announcements             | Printed, not appended                                |
-| Tick (How and What scope) | Diff shown, not applied                              |
+| Kind                      | Dry run                                           |
+| ------------------------- | ------------------------------------------------- |
+| `check`                   | Displayed, not run                                |
+| `action`, `impact`        | Displayed, not run, no `ack` asked                |
+| `manual`                  | Instructions displayed                            |
+| `wait`                    | Target epoch command displayed, no pause recorded |
+| Announcements             | Print command displayed, nothing appended         |
+| Tick (How and What scope) | Tick commands displayed, not applied              |
 
-Every rendered `action` or `impact` command block of a dry run is preceded by the line `🧪 Dry run: rendered only, not run, no write to GitHub, the environments or any remote service.`, and the `ack` asked for an `impact` command says it is a rehearsed `ack` (recorded in the log, the command is never run). A write command is never rendered without this line in a dry run.
-
-Validation without running: tag (Tag blocks rendered, commit equal to the head of `origin/main`, `$PROBE tag` pending, `git config user.signingkey` set and its secret key present), variables and secrets (environment readable with `gh variable list --env`, variable to delete present, value to set provided), `gh workflow run` (workflow exists, inputs accepted by its `workflow_dispatch`), `gh release edit` (pre-release edits carry `--prerelease` and no `--latest`, release exists or created by the tag step, release notes generated from `$PREVIOUS_TAG` to `$COMMIT` and the notes file rendered without the workflow part when the release does not exist yet), `gh pr merge` (PR open, CI green, approved). End with a report (steps that would run, validation failures, manual issues, scope findings) printed and appended to the log.
+Every message of a dry run opens with the line `🧪 Dry run of <phase> <distribution>: do not run the commands below, the skill runs none of them either.`, every step is announced as `🧪 Dry run, step <n> …` followed by the blocks of the step exactly as the plan writes them, and ends with the only answers awaited: `rehearsed` (the step is understood, logged ⚪ rehearsed) or `issue: <text>` (what would block it, logged ⚪ issue). No `ok`, `ack`, `done` or `run` is ever asked in a dry run. The step row is logged when the answer comes, then the next step is displayed. End with a report (steps rehearsed, issues raised, scope findings) printed and appended to the log.
 
 ## Log format
 
@@ -211,7 +209,7 @@ The step result is 🟢 `done`, 🟡 `skipped <reason>`, 🔴 `failed`, or ⚪ `
 | "The user said go, so I can run the commands of the phase"        | `go` starts the phase. Without `--allow-run-commands` the skill runs no write at all, with it each write needs its own `run`.                                                                                        |
 | "The ack was given for the previous variable"                     | One `ack` covers one previewed `impact` command or batch.                                                                                                                                                            |
 | "It is only a checkbox tick"                                      | Editing the issue is publishing: diff, command, `run`.                                                                                                                                                               |
-| "A dry run can dispatch the terraform plan workflow"              | A dispatch is a write. A dry run makes no write.                                                                                                                                                                     |
+| "A dry run can dispatch the terraform plan workflow"              | A dispatch is a write. A dry run runs nothing.                                                                                                                                                                       |
 | "I will set the variable after the tag, it is faster"             | Environment configuration always comes before the deployment.                                                                                                                                                        |
 | "I can create or push the tag myself, it is faster"               | The user runs the two Tag blocks exactly as written: `git switch main`, `git pull --rebase`, `git tag -s`, `git log` check, then the push.                                                                           |
 | "Editing the pre-release notes cannot deploy anything"            | Unsetting the pre-release flag or marking it Latest fires `release.yml` on `release-preprod` and `release-mainnet`. Always `--prerelease`, never `--latest` before phase 3.                                          |

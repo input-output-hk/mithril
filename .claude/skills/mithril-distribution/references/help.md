@@ -47,12 +47,12 @@ What you can answer depends on the options of the run. A cell with "—" means t
 | ---------------------------------- | ----------------------------------------------- | --------------------------------------------------------- | ---------------------------- |
 | Context summary shown              | `go`                                            | `go`                                                      | `go`                         |
 | `action` command shown             | `done` (you ran it), `skip <reason>`            | `run` (the skill runs it), `I'll run it`, `skip <reason>` | `rehearsed`, `issue: <text>` |
-| `impact` command announced         | `ack`, then as `action`                         | `ack`, then as `action`                                   | `ack`, then as `action`      |
+| `impact` command announced         | `ack`, then as `action`                         | `ack`, then as `action`                                   | `rehearsed`, `issue: <text>` |
 | Tag blocks (step 1, then the push) | `done` after each block (`ack` before the push) | same as default (always run by you)                       | `rehearsed`, `issue: <text>` |
 | `manual` instructions              | check the box on the issue, or `skip <reason>`  | same as default                                           | `rehearsed`, `issue: <text>` |
-| Tick command (`gh issue edit`)     | `done` (you ran it), `skip <reason>`            | `run`, `I'll run it`, `skip <reason>`                     | — (diff shown only)          |
-| Failed check or probe              | `retry`, `investigate`, `skip <reason>`         | same as default                                           | same as default              |
-| Poll timeout (30 min)              | `wait more`, `stop`                             | same as default                                           | same as default              |
+| Tick command (`gh issue edit`)     | `done` (you ran it), `skip <reason>`            | `run`, `I'll run it`, `skip <reason>`                     | `rehearsed`, `issue: <text>` |
+| Failed check or probe              | `retry`, `investigate`, `skip <reason>`         | same as default                                           | — (nothing is run)           |
+| Poll timeout (30 min)              | `wait more`, `stop`                             | same as default                                           | — (no poll)                  |
 | Any time                           | `stop`                                          | `stop`                                                    | `stop`                       |
 
 With `--no-issue-tick`, no tick command is shown in any mode: you check the box on the issue, and the skill polls it before moving on (every minute, up to 8 minutes, then `wait more` or `stop`). The What items of the distribution being built are ticked with the same edit as their last How step, in default and `--allow-run-commands` modes only.
@@ -68,12 +68,12 @@ With `--no-issue-tick`, no tick command is shown in any mode: you check the box 
 | `skip <reason>`               | Skip the step, logged with the reason                                              |
 | `retry` / `investigate`       | After a failure: re-run the check, or start debugging                              |
 | `wait more`                   | Keep polling after the timeout                                                     |
-| `rehearsed` / `issue: <text>` | Dry run: the step would work, or what would block it                               |
+| `rehearsed` / `issue: <text>` | Dry run: the step is understood, or what would block it                            |
 | `stop`                        | Stop the phase, the next run resumes from the issue checkboxes and the log         |
 
 ## Dry run
 
-Same flow on the same issue and networks. Checks run for real. Commands are rendered and validated but never run, each one preceded by a line saying it is rendered only and nothing is run remotely, `ack` is still asked (a rehearsed `ack`, recorded in the log), announcements are printed but not saved, ticks are shown but not applied, the wait computes the target epoch without pausing. It ends with a report saved in the log.
+A walkthrough of the phase: every command is displayed and must not be run, by you or by the skill (no check, probe, poll or `ack` either). You answer `rehearsed` or `issue: <text>` per step. It ends with a report saved in the log.
 
 ## Files
 

@@ -82,7 +82,7 @@ It prints the issue, tags, commit, versions and the log and drafts locations.
 | Argument               | Meaning                                                                                                                                          |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `<phase>`              | `prepare` (How Phase 1), `pre-release` (Phase 2), `release` (Phase 3)                                                                            |
-| `--dry-run`            | Rehearse the phase: real read-only checks, no write at all                                                                                       |
+| `--dry-run`            | Walk through the phase: every command displayed and not run, you answer `rehearsed` per step                                                     |
 | `--plan`               | Print every command of the phase from its first step, in order, then stop, also written to `<distribution>-<phase>-PLAN.md` in the log directory |
 | `--check`              | Report each step: done and checked, done not checked, checked not done, not done not checked, then stop                                          |
 | `--no-issue-tick`      | No tick command, you check the boxes on the issue and the skill waits for your check                                                             |
