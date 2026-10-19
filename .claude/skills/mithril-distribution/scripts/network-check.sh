@@ -3,10 +3,10 @@
 # Rights: none (public aggregator routes, networks.json and Koios).
 # Exit codes: 0 all checks pass, 1 at least one check fails, 2 usage or network error,
 #             3 no failure but the --wait-target epoch is not reached, or neither CardanoTransactions nor CardanoBlocksTransactions has an artifact
-#               created after --deployed-at yet (the other types are checked with --epochs after 2 epochs).
+#               created after --await-transactions-after yet (the other types are checked with --epochs after 2 epochs).
 # Requirements: curl, jq, awk, sort, GNU date.
 # Usage:
-#   bash network-check.sh <network> [--expect-commit <sha>] [--expect-types <A,B>] [--since <ISO>] [--deployed-at <ISO>]
+#   bash network-check.sh <network> [--expect-commit <sha>] [--expect-types <A,B>] [--require-artifacts-after <ISO>] [--await-transactions-after <ISO>]
 #                                   [--save-baseline <file>] [--baseline <file>] [--max-drop <percent>]
 #   bash network-check.sh <network> --epochs <from> <to> [--baseline <file>] [--max-drop <percent>]
 #   bash network-check.sh <network> --wait-target <deployment epoch> <epochs to wait>
@@ -27,13 +27,13 @@ NETWORK="${1:-}"
 [[ -n "$NETWORK" && "$NETWORK" != -* ]] || usage
 shift
 
-EXPECT_COMMIT="" EXPECT_TYPES="" SINCE="" DEPLOYED_AT="" SAVE_BASELINE="" BASELINE="" MAX_DROP=10 EPOCH_FROM="" EPOCH_TO="" DEPLOYMENT_EPOCH="" EPOCHS_TO_WAIT=""
+EXPECT_COMMIT="" EXPECT_TYPES="" REQUIRE_ARTIFACTS_AFTER="" AWAIT_TRANSACTIONS_AFTER="" SAVE_BASELINE="" BASELINE="" MAX_DROP=10 EPOCH_FROM="" EPOCH_TO="" DEPLOYMENT_EPOCH="" EPOCHS_TO_WAIT=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --expect-commit) EXPECT_COMMIT="${2:?}"; shift 2 ;;
     --expect-types) EXPECT_TYPES="${2:?}"; shift 2 ;;
-    --since) SINCE="${2:?}"; shift 2 ;;
-    --deployed-at) DEPLOYED_AT="${2:?}"; shift 2 ;;
+    --require-artifacts-after) REQUIRE_ARTIFACTS_AFTER="${2:?}"; shift 2 ;;
+    --await-transactions-after) AWAIT_TRANSACTIONS_AFTER="${2:?}"; shift 2 ;;
     --save-baseline) SAVE_BASELINE="${2:?}"; shift 2 ;;
     --baseline) BASELINE="${2:?}"; shift 2 ;;
     --max-drop) MAX_DROP="${2:?}"; shift 2 ;;
@@ -196,12 +196,12 @@ for TYPE in ${TYPES//,/ }; do
   CREATED_AT="$(jq -r .created_at <<<"$LATEST")"
   AGE_HOURS="$(( (NOW - $(to_seconds "$CREATED_AT")) / 3600 ))"
   RESULT="$([[ "$LATEST_EPOCH" -ge $((EPOCH - 1)) ]] && echo pass || echo fail)"
-  if [[ -n "$SINCE" && "$TYPE" != "MithrilStakeDistribution" && "$TYPE" != "CardanoStakeDistribution" && "$CREATED_AT" < "$SINCE" ]]; then
+  if [[ -n "$REQUIRE_ARTIFACTS_AFTER" && "$TYPE" != "MithrilStakeDistribution" && "$TYPE" != "CardanoStakeDistribution" && "$CREATED_AT" < "$REQUIRE_ARTIFACTS_AFTER" ]]; then
     RESULT="fail"
   fi
   row "\`$TYPE\` latest certificate" "epoch $LATEST_EPOCH, $AGE_HOURS h ago" "$RESULT"
-  if [[ -n "$DEPLOYED_AT" && ( "$TYPE" == "CardanoTransactions" || "$TYPE" == "CardanoBlocksTransactions" ) ]]; then
-    if [[ "$(to_seconds "$CREATED_AT")" -gt "$(to_seconds "$DEPLOYED_AT")" ]]; then
+  if [[ -n "$AWAIT_TRANSACTIONS_AFTER" && ( "$TYPE" == "CardanoTransactions" || "$TYPE" == "CardanoBlocksTransactions" ) ]]; then
+    if [[ "$(to_seconds "$CREATED_AT")" -gt "$(to_seconds "$AWAIT_TRANSACTIONS_AFTER")" ]]; then
       DEPLOYED_ARTIFACTS="$DEPLOYED_ARTIFACTS \`$TYPE\` $CREATED_AT"
     else
       WAITING_ARTIFACTS="$WAITING_ARTIFACTS \`$TYPE\` latest $CREATED_AT"
@@ -209,22 +209,22 @@ for TYPE in ${TYPES//,/ }; do
   fi
 done
 
-if [[ -n "$DEPLOYED_AT" ]]; then
+if [[ -n "$AWAIT_TRANSACTIONS_AFTER" ]]; then
   if [[ -n "$DEPLOYED_ARTIFACTS" ]]; then
-    row "Transactions artifact created after the deployment ($DEPLOYED_AT)" "${DEPLOYED_ARTIFACTS# }" pass
+    row "Transactions artifact created after the deployment ($AWAIT_TRANSACTIONS_AFTER)" "${DEPLOYED_ARTIFACTS# }" pass
   else
-    row "Transactions artifact created after the deployment ($DEPLOYED_AT)" "${WAITING_ARTIFACTS:- no transactions signed entity type}" pending
+    row "Transactions artifact created after the deployment ($AWAIT_TRANSACTIONS_AFTER)" "${WAITING_ARTIFACTS:- no transactions signed entity type}" pending
   fi
 fi
 
-if [[ -n "$SINCE" ]]; then
-  SNAPSHOT="$(fetch /artifact/cardano-database | jq -r --arg s "$SINCE" '[.[] | select(.created_at > $s)] | first | .hash // empty')"
+if [[ -n "$REQUIRE_ARTIFACTS_AFTER" ]]; then
+  SNAPSHOT="$(fetch /artifact/cardano-database | jq -r --arg s "$REQUIRE_ARTIFACTS_AFTER" '[.[] | select(.created_at > $s)] | first | .hash // empty')"
   if [[ -n "$SNAPSHOT" ]]; then
     ANCILLARY="$(fetch "/artifact/cardano-database/$SNAPSHOT" | jq -r '.ancillary.locations | length')"
-    [[ "$ANCILLARY" -gt 0 ]] && row "Snapshot with ancillary files since $SINCE" "\`${SNAPSHOT:0:12}\`" pass \
-      || row "Snapshot with ancillary files since $SINCE" "\`${SNAPSHOT:0:12}\` has no ancillary location" fail
+    [[ "$ANCILLARY" -gt 0 ]] && row "Snapshot with ancillary files created after $REQUIRE_ARTIFACTS_AFTER" "\`${SNAPSHOT:0:12}\`" pass \
+      || row "Snapshot with ancillary files created after $REQUIRE_ARTIFACTS_AFTER" "\`${SNAPSHOT:0:12}\` has no ancillary location" fail
   else
-    row "Snapshot with ancillary files since $SINCE" "no snapshot yet" fail
+    row "Snapshot with ancillary files created after $REQUIRE_ARTIFACTS_AFTER" "no snapshot yet" fail
   fi
 fi
 
@@ -250,6 +250,6 @@ fi
 
 echo
 echo "Failures: $FAILURES"
-[[ -n "$DEPLOYED_AT" ]] && echo "Pending: $PENDINGS"
+[[ -n "$AWAIT_TRANSACTIONS_AFTER" ]] && echo "Pending: $PENDINGS"
 [[ $FAILURES -eq 0 ]] || exit 1
 [[ $PENDINGS -eq 0 ]] || exit 3

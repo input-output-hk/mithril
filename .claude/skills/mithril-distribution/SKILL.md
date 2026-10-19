@@ -24,22 +24,22 @@ Walks one phase of a Mithril distribution rollout step by step with the user, us
 
 Scripts live in this skill's `scripts/` folder and are always called through their interpreter: `bash scripts/<name>.sh`, `python3 -I scripts/issue-steps.py`. Each one is usable on its own (explicit arguments, usage in its header). None writes to GitHub: they print the write commands. Only `prover-benchmark.sh run` loads the aggregator under test.
 
-| Script                           | Use                                                                           |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `resolve-context.sh`             | Distribution context                                                          |
-| `issue-steps.py`                 | How and What scope steps, tick or strike body, `--print-command`              |
-| `detect-step.sh`, `wait-step.sh` | Probe a step once, poll it in the background                                  |
-| `network-check.sh`               | Network health, baseline, `--deployed-at`, `--epochs`, `--wait-target`        |
-| `env-commands.sh`                | Environment variable batch, `print` and `verify`                              |
-| `tag-commands.sh`                | Tag blocks for the user, `check` of the result                                |
-| `release-notes.sh`               | Pre-release notes file and edit command, `--guard-only`                       |
-| `release-publish.sh`             | Release publication command with its guards, `verify`                         |
-| `release-compatibility.sh`       | Networks and node compatibility tables of the release notes                   |
-| `client-test-command.sh`         | Client test dispatch command with certified hashes                            |
-| `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                                |
-| `secret-date-check.sh`           | Update date of an environment secret after a given time (never reads a value) |
-| `kms-rotation-gcloud.sh`         | `gcloud` commands of the ancillary signer key rotation, for the user          |
-| `announcement.sh`                | Raw source of one announcement message, `--list`                              |
+| Script                           | Use                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `resolve-context.sh`             | Distribution context                                                                |
+| `issue-steps.py`                 | How and What scope steps, tick or strike body, `--print-command`                    |
+| `detect-step.sh`, `wait-step.sh` | Probe a step once, poll it in the background                                        |
+| `network-check.sh`               | Network health, baseline, `--await-transactions-after`, `--epochs`, `--wait-target` |
+| `env-commands.sh`                | Environment variable batch, `print` and `verify`                                    |
+| `tag-commands.sh`                | Tag blocks for the user, `check` of the result                                      |
+| `release-notes.sh`               | Pre-release notes file and edit command, `--guard-only`                             |
+| `release-publish.sh`             | Release publication command with its guards, `verify`                               |
+| `release-compatibility.sh`       | Networks and node compatibility tables of the release notes                         |
+| `client-test-command.sh`         | Client test dispatch command with certified hashes                                  |
+| `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                                      |
+| `secret-date-check.sh`           | Update date of an environment secret after a given time (never reads a value)       |
+| `kms-rotation-gcloud.sh`         | `gcloud` commands of the ancillary signer key rotation, for the user                |
+| `announcement.sh`                | Raw source of one announcement message, `--list`                                    |
 
 ## Output
 
@@ -154,16 +154,16 @@ The step result is 🟢 `done`, 🟡 `skipped <reason>`, 🔴 `failed`, or ⚪ `
 
 ## Red flags (stop)
 
-| Thought                                                           | Reality                                                                                                                                                                                                 |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The user said go, so I can run the commands of the phase"        | `go` starts the phase. Without `--allow-run-commands` the skill runs no write at all, with it each write needs its own `run`.                                                                           |
-| "The ack was given for the previous variable"                     | One `ack` covers one previewed `impact` command or batch.                                                                                                                                               |
-| "It is only a checkbox tick"                                      | Editing the issue is publishing: diff, command, `run`.                                                                                                                                                  |
-| "A dry run can dispatch the terraform plan workflow"              | A dispatch is a write. A dry run makes no write.                                                                                                                                                        |
-| "I will set the variable after the tag, it is faster"             | Environment configuration always comes before the deployment.                                                                                                                                           |
-| "I can create or push the tag myself, it is faster"               | The user runs the two Tag blocks exactly as written: `git switch main`, `git pull --rebase`, `git tag -s`, `git log` check, then the push.                                                              |
-| "Editing the pre-release notes cannot deploy anything"            | Unsetting the pre-release flag or marking it Latest fires `release.yml` on `release-preprod` and `release-mainnet`. Always `--prerelease`, never `--latest` before phase 3.                             |
-| "The latest certificates are recent, so the new aggregator works" | They may come from the old aggregator. `CardanoTransactions` or `CardanoBlocksTransactions` needs an artifact created after the deployment (`--deployed-at`), all the types are checked after 2 epochs. |
-| "The probe is pending but the user probably did it"               | Only the probe or the checkbox ends a step.                                                                                                                                                             |
-| "The user will tell me when the manual step is done"              | The checkbox poll starts with the instructions. The user only checks the box.                                                                                                                           |
-| "I can read the KMS key or terraform state to check"              | Never GCP, SSH or hosting platforms. Use the public API or ask the user.                                                                                                                                |
+| Thought                                                           | Reality                                                                                                                                                                                                              |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The user said go, so I can run the commands of the phase"        | `go` starts the phase. Without `--allow-run-commands` the skill runs no write at all, with it each write needs its own `run`.                                                                                        |
+| "The ack was given for the previous variable"                     | One `ack` covers one previewed `impact` command or batch.                                                                                                                                                            |
+| "It is only a checkbox tick"                                      | Editing the issue is publishing: diff, command, `run`.                                                                                                                                                               |
+| "A dry run can dispatch the terraform plan workflow"              | A dispatch is a write. A dry run makes no write.                                                                                                                                                                     |
+| "I will set the variable after the tag, it is faster"             | Environment configuration always comes before the deployment.                                                                                                                                                        |
+| "I can create or push the tag myself, it is faster"               | The user runs the two Tag blocks exactly as written: `git switch main`, `git pull --rebase`, `git tag -s`, `git log` check, then the push.                                                                           |
+| "Editing the pre-release notes cannot deploy anything"            | Unsetting the pre-release flag or marking it Latest fires `release.yml` on `release-preprod` and `release-mainnet`. Always `--prerelease`, never `--latest` before phase 3.                                          |
+| "The latest certificates are recent, so the new aggregator works" | They may come from the old aggregator. `CardanoTransactions` or `CardanoBlocksTransactions` needs an artifact created after the deployment (`--await-transactions-after`), all the types are checked after 2 epochs. |
+| "The probe is pending but the user probably did it"               | Only the probe or the checkbox ends a step.                                                                                                                                                                          |
+| "The user will tell me when the manual step is done"              | The checkbox poll starts with the instructions. The user only checks the box.                                                                                                                                        |
+| "I can read the KMS key or terraform state to check"              | Never GCP, SSH or hosting platforms. Use the public API or ask the user.                                                                                                                                             |

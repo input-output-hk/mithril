@@ -96,23 +96,23 @@ A run starts with the context and the steps of the phase, then waits for `go`. F
 
 Every script stands alone (explicit arguments, `--help` prints its header, requirements checked first with exit 2 when one is missing) and is read-only: write commands are printed, not run. Only `prover-benchmark.sh run` sends load to the aggregator under test.
 
-| Script                           | Purpose                                                                |
-| -------------------------------- | ---------------------------------------------------------------------- |
-| `resolve-context.sh`             | Distribution context                                                   |
-| `issue-steps.py`                 | How and What scope steps, tick or strike body, `--print-command`       |
-| `detect-step.sh`, `wait-step.sh` | Probe a step once, poll it                                             |
-| `network-check.sh`               | Network health, baseline, `--deployed-at`, `--epochs`, `--wait-target` |
-| `env-commands.sh`                | GitHub environment variable batch, `print` and `verify`                |
-| `tag-commands.sh`                | Tag blocks for the user, `check` of the result                         |
-| `release-notes.sh`               | Pre-release notes and edit command, `--guard-only`                     |
-| `release-publish.sh`             | Release publication command with its guards, `verify`                  |
-| `release-compatibility.sh`       | Networks and node compatibility tables of the release notes            |
-| `client-test-command.sh`         | Client multi-platform test dispatch with certified hashes              |
-| `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                         |
-| `secret-date-check.sh`           | Update date of an environment secret (never reads a value)             |
-| `kms-rotation-gcloud.sh`         | `gcloud` commands of the ancillary signer key rotation, run by you     |
-| `announcement.sh`                | Raw source of one announcement message                                 |
-| `common.sh`                      | Help and requirement checks, sourced by the other scripts              |
+| Script                           | Purpose                                                                             |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `resolve-context.sh`             | Distribution context                                                                |
+| `issue-steps.py`                 | How and What scope steps, tick or strike body, `--print-command`                    |
+| `detect-step.sh`, `wait-step.sh` | Probe a step once, poll it                                                          |
+| `network-check.sh`               | Network health, baseline, `--await-transactions-after`, `--epochs`, `--wait-target` |
+| `env-commands.sh`                | GitHub environment variable batch, `print` and `verify`                             |
+| `tag-commands.sh`                | Tag blocks for the user, `check` of the result                                      |
+| `release-notes.sh`               | Pre-release notes and edit command, `--guard-only`                                  |
+| `release-publish.sh`             | Release publication command with its guards, `verify`                               |
+| `release-compatibility.sh`       | Networks and node compatibility tables of the release notes                         |
+| `client-test-command.sh`         | Client multi-platform test dispatch with certified hashes                           |
+| `prover-benchmark.sh`            | Benchmark `run`, `previous` results, `comment`                                      |
+| `secret-date-check.sh`           | Update date of an environment secret (never reads a value)                          |
+| `kms-rotation-gcloud.sh`         | `gcloud` commands of the ancillary signer key rotation, run by you                  |
+| `announcement.sh`                | Raw source of one announcement message                                              |
+| `common.sh`                      | Help and requirement checks, sourced by the other scripts                           |
 
 Example, outside the skill:
 
