@@ -52,7 +52,9 @@ Stay responsive: one tool call per step where possible (probe, render and log ch
 ````markdown
 # Distribution <distribution> <phase> plan
 
-Issue #<issue>, How "Phase <n>", generated <UTC date>. Run the setup block once, from the root of the repository.
+Issue #<issue>, How "Phase <n>", generated <UTC date>.
+
+First, switch the repository to an up to date `main` and run this command from its root to set the values used by all the commands below:
 
 ```bash
 export SKILL=~/.claude/skills/mithril-distribution/scripts
@@ -68,9 +70,17 @@ export TAG=<tag> PREVIOUS_TAG=<previous tag> COMMIT=<sha>
 
 ## <n>. <checkbox text>
 
-**Kind**: `<kind>`. **Impact**: <effect> (`impact` only). **Done when**: <probe and its expected result>.
+<One sentence on what the step does.>
 
-<Label>:
+> ⚠️ High impact: <effect>. Get the team's ack before running it. (`impact` only)
+
+Run this command to <operation>:
+
+```bash
+<command>
+```
+
+Now run this command to verify <expected result>:
 
 ```bash
 <command>
@@ -80,10 +90,12 @@ export TAG=<tag> PREVIOUS_TAG=<previous tag> COMMIT=<sha>
 - The setup block exports `SKILL`, `LOGS`, `TAG`, `PREVIOUS_TAG`, `COMMIT` (and other values used by several steps), and every command uses them, so it runs as is from the root of the repository after the setup block. Scripts are called as `bash $SKILL/<name>.sh` and `python3 -I $SKILL/issue-steps.py`, repository files with paths relative to the root (`networks.json`, `--repository .`), files produced by a step under `$LOGS` (never `<scratchpad>`). Only values asked when the step comes up stay as `<…>`.
 - The overview table has one row per How step (children included in their parent row).
 - One section per How step, in the order of the How, its heading being the checkbox text. Children are in the section of their parent. Steps that are not consecutive are never merged in one section.
-- Blocks are labeled `Guards`, `Command to run`, `Verify`, `Instructions` (`manual` steps: what to do and the checkbox awaited) or `Wait`. A write command printed by a script (e.g. `release-publish.sh print`, `env-commands.sh print`, `kms-rotation-gcloud.sh`) appears only as the script call, labeled `Guards, then the command to run (printed by the script)`, never copied again below it.
+- Every block is introduced by a plain sentence saying what to do and why: "Run this command to <operation>:", "Now run this command to verify <expected result>:", "Then run the printed command". A script that prints a write command (e.g. `release-publish.sh print`, `env-commands.sh print`, `kms-rotation-gcloud.sh`) appears only as the script call, its sentence saying what it checks and that its printed command is then run. `manual` steps are plain instructions ending with what to check on the issue.
+- Children of a step are named by their text (e.g. "check 'Create a new key…' on the issue"), never as "child <n>" or "children".
+- Every `impact` command, and every irreversible operation (e.g. destroying a key), is preceded by a `> ⚠️ High impact: <effect>.` line asking for the team's ack, and a command needing more than the Write role by a `> ⚠️ <role> role needed` line.
 - A command longer than one line of 120 characters is split one option per line with `\`.
-- Baselines (not a How step) are a `## Baselines` section right before the section of the step that deploys the network.
-- The tick commands are one `Ticks` section at the end, since they follow every step.
+- Baselines (not a How step) are a `## Before step <n>: save the baselines` section right before the section of the step that deploys the network.
+- The tick commands are one `## Ticking the issue` section at the end, since they follow every step.
 
 ## Start of a run
 
