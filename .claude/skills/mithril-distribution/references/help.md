@@ -60,6 +60,7 @@ With `--no-issue-tick`, no tick command is shown in any mode: you check the box 
 | Answer                        | Effect                                                                             |
 | ----------------------------- | ---------------------------------------------------------------------------------- |
 | `go`                          | Start the phase                                                                    |
+| `ok`                          | Run the command the skill just showed (read-only check, probe, poll, log write)    |
 | `ack`                         | Record that the team agreed to the announced `impact` command, which is then shown |
 | `done`                        | You ran the shown command, the skill detects its effect (every 30 s, up to 30 min) |
 | `run`                         | The skill runs the shown command (`--allow-run-commands` only)                     |
@@ -106,6 +107,7 @@ python3 -I scripts/issue-steps.py --help
 
 ## Rules
 
+- The skill shows every command it runs, read-only checks, probes, polls and log writes included, and runs it only after your `ok` (or runs the input you give instead).
 - By default the skill runs no write command, you run what it displays. With `--allow-run-commands`, nothing is published without your `run` on the exact command shown, and one `run` covers one command or one batch (the commands of a step grouped by default, e.g. all the variables of an environment).
 - Environment variables and secrets of a phase are changed before its tag push or release publication.
 - The skill never connects to GCP, SSH hosts or hosting platforms, and never posts to Discord or Slack.
