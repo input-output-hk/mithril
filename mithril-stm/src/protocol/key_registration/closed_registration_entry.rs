@@ -304,16 +304,20 @@ impl PartialOrd for ClosedRegistrationEntry {
 }
 
 impl Ord for ClosedRegistrationEntry {
-    /// Orders by stake first, then by Verification key for concatenation.
+    /// Orders by stake first, then by verification key for concatenation, then (with the `snark`
+    /// feature) by verification key for SNARK.
     ///
-    /// Note: this ordering intentionally excludes the snark fields
-    /// (`VerificationKeyForSnark`, `LotteryTargetValue`), as we do not need them for ordering
-    /// the Merkle tree leaves.
+    /// The verification key for SNARK only breaks ties between entries with the same stake and
+    /// the same verification key for concatenation.
     fn cmp(&self, other: &Self) -> Ordering {
-        self.stake.cmp(&other.stake).then(
+        let ordering = self.stake.cmp(&other.stake).then(
             self.verification_key_for_concatenation
                 .cmp(&other.verification_key_for_concatenation),
-        )
+        );
+        #[cfg(feature = "snark")]
+        let ordering =
+            ordering.then(self.verification_key_for_snark.cmp(&other.verification_key_for_snark));
+        ordering
     }
 }
 
