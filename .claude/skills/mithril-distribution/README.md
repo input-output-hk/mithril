@@ -51,7 +51,7 @@ cp -r <mithril checkout>/.claude/skills/mithril-distribution ~/.claude/skills/
 
 Use the personal copy while the project skill is not merged on `main`: the Tag step switches the main checkout to `main`, which would remove a project skill that only exists on another branch.
 
-2. Choose where the rollout logs and the announcement drafts are stored, in the `env` block of `~/.claude/settings.json` (defaults: `~/.mithril-distribution/logs` and `~/.mithril-distribution/announcements`):
+2. Choose where the rollout logs and the announcement drafts are stored, in the `env` block of `~/.claude/settings.json` (defaults: `~/.mithril-distribution/logs`, and the logs folder for the announcement drafts):
 
 ```json
 {

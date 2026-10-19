@@ -3,7 +3,7 @@
 # Read-only: only GitHub API reads.
 # Rights: an authenticated gh (public reads of IntersectMBO/mithril only).
 # Locations: MITHRIL_DISTRIBUTION_LOG_DIR (rollout logs) and MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR (announcement drafts),
-# both under ~/.mithril-distribution by default; REPOSITORY_DIR is the main checkout of the current git repository.
+# rollout logs under ~/.mithril-distribution/logs by default, announcement drafts in the logs folder by default; REPOSITORY_DIR is the main checkout of the current git repository.
 # Requirements: gh, git, jq, base64, awk.
 # Usage: bash resolve-context.sh <distribution> [--commit <sha>] [--patch <n>]
 set -euo pipefail
@@ -120,7 +120,7 @@ emit CLIENT_LIBRARY_VERSION "$(read_version "$COMMIT" mithril-client/Cargo.toml 
 emit CLIENT_WASM_VERSION "$(read_version "$COMMIT" mithril-client-wasm/package.json json)"
 
 LOG_DIR="${MITHRIL_DISTRIBUTION_LOG_DIR:-$HOME/.mithril-distribution/logs}"
-ANNOUNCEMENTS_DIR="${MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR:-$HOME/.mithril-distribution/announcements}"
+ANNOUNCEMENTS_DIR="${MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR:-$LOG_DIR}"
 emit REPOSITORY_DIR "$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
 emit LOG_DIR "$LOG_DIR"
 emit LOG_FILE "$LOG_DIR/$DISTRIBUTION-ROLLOUT.md"

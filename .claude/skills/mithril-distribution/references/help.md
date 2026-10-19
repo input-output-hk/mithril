@@ -76,11 +76,11 @@ Same flow on the same issue and networks. Checks run for real. Commands are rend
 
 ## Files
 
-| File                                                                                                                  | Content                                                                      |
-| --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-ROLLOUT.md` (default `~/.mithril-distribution/logs`)                    | Rollout log: runs, steps, commands, `ack`, baselines, waits, dry run reports |
-| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-<phase>-PLAN.md`                                                        | Plan of a phase written by `--plan`: every step and its commands             |
-| `$MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR/mithril-<distribution>.md` (default `~/.mithril-distribution/announcements`) | Discord and Slack announcement drafts                                        |
+| File                                                                                               | Content                                                                      |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-ROLLOUT.md` (default `~/.mithril-distribution/logs`) | Rollout log: runs, steps, commands, `ack`, baselines, waits, dry run reports |
+| `$MITHRIL_DISTRIBUTION_LOG_DIR/<distribution>-<phase>-PLAN.md`                                     | Plan of a phase written by `--plan`: every step and its commands             |
+| `$MITHRIL_DISTRIBUTION_ANNOUNCEMENTS_DIR/mithril-<distribution>.md` (default: the logs folder)     | Discord and Slack announcement drafts                                        |
 
 ## Script help
 
