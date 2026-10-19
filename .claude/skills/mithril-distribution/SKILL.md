@@ -14,7 +14,7 @@ Walks one phase of a Mithril distribution rollout step by step with the user, us
 `/mithril-distribution <distribution> <phase> [--dry-run | --plan | --check] [--no-issue-tick] [--allow-run-commands]` or `/mithril-distribution help [<phase>]`.
 
 - `--allow-run-commands`: the skill may run the write commands (`action`, `impact`, ticks, comments) after the user's `run`. Without it (default), every write command is only displayed and run by the user. Read-only checks and probes always run. The Tag blocks are always run by the user.
-- `--plan`: print the plan of the phase and stop: for every step from the start of the phase (checked or not), in order, its kind and the exact command block rendered by the scripts with the resolved values (writes, Tag blocks, checks, baselines, ticks, wait), with the ⚠️ role warnings. The plan is printed and written to `LOG_DIR/<distribution>-<phase>-PLAN.md` (replaced on each `--plan` run): one `**<steps> <title>** (<kind>)` heading per step or group of steps, then its command blocks, in the order of the How. A write command printed by a script (e.g. `release-publish.sh print`, `env-commands.sh print`, `kms-rotation-gcloud.sh`) appears only as the script call, never copied again below it. Every command is runnable as is from the root of the repository: scripts are called as `bash ~/.claude/skills/mithril-distribution/scripts/<name>.sh` (`python3 -I ~/.claude/skills/mithril-distribution/scripts/issue-steps.py`), repository files with paths relative to the root (`networks.json`, `--repository .`), and files produced by a step under `LOG_DIR` with its absolute path (never `<scratchpad>`). Only values asked when the step comes up stay as `<…>`. No probe loop, no answer awaited, no write to GitHub or to the environments, no log entry.
+- `--plan`: print the plan of the phase and stop: every step from the start of the phase (checked or not), in the order of the How, with the exact commands rendered with the resolved values (writes, Tag blocks, checks, baselines, ticks, wait) and the ⚠️ role warnings, in the format of "Plan format". The plan is printed and written to `LOG_DIR/<distribution>-<phase>-PLAN.md` (replaced on each `--plan` run). No probe loop, no answer awaited, no write to GitHub or to the environments, no log entry.
 - `--check`: report the state of every step of the phase and stop. For each step (checked or not), run its catalog probe once (the `wait` step with `--wait-target`, then `--epochs` once the target is reached) and compare it with its checkbox: 🟢 done and checked, 🟡 done but not checked (tick to propose), 🔴 checked but the probe is not done (to investigate), ⚪ not done and not checked, ⚫ checked with no probe (`manual` steps, the checkbox is the only evidence). Print one table (step, kind, probe command, probe result, checkbox, state) and the counts per state. No answer awaited, no write, no log entry.
 - `--no-issue-tick`: no tick command is prepared. Once a step is done, the skill polls its checkbox (`wait-step.sh --interval 60 --timeout 8 checkbox …`, in the background) and moves on only when the user has checked it on the issue.
 
@@ -46,6 +46,44 @@ Scripts live in this skill's `scripts/` folder and are always called through the
 Be brief: per step, one line of state, the command block, and what is awaited (`run`, `ack`, `done`). Before displaying a command that needs more than the Write role (environment variables and secrets, see "Rights" in `README.md`), warn the user with a ⚠️ line naming the role needed. Before every command the skill runs itself, even a read-only check or probe, show it as a one-line `bash` block (the script call with its arguments), never only a description. No recap of earlier steps, no restated rules, tables only for check results. Paths are given once, when a file is first produced.
 
 Stay responsive: one tool call per step where possible (probe, render and log chained in one `bash` call), background polls started in the same message as the instructions, no re-reading of files or issue sections already in context, and no extra verification beyond the step's probe.
+
+## Plan format
+
+````markdown
+# Distribution <distribution> <phase> plan
+
+Issue #<issue>, How "Phase <n>", generated <UTC date>. Run the setup block once, from the root of the repository.
+
+```bash
+export SKILL=~/.claude/skills/mithril-distribution/scripts
+export LOGS=<LOG_DIR>
+export TAG=<tag> PREVIOUS_TAG=<previous tag> COMMIT=<sha>
+```
+
+| #   | Step         | Kind     | Run by                  |
+| --- | ------------ | -------- | ----------------------- |
+| <n> | <short text> | `<kind>` | skill / you / you (ack) |
+
+---
+
+## <n>. <checkbox text>
+
+**Kind**: `<kind>`. **Impact**: <effect> (`impact` only). **Done when**: <probe and its expected result>.
+
+<Label>:
+
+```bash
+<command>
+```
+````
+
+- The setup block exports `SKILL`, `LOGS`, `TAG`, `PREVIOUS_TAG`, `COMMIT` (and other values used by several steps), and every command uses them, so it runs as is from the root of the repository after the setup block. Scripts are called as `bash $SKILL/<name>.sh` and `python3 -I $SKILL/issue-steps.py`, repository files with paths relative to the root (`networks.json`, `--repository .`), files produced by a step under `$LOGS` (never `<scratchpad>`). Only values asked when the step comes up stay as `<…>`.
+- The overview table has one row per How step (children included in their parent row).
+- One section per How step, in the order of the How, its heading being the checkbox text. Children are in the section of their parent. Steps that are not consecutive are never merged in one section.
+- Blocks are labeled `Guards`, `Command to run`, `Verify`, `Instructions` (`manual` steps: what to do and the checkbox awaited) or `Wait`. A write command printed by a script (e.g. `release-publish.sh print`, `env-commands.sh print`, `kms-rotation-gcloud.sh`) appears only as the script call, labeled `Guards, then the command to run (printed by the script)`, never copied again below it.
+- A command longer than one line of 120 characters is split one option per line with `\`.
+- Baselines (not a How step) are a `## Baselines` section right before the section of the step that deploys the network.
+- The tick commands are one `Ticks` section at the end, since they follow every step.
 
 ## Start of a run
 
