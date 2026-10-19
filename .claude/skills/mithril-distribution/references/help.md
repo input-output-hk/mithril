@@ -73,7 +73,7 @@ With `--no-issue-tick`, no tick command is shown in any mode: you check the box 
 
 ## Dry run
 
-Same flow on the same issue and networks. Checks run for real. Commands are rendered and validated but never run, `ack` is still asked, announcements are printed but not saved, ticks are shown but not applied, the wait computes the target epoch without pausing. It ends with a report saved in the log.
+Same flow on the same issue and networks. Checks run for real. Commands are rendered and validated but never run, each one preceded by a line saying it is rendered only and nothing is run remotely, `ack` is still asked (a rehearsed `ack`, recorded in the log), announcements are printed but not saved, ticks are shown but not applied, the wait computes the target epoch without pausing. It ends with a report saved in the log.
 
 ## Files
 

@@ -168,6 +168,8 @@ Same flow, same issue, networks and log file (its run section is marked `dry run
 | Announcements             | Printed, not appended                                |
 | Tick (How and What scope) | Diff shown, not applied                              |
 
+Every rendered `action` or `impact` command block of a dry run is preceded by the line `🧪 Dry run: rendered only, not run, no write to GitHub, the environments or any remote service.`, and the `ack` asked for an `impact` command says it is a rehearsed `ack` (recorded in the log, the command is never run). A write command is never rendered without this line in a dry run.
+
 Validation without running: tag (Tag blocks rendered, commit equal to the head of `origin/main`, `$PROBE tag` pending, `git config user.signingkey` set and its secret key present), variables and secrets (environment readable with `gh variable list --env`, variable to delete present, value to set provided), `gh workflow run` (workflow exists, inputs accepted by its `workflow_dispatch`), `gh release edit` (pre-release edits carry `--prerelease` and no `--latest`, release exists or created by the tag step, release notes generated from `$PREVIOUS_TAG` to `$COMMIT` and the notes file rendered without the workflow part when the release does not exist yet), `gh pr merge` (PR open, CI green, approved). End with a report (steps that would run, validation failures, manual issues, scope findings) printed and appended to the log.
 
 ## Log format
