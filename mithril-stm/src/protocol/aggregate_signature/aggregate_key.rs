@@ -57,8 +57,8 @@ impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerification
                 AggregateVerificationKeyForConcatenation::from(registration),
             #[cfg(feature = "snark")]
             snark_aggregate_verification_key: registration
-                .has_snark_verification_keys()
-                .then(|| AggregateVerificationKeyForSnark::from(registration)),
+                .get_closed_key_registration_for_snark()
+                .map(AggregateVerificationKeyForSnark::from),
         }
     }
 }

@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClosedKeyRegistration, MembershipDigest, RegistrationEntryForConcatenation, Stake, StmResult,
-    codec,
+    ClosedKeyRegistration, MembershipDigest, Stake, StmResult, codec,
     membership_commitment::{
         MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf, MerkleTreeError,
     },
@@ -75,9 +74,10 @@ impl<D: MembershipDigest> From<&ClosedKeyRegistration>
     fn from(reg: &ClosedKeyRegistration) -> Self {
         Self {
             mt_commitment: reg
-                .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
+                .get_closed_key_registration_for_concatenation()
+                .to_merkle_tree::<D::ConcatenationHash>()
                 .to_merkle_tree_batch_commitment(),
-            total_stake: reg.get_total_stake(),
+            total_stake: reg.get_closed_key_registration_for_concatenation().get_total_stake(),
         }
     }
 }
