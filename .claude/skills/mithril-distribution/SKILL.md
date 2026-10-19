@@ -74,13 +74,13 @@ export COMMIT=<sha>
 
 ## <n>. <checkbox text>
 
-> ⚠️ High impact: <effect>. Get the team's ack before running it. (`impact` only)
-
 ---
 
 **▶ <n>.1 <Operation>** (<detail>)
 
-> ⚠️ <role> role needed (when the block needs more than the Write role)
+> ⚠️ High impact: <effect>. Get the team's ack before running it. (`impact` block only)
+
+> ⚠️ <role> role needed (block needing more than the Write role only)
 
 ```bash
 <command>
@@ -108,7 +108,7 @@ export COMMIT=<sha>
 - One plan step per How step, in the order of the How, its heading being the checkbox text. Children are in the step of their parent. Consecutive How steps that change the same thing (e.g. the variables of the same environments) may be one plan step, steps that are not consecutive never are. A struck through How step is left out.
 - No introduction or explanation paragraph under a step heading: the step starts with its first instruction or warning. Every code block is preceded by a rule (`---`), a blank line and a bold numbered label `**▶ <n>.<b> <Operation>**` in the imperative (`Render the release notes…`, `Verify the variables of each environment`, `Publish 2642.0 as the Latest release`), followed when useful by a short detail in parentheses outside the bold, so the blocks stand out in the terminal. The blocks of a step are numbered `<n>.1`, `<n>.2`… in order, the setup block is `0.1`. A run displays a step with the same labels and rules, the blocks byte for byte. A write command printed by a script (`env-commands.sh print`, `kms-rotation-gcloud.sh`, `tag-commands.sh print`, `release-publish.sh print`, `release-notes.sh`, `client-test-command.sh`, `prover-benchmark.sh comment`) appears as the commands it generates, never as the script call: run the script (read-only) when the plan is generated and write its output with the setup variables, a batch already applied being written from the expected change. Its guards become read-only checks before it (e.g. `gh release view`), and a script that also writes a file stays as the call that writes it, followed by the generated command. `manual` steps are plain instructions ending with what to check on the issue.
 - Children of a step are named by their text (e.g. "check 'Create a new key…' on the issue"), never as "child <n>" or "children".
-- Every `impact` command, and every irreversible operation (e.g. destroying a key), carries a `> ⚠️ High impact: <effect>.` line asking for the team's ack, and a command needing more than the Write role a `> ⚠️ <role> role needed` line. A warning that applies to the whole step is written right under the step heading, a warning that applies to one block right after the block's label, before its code block, never before the label.
+- Every `impact` command, and every irreversible operation (e.g. destroying a key), carries a `> ⚠️ High impact: <effect>.` line asking for the team's ack, and a command needing more than the Write role a `> ⚠️ <role> role needed` line. Every warning is written right after the label of the block it applies to, before its code block, repeated for each block concerned, never under the step heading nor before a label.
 - A command longer than one line of 120 characters is split one option per line with `\`.
 - Baselines (not a How step) are a plan step of their own, right before the section of the step that deploys the network.
 - Every plan step that matches How checkboxes ends with a block labelled `Optional: tick How <indexes> (and What <indexes> of \`<distribution>\`) on the issue, then update the issue with the rendered body`holding two commands:`issue-steps.py --tick <indexes> [--scope <distribution> --scope-tick <scope indexes>] --out $LOGS/<issue>-body.md` (renders the body) and `gh issue edit $ISSUE --repo $REPO --body-file $LOGS/<issue>-body.md`, with the current indexes (see "What scope ticks"). A plan step done in two times (e.g. the destroy of the previous KMS key) ticks each part in the plan step where it is done. The indexes are the ones of the issue when the plan is generated: the plan is regenerated when the How or the What is edited.
