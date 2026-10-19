@@ -70,8 +70,6 @@ export TAG=<tag> PREVIOUS_TAG=<previous tag> COMMIT=<sha>
 
 ## <n>. <checkbox text>
 
-<One sentence on what the step does.>
-
 > ⚠️ High impact: <effect>. Get the team's ack before running it. (`impact` only)
 
 Run this command to <operation>:
@@ -90,7 +88,7 @@ Now run this command to verify <expected result>:
 - The setup block exports `SKILL`, `LOGS`, `TAG`, `PREVIOUS_TAG`, `COMMIT` (and other values used by several steps), and every command uses them, so it runs as is from the root of the repository after the setup block. Scripts are called as `bash $SKILL/<name>.sh` and `python3 -I $SKILL/issue-steps.py`, repository files with paths relative to the root (`networks.json`, `--repository .`), files produced by a step under `$LOGS` (never `<scratchpad>`). Only values asked when the step comes up stay as `<…>`.
 - Plan steps are numbered 1, 2, 3… in the order of the plan, never with the How indexes. Every reference to another step ("the PR opened at step 1") uses these numbers. The overview table has one row per plan step.
 - One plan step per How step, in the order of the How, its heading being the checkbox text. Children are in the step of their parent. Consecutive How steps that change the same thing (e.g. the variables of the same environments) may be one plan step, steps that are not consecutive never are. A struck through How step is left out.
-- Every block is introduced by a plain sentence saying what to do and why: "Run this command to <operation>:", "Now run this command to verify <expected result>:", "Then run the printed command". A script that prints a write command (e.g. `release-publish.sh print`, `env-commands.sh print`, `kms-rotation-gcloud.sh`) appears only as the script call, its sentence saying what it checks and that its printed command is then run. `manual` steps are plain instructions ending with what to check on the issue.
+- No introduction or explanation paragraph under a step heading: the step starts with its first instruction or warning. Every block is introduced by a plain sentence saying what to do and why: "Run this command to <operation>:", "Now run this command to verify <expected result>:", "Then run the printed command". A script that prints a write command (e.g. `release-publish.sh print`, `env-commands.sh print`, `kms-rotation-gcloud.sh`) appears only as the script call, its sentence saying what it checks and that its printed command is then run. `manual` steps are plain instructions ending with what to check on the issue.
 - Children of a step are named by their text (e.g. "check 'Create a new key…' on the issue"), never as "child <n>" or "children".
 - Every `impact` command, and every irreversible operation (e.g. destroying a key), is preceded by a `> ⚠️ High impact: <effect>.` line asking for the team's ack, and a command needing more than the Write role by a `> ⚠️ <role> role needed` line.
 - A command longer than one line of 120 characters is split one option per line with `\`.
