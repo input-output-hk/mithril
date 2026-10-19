@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Renders the release notes with the networks marked compatible and the Cardano and DMQ node compatibility tables
 # regenerated from a networks.json file with the repository generators, the rest of the body unchanged.
-# Read-only: writes the notes to a local file and prints the edit command.
-# Rights: public reads; the printed release edit needs repository Write role (Contents write).
+# Read-only: writes the notes to a local file and prints the changed lines (the release is updated with gh release edit --notes-file).
+# Rights: public reads; the release edit needs repository Write role (Contents write).
 # Requirements: gh, jq, awk, sed, diff.
 # Exit codes: 0 rendered, 1 nothing to change, 2 usage or GitHub error.
 # Usage:
@@ -63,5 +63,3 @@ CHANGES="$(diff <(printf '%s\n' "$BODY") "$OUT" | grep '^>' | sed 's/^> //')"
 [[ -n "$CHANGES" ]] || { echo "No change: networks already compatible and tables up to date"; exit 1; }
 echo "Changed lines:"
 printf '%s\n' "$CHANGES"
-echo
-echo "gh release edit $TAG --repo $REPO --notes-file $OUT"
