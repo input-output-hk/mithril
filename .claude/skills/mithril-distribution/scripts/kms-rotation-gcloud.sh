@@ -42,7 +42,7 @@ gcloud iam service-accounts keys list --iam-account=$SERVICE_ACCOUNT --managed-b
 2. Create the new key:
 gcloud iam service-accounts keys create $KEY_FILE --iam-account=$SERVICE_ACCOUNT$PROJECT_OPTION
 
-3. Store the base64 encoded content of $KEY_FILE in the AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS secret of the
+3. Store the content of $KEY_FILE as is (not base64 encoded) in the AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS secret of the
    release-mainnet environment (repository Settings > Environments, Admin role), then remove the local key file:
 shred -u $KEY_FILE
 
