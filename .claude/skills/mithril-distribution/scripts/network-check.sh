@@ -4,11 +4,12 @@
 # Exit codes: 0 all checks pass, 1 at least one check fails, 2 usage or network error,
 #             3 no failure but the --wait-target epoch is not reached, or neither CardanoTransactions nor CardanoBlocksTransactions has an artifact
 #               created after --await-transactions-after yet (the other types are checked with --epochs after 2 epochs).
+# Baseline: --baseline fails when the next signers or the next stake drop by more than 10 % from the saved baseline.
 # Requirements: curl, jq, awk, sort, GNU date.
 # Usage:
 #   bash network-check.sh <network> [--expect-commit <sha>] [--expect-types <A,B>] [--require-artifacts-after <ISO>] [--await-transactions-after <ISO>]
-#                                   [--save-baseline <file>] [--baseline <file>] [--max-drop <percent>]
-#   bash network-check.sh <network> --epochs <from> <to> [--baseline <file>] [--max-drop <percent>]
+#                                   [--save-baseline <file>] [--baseline <file>]
+#   bash network-check.sh <network> --epochs <from> <to> [--baseline <file>]
 #   bash network-check.sh <network> --wait-target <deployment epoch> <epochs to wait>
 set -uo pipefail
 
@@ -27,7 +28,8 @@ NETWORK="${1:-}"
 [[ -n "$NETWORK" && "$NETWORK" != -* ]] || usage
 shift
 
-EXPECT_COMMIT="" EXPECT_TYPES="" REQUIRE_ARTIFACTS_AFTER="" AWAIT_TRANSACTIONS_AFTER="" SAVE_BASELINE="" BASELINE="" MAX_DROP=10 EPOCH_FROM="" EPOCH_TO="" DEPLOYMENT_EPOCH="" EPOCHS_TO_WAIT=""
+EXPECT_COMMIT="" EXPECT_TYPES="" REQUIRE_ARTIFACTS_AFTER="" AWAIT_TRANSACTIONS_AFTER="" SAVE_BASELINE="" BASELINE="" EPOCH_FROM="" EPOCH_TO="" DEPLOYMENT_EPOCH="" EPOCHS_TO_WAIT=""
+MAXIMUM_DROP_PERCENT=10
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --expect-commit) EXPECT_COMMIT="${2:?}"; shift 2 ;;
@@ -36,7 +38,6 @@ while [[ $# -gt 0 ]]; do
     --await-transactions-after) AWAIT_TRANSACTIONS_AFTER="${2:?}"; shift 2 ;;
     --save-baseline) SAVE_BASELINE="${2:?}"; shift 2 ;;
     --baseline) BASELINE="${2:?}"; shift 2 ;;
-    --max-drop) MAX_DROP="${2:?}"; shift 2 ;;
     --epochs) EPOCH_FROM="${2:?}"; EPOCH_TO="${3:?}"; shift 3 ;;
     --wait-target) DEPLOYMENT_EPOCH="${2:?}"; EPOCHS_TO_WAIT="${3:?}"; shift 3 ;;
     *) echo "Unknown option $1" >&2; usage ;;
@@ -75,7 +76,7 @@ artifact_route() {
 to_seconds() { date -u -d "$1" +%s; }
 drop_result() {
   local current="$1" reference="$2"
-  awk -v c="$current" -v r="$reference" -v m="$MAX_DROP" 'BEGIN { print (r > 0 && (r - c) * 100 / r > m) ? "fail" : "pass" }'
+  awk -v c="$current" -v r="$reference" -v m="$MAXIMUM_DROP_PERCENT" 'BEGIN { print (r > 0 && (r - c) * 100 / r > m) ? "fail" : "pass" }'
 }
 
 STATUS="$(fetch /status)" || { echo "Aggregator of $NETWORK not answering at $AGGREGATOR" >&2; exit 2; }
