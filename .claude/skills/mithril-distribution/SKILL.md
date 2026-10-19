@@ -133,7 +133,7 @@ export COMMIT=<sha>
 
 ## Step lifecycle
 
-For each unchecked step of the phase, in order (a parent with children is done child by child, then ticked):
+For each unchecked step of the phase, in order, one step per message and never several steps grouped in one message, even consecutive `manual` ones, each awaiting its own answer (a parent with children is done child by child, then ticked):
 
 1. **Announce**: checkbox text, catalog entry, kind, definition of done (probe).
 2. **Probe first**: run the probe once with `bash scripts/detect-step.sh <probe> <args>`. Exit `0`: already done, go to 6.
