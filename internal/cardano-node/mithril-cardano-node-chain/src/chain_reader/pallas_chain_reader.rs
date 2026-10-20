@@ -423,8 +423,7 @@ mod tests {
     }
 
     fn get_fake_raw_block() -> Vec<u8> {
-        let raw_block =
-            include_str!("../../../../../mithril-test-lab/test_data/blocks/shelley1.block");
+        let raw_block = include_str!("../../tests/assets/shelley1.block");
 
         hex::decode(raw_block).unwrap()
     }
