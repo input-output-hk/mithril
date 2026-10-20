@@ -19,6 +19,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 | mithril-signer      | `-`     |
 | mithril-stm         | `-`     |
 
+- Fix Cardano chain rollbacks missed by the Cardano blocks and transactions importer in the signer and aggregator.
+
 ## Mithril Distribution [2642.0] - 2026-10-20
 
 - **REMOVED** support for `Gzip` compression in the Mithril aggregator and client:
