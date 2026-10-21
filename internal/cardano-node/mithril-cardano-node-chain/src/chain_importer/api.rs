@@ -25,12 +25,6 @@ pub trait ChainDataStore: Send + Sync {
     /// Get the highest known transaction beacon
     async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>>;
 
-    /// Get the chain points of the stored blocks with the given block numbers
-    async fn get_chain_points_by_block_numbers(
-        &self,
-        block_numbers: Vec<BlockNumber>,
-    ) -> StdResult<Vec<ChainPoint>>;
-
     /// Get the highest stored block range root bounds
     async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>>;
 

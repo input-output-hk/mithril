@@ -14,6 +14,7 @@ use mithril_common::entities::{
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 
 use crate::chain_importer::{BlockRangeImporter, ChainDataStore};
+use crate::chain_scanner::StoredChainPointRetriever;
 
 /// In memory Block range root representation, for testing purposes.
 #[derive(Debug, PartialEq, Clone)]
@@ -222,13 +223,9 @@ impl InMemoryChainDataStore {
 }
 
 #[async_trait::async_trait]
-impl ChainDataStore for InMemoryChainDataStore {
-    async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>> {
-        let txs = self.blocks_with_txs.lock().await;
-        Ok(txs
-            .iter()
-            .max_by_key(|tx| tx.block_number)
-            .map(|tx| ChainPoint::new(tx.slot_number, tx.block_number, tx.block_hash.clone())))
+impl StoredChainPointRetriever for InMemoryChainDataStore {
+    async fn get_highest_chain_point(&self) -> StdResult<Option<ChainPoint>> {
+        self.get_highest_beacon().await
     }
 
     async fn get_chain_points_by_block_numbers(
@@ -241,6 +238,17 @@ impl ChainDataStore for InMemoryChainDataStore {
             .filter(|tx| block_numbers.contains(&tx.block_number))
             .map(|tx| ChainPoint::new(tx.slot_number, tx.block_number, tx.block_hash.clone()))
             .collect())
+    }
+}
+
+#[async_trait::async_trait]
+impl ChainDataStore for InMemoryChainDataStore {
+    async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>> {
+        let txs = self.blocks_with_txs.lock().await;
+        Ok(txs
+            .iter()
+            .max_by_key(|tx| tx.block_number)
+            .map(|tx| ChainPoint::new(tx.slot_number, tx.block_number, tx.block_hash.clone())))
     }
 
     async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {

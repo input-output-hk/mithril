@@ -24,11 +24,13 @@ pub trait StoredChainPointRetriever: Sync + Send {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait BlockScanner: Sync + Send {
-    /// Scan the blocks from the first candidate point on the chain, the candidates being ordered
-    /// by preference, most recent first, or from the origin without candidates
+    /// Scan the blocks after the start point, or from the origin without a start point.
+    ///
+    /// When the start point was rolled back by the node, the stream starts with the rollback to
+    /// the stored block the scan resumes from.
     async fn scan(
         &self,
-        candidates: Vec<RawCardanoPoint>,
+        from: Option<RawCardanoPoint>,
         until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>>;
 }

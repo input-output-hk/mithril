@@ -8,6 +8,7 @@ use crate::entities::{ChainBlockNextAction, RawCardanoPoint};
 /// - read next block on the chain
 /// - rollback to another point in case of rollback
 /// - do nothing when tip of the chain is reached
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ChainBlockReader: Send + Sync {
     /// Sets the chain point at the first candidate on the chain of the node.
