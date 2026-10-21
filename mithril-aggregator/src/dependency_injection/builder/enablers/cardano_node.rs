@@ -92,6 +92,7 @@ impl DependenciesBuilder {
     async fn build_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
         let block_scanner = CardanoBlockScanner::new(
             self.get_chain_block_reader().await?,
+            self.get_chain_data_repository().await?,
             self.configuration
                 .cardano_transactions_block_streamer_max_roll_forwards_per_poll(),
             self.root_logger(),

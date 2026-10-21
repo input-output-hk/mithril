@@ -97,10 +97,10 @@ impl BlocksTransactionsImporter {
                         .await?;
                 }
             }
-        }
 
-        if let Some(point) = streamer.last_polled_point() {
-            *self.last_polled_point.lock().await = Some(point);
+            if let Some(point) = streamer.last_polled_point() {
+                *self.last_polled_point.lock().await = Some(point);
+            }
         }
 
         Ok(())
@@ -299,7 +299,45 @@ mod tests {
     }
 
     mod transactions_import_start_point {
+        use anyhow::anyhow;
+        use async_trait::async_trait;
+
+        use crate::chain_scanner::BlockStreamer;
+
         use super::*;
+
+        /// Streams one batch of blocks, then fails on the next poll as a streamer which lost its
+        /// connection to the node does.
+        struct BlockStreamerFailingAfterOneBatch {
+            batch: Option<Vec<ScannedBlock>>,
+            last_polled_point: Option<RawCardanoPoint>,
+        }
+
+        impl BlockStreamerFailingAfterOneBatch {
+            fn new(batch: Vec<ScannedBlock>) -> Self {
+                Self {
+                    batch: Some(batch),
+                    last_polled_point: None,
+                }
+            }
+        }
+
+        #[async_trait]
+        impl BlockStreamer for BlockStreamerFailingAfterOneBatch {
+            async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>> {
+                match self.batch.take() {
+                    Some(batch) => {
+                        self.last_polled_point = batch.last().map(RawCardanoPoint::from);
+                        Ok(Some(ChainScannedBlocks::RollForwards(batch)))
+                    }
+                    None => Err(anyhow!("Connection to the node lost")),
+                }
+            }
+
+            fn last_polled_point(&self) -> Option<RawCardanoPoint> {
+                self.last_polled_point.clone()
+            }
+        }
 
         async fn importer_with_last_polled_point(
             last_polled_point: Option<RawCardanoPoint>,
@@ -452,6 +490,146 @@ mod tests {
                 start_point_after_import
             );
         }
+
+        #[tokio::test]
+        async fn a_failed_run_leaves_the_start_point_at_the_highest_committed_block() {
+            // The run starts at block 11. The streamer delivers the fork block F12, which is
+            // committed to the store, then fails:
+            //
+            //   poll 1 -> RollForwards([F12])    committed to the store
+            //   poll 2 -> error                   the run fails
+            //
+            // The next run must start at F12, the highest committed block, not at block 11:
+            // the node never rolls back a block it did not deliver in the session of that run,
+            // so a run intersecting at block 11 would keep F12 beside the canonical blocks.
+            let start_point_at_block_11 = RawCardanoPoint::new(SlotNumber(110), "hash-11");
+            let fork_block_12 = ScannedBlock::new(
+                "hash-fork-12",
+                BlockNumber(12),
+                SlotNumber(120),
+                Vec::<&str>::new(),
+            );
+            let streamer: Box<dyn BlockStreamer> =
+                Box::new(BlockStreamerFailingAfterOneBatch::new(vec![
+                    fork_block_12.clone(),
+                ]));
+            let mut scanner = MockBlockScanner::new();
+            scanner.expect_scan().return_once(move |_, _| Ok(streamer));
+            let repository = Arc::new(InMemoryChainDataStore::default());
+            let importer = BlocksTransactionsImporter {
+                last_polled_point: Arc::new(Mutex::new(Some(start_point_at_block_11))),
+                ..BlocksTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone())
+            };
+
+            importer
+                .run(BlockNumber(1000))
+                .await
+                .expect_err("The run should fail with the streamer");
+
+            assert_eq!(
+                vec![CardanoBlockWithTransactions::from(fork_block_12.clone())],
+                repository.get_all_block_with_txs().await
+            );
+            assert_eq!(
+                Some(RawCardanoPoint::from(&fork_block_12)),
+                importer.start_point(&None).await.unwrap()
+            );
+        }
+    }
+
+    mod transactions_import_from_a_rolled_back_start_point {
+        use crate::chain_scanner::CardanoBlockScanner;
+        use crate::entities::ChainBlockNextAction;
+        use crate::test::double::FakeChainReader;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn a_run_from_a_rolled_back_start_point_resumes_from_the_last_stored_block_on_the_chain()
+         {
+            // The previous run stored the block 11 and the fork block F12, which is the start point
+            // of this run. The node has since switched to the canonical chain:
+            //
+            //   11 -> F12             fork, abandoned
+            //   11 -> C12 -> C13      canonical chain
+            //
+            // The node finds no intersection at F12 and intersects the chain at block 11, the last
+            // stored block on the chain, acknowledged by the rollback to it. The run must replace
+            // F12 with the canonical blocks and leave the start point of the next run at C13:
+            //
+            //   store before the run -> 11, F12
+            //   store after the run  -> 11, C12, C13
+            let block_11 = ScannedBlock::new(
+                "hash-11",
+                BlockNumber(11),
+                SlotNumber(110),
+                Vec::<&str>::new(),
+            );
+            let fork_block_12 = ScannedBlock::new(
+                "hash-fork-12",
+                BlockNumber(12),
+                SlotNumber(120),
+                Vec::<&str>::new(),
+            );
+            let canonical_block_12 = ScannedBlock::new(
+                "hash-canonical-12",
+                BlockNumber(12),
+                SlotNumber(121),
+                Vec::<&str>::new(),
+            );
+            let canonical_block_13 = ScannedBlock::new(
+                "hash-canonical-13",
+                BlockNumber(13),
+                SlotNumber(130),
+                Vec::<&str>::new(),
+            );
+            let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
+                ChainBlockNextAction::RollBackward {
+                    rollback_point: RawCardanoPoint::from(&block_11),
+                },
+                ChainBlockNextAction::RollForward {
+                    parsed_block: canonical_block_12.clone(),
+                },
+                ChainBlockNextAction::RollForward {
+                    parsed_block: canonical_block_13.clone(),
+                },
+            ])));
+            let repository = Arc::new(
+                InMemoryChainDataStore::builder()
+                    .with_blocks_and_transactions(&[block_11.clone(), fork_block_12.clone()])
+                    .build(),
+            );
+            let scanner = CardanoBlockScanner::new(
+                chain_reader,
+                repository.clone(),
+                100,
+                TestLogger::stdout(),
+            );
+            let importer = BlocksTransactionsImporter {
+                last_polled_point: Arc::new(Mutex::new(Some(RawCardanoPoint::from(
+                    &fork_block_12,
+                )))),
+                ..BlocksTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone())
+            };
+
+            importer
+                .run(BlockNumber(1000))
+                .await
+                .expect("The run should recover from a start point rolled back by the node");
+
+            assert_eq!(
+                into_blocks_with_transactions(&[
+                    block_11,
+                    canonical_block_12,
+                    canonical_block_13.clone()
+                ]),
+                repository.get_all_block_with_txs().await
+            );
+            assert_eq!(
+                Some(RawCardanoPoint::from(&canonical_block_13)),
+                importer.start_point(&None).await.unwrap()
+            );
+        }
     }
 
     mod chain_data_rollback {
@@ -461,7 +639,7 @@ mod tests {
         async fn when_rollbackward_should_remove_transactions() {
             let expected_remaining_block_with_transactions =
                 vec![CardanoBlockWithTransactions::new(
-                    "block_hash-130",
+                    hex::encode("block_hash-130"),
                     BlockNumber(130),
                     SlotNumber(5),
                     vec!["tx_hash-6", "tx_hash-7"],
@@ -483,7 +661,11 @@ mod tests {
                     .build(),
             );
 
-            let chain_point = ChainPoint::new(SlotNumber(5), BlockNumber(130), "block_hash-130");
+            let chain_point = ChainPoint::new(
+                SlotNumber(5),
+                BlockNumber(130),
+                hex::encode("block_hash-130"),
+            );
             let scanner = DumbBlockScanner::new().backward(chain_point);
 
             let importer =

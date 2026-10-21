@@ -346,6 +346,7 @@ impl<'a> DependenciesBuilder<'a> {
         let block_scanner = Arc::new(
             CardanoBlockScanner::new(
                 Arc::new(Mutex::new(chain_block_reader)),
+                chain_data_store.clone(),
                 self.config
                     .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
                 self.root_logger(),

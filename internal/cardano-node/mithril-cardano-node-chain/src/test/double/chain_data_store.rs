@@ -14,6 +14,7 @@ use mithril_common::entities::{
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 
 use crate::chain_importer::{BlockRangeImporter, ChainDataStore};
+use crate::chain_scanner::StoredChainPointRetriever;
 
 /// In memory Block range root representation, for testing purposes.
 #[derive(Debug, PartialEq, Clone)]
@@ -218,6 +219,25 @@ impl InMemoryChainDataStore {
             .cloned()
             .flat_map(|block| block.into_mk_tree_node())
             .collect()
+    }
+}
+
+#[async_trait::async_trait]
+impl StoredChainPointRetriever for InMemoryChainDataStore {
+    async fn get_highest_chain_point(&self) -> StdResult<Option<ChainPoint>> {
+        self.get_highest_beacon().await
+    }
+
+    async fn get_chain_points_by_block_numbers(
+        &self,
+        block_numbers: Vec<BlockNumber>,
+    ) -> StdResult<Vec<ChainPoint>> {
+        let txs = self.blocks_with_txs.lock().await;
+        Ok(txs
+            .iter()
+            .filter(|tx| block_numbers.contains(&tx.block_number))
+            .map(|tx| ChainPoint::new(tx.slot_number, tx.block_number, tx.block_hash.clone()))
+            .collect())
     }
 }
 
@@ -1403,5 +1423,35 @@ mod tests {
                 .collect();
             assert_eq!(&test_data_set()[0..3], &stored_ranges);
         }
+    }
+
+    #[tokio::test]
+    async fn get_chain_points_by_block_numbers_returns_the_stored_blocks_only() {
+        let store = InMemoryChainDataStore::builder()
+            .with_blocks_and_transactions(&[
+                CardanoBlockWithTransactions::new(
+                    "hash-10",
+                    BlockNumber(10),
+                    SlotNumber(100),
+                    Vec::<String>::new(),
+                ),
+                CardanoBlockWithTransactions::new(
+                    "hash-11",
+                    BlockNumber(11),
+                    SlotNumber(110),
+                    Vec::<String>::new(),
+                ),
+            ])
+            .build();
+
+        let chain_points = store
+            .get_chain_points_by_block_numbers(vec![BlockNumber(11), BlockNumber(99)])
+            .await
+            .unwrap();
+
+        assert_eq!(
+            vec![ChainPoint::new(SlotNumber(110), BlockNumber(11), "hash-11")],
+            chain_points
+        );
     }
 }
