@@ -152,13 +152,15 @@ impl PallasChainReader {
         }
     }
 
-    /// Intersects the chain at the first candidate on the chain of the node and consumes the
-    /// acknowledgement of the intersection sent by the node when the chain point is the first
-    /// candidate. When it is an older candidate, the acknowledgement stays in the stream as the
-    /// genuine rollback to the chain point. When the node owes a reply to a previous request, the
-    /// connection is renewed first, since no intersection can be requested in that state. When the
-    /// node finds no intersection, the error keeps the connection, which stays usable for another
-    /// intersection.
+    /// Intersects the chain at the first candidate on the chain of the node.
+    ///
+    /// The acknowledgement of the intersection is consumed when the chain point is the first
+    /// candidate, and left in the stream as the genuine rollback to it when the chain point is an
+    /// older candidate.
+    ///
+    /// When the node owes a reply to a previous request, the connection is renewed first, since no
+    /// intersection can be requested in that state. When no intersection is found, the error keeps
+    /// the connection usable for another intersection.
     async fn find_intersect_point(&mut self, candidates: &[RawCardanoPoint]) -> StdResult<()> {
         let logger = self.logger.clone();
         let chainsync_timeout = self.chainsync_timeout;
@@ -231,10 +233,11 @@ impl PallasChainReader {
         Ok(())
     }
 
-    /// Consumes the acknowledgement of an intersection: in the chainsync mini-protocol, the node
-    /// answers the first request that follows a found intersection with a rollback to the
-    /// intersection point. Reading it here keeps it out of the streamed events, so that every
-    /// rollback read afterwards is a genuine one.
+    /// Consumes the acknowledgement of an intersection.
+    ///
+    /// In the chainsync mini-protocol, the node answers the first request that follows a found
+    /// intersection with a rollback to the intersection point. Reading it here keeps it out of the
+    /// streamed events, so that every rollback read afterwards is a genuine one.
     async fn consume_intersection_acknowledgement(
         &mut self,
         intersection_point: Point,
@@ -536,9 +539,10 @@ mod tests {
         })
     }
 
-    /// Sets up a mock server which intersects at the second candidate of the request and
-    /// acknowledges the intersection on the request that follows, as the node does. Returns the
-    /// candidates received.
+    /// Sets up a mock server which intersects at the second candidate of the request.
+    ///
+    /// The server acknowledges the intersection on the request that follows, as the node does, and
+    /// the candidates received are returned.
     async fn setup_server_intersecting_at_the_second_candidate(
         socket_path: PathBuf,
     ) -> tokio::task::JoinHandle<(NodeServer, Vec<Point>)> {
@@ -798,9 +802,11 @@ mod tests {
         );
     }
 
-    /// Sets up a mock server which answers the request following the acknowledged intersection
-    /// with a wait reply, then accepts a second connection, acknowledges its intersection and
-    /// sends a block on the request that follows.
+    /// Sets up a mock server which owes a reply to its first client, then accepts a second one.
+    ///
+    /// The first connection ends on a wait reply to the request following the acknowledged
+    /// intersection. The second connection gets its intersection acknowledged and a block on the
+    /// request that follows.
     async fn setup_server_owing_a_reply_then_accepting_again(
         socket_path: PathBuf,
     ) -> tokio::task::JoinHandle<NodeServer> {

@@ -81,10 +81,11 @@ impl BlocksTransactionsImporter {
         Ok(last_polled_point.or(highest_stored_chain_point.as_ref().map(RawCardanoPoint::from)))
     }
 
-    /// Candidates of the intersection with the chain of the node, most recent first: the start
-    /// point and the stored blocks at Fibonacci depths below the highest stored block, so that the
-    /// chain is intersected at the most recent of them the node knows and the store rolled back to
-    /// it when the blocks above were rolled back
+    /// Candidates of the intersection with the chain of the node, most recent first.
+    ///
+    /// They are the start point and the stored blocks at Fibonacci depths below the highest stored
+    /// block, so that the chain is intersected at the most recent of them the node knows and the
+    /// store rolled back to it when the blocks above were rolled back.
     async fn intersection_candidates(
         &self,
         highest_stored_chain_point: &Option<ChainPoint>,
@@ -114,9 +115,11 @@ impl BlocksTransactionsImporter {
         Ok(candidates)
     }
 
-    /// Depths below the highest stored block of the stored candidates, the strategy of the
-    /// chain-sync client of the Cardano node: 0, the Fibonacci numbers below the limit, then the
-    /// limit, which is the security parameter or the highest stored block number when smaller
+    /// Depths below the highest stored block of the stored candidates.
+    ///
+    /// They follow the strategy of the chain-sync client of the Cardano node: 0, the Fibonacci
+    /// numbers below the limit, then the limit, which is the security parameter or the highest
+    /// stored block number when smaller.
     fn intersection_candidate_depths(highest_stored_block_number: BlockNumber) -> Vec<u64> {
         let limit = Self::SECURITY_PARAMETER.min(*highest_stored_block_number);
         let fibonacci = iter::successors(Some((1u64, 2u64)), |(current, next)| {
@@ -604,9 +607,10 @@ mod tests {
 
         use super::*;
 
-        /// Scans a known chain as the node, the chain reader and the streamer do: streams a
-        /// rollback to the first candidate on the chain when it is not the first candidate, then
-        /// the blocks after it, and fails when no candidate is on the chain.
+        /// Scans a known chain as the node, the chain reader and the streamer do.
+        ///
+        /// Streams a rollback to the first candidate on the chain when it is not the first
+        /// candidate, then the blocks after it, and fails when no candidate is on the chain.
         struct KnownChainBlockScanner {
             chain: Vec<ScannedBlock>,
         }

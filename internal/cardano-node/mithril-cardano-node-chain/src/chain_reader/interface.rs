@@ -10,10 +10,11 @@ use crate::entities::{ChainBlockNextAction, RawCardanoPoint};
 /// - do nothing when tip of the chain is reached
 #[async_trait]
 pub trait ChainBlockReader: Send + Sync {
-    /// Sets the chain point at the first candidate on the chain of the node, the candidates being
-    /// ordered by preference, most recent first. The acknowledgement of the intersection is
-    /// consumed when the chain point is the first candidate, and left as the next chain block when
-    /// it is an older candidate, as the genuine rollback to the chain point
+    /// Sets the chain point at the first candidate on the chain of the node.
+    ///
+    /// The candidates are ordered by preference, most recent first. The acknowledgement of the
+    /// intersection is consumed when the chain point is the first candidate, and left as the next
+    /// chain block when it is an older candidate, as the genuine rollback to the chain point.
     async fn set_chain_point(&mut self, candidates: &[RawCardanoPoint]) -> StdResult<()>;
 
     /// Get the next chain block
