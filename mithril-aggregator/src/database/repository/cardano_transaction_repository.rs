@@ -3,6 +3,7 @@ use std::ops::{Deref, Range};
 use std::sync::Arc;
 
 use mithril_cardano_node_chain::chain_importer::ChainDataStore;
+use mithril_cardano_node_chain::chain_scanner::StoredChainPointRetriever;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
@@ -34,6 +35,20 @@ impl Deref for AggregatorCardanoChainDataRepository {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+#[async_trait::async_trait]
+impl StoredChainPointRetriever for AggregatorCardanoChainDataRepository {
+    async fn get_highest_chain_point(&self) -> StdResult<Option<ChainPoint>> {
+        self.inner.get_transaction_highest_chain_point().await
+    }
+
+    async fn get_chain_points_by_block_numbers(
+        &self,
+        block_numbers: Vec<BlockNumber>,
+    ) -> StdResult<Vec<ChainPoint>> {
+        self.inner.get_chain_points_by_block_numbers(block_numbers).await
     }
 }
 
