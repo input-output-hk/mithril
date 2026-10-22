@@ -76,8 +76,6 @@ impl SingleSignatureForSnark {
     }
 
     /// Set `indices` of single signature to given value
-    // TODO: remove this allow dead_code directive when function is called or snark is activated
-    #[allow(dead_code)]
     pub(crate) fn set_indices(&mut self, indices: &[LotteryIndex]) {
         self.indices = indices.to_vec();
     }

@@ -67,8 +67,8 @@ pub use signature_scheme::{
 #[cfg(all(feature = "snark", not(feature = "benchmark-internals")))]
 use hash::poseidon::MidnightPoseidonDigest;
 
-#[cfg(feature = "benchmark-internals")]
-pub use hash::poseidon::MidnightPoseidonDigest;
+#[cfg(all(feature = "snark", feature = "benchmark-internals"))]
+use hash::poseidon::MidnightPoseidonDigest;
 
 #[cfg(feature = "snark")]
 pub use circuits::{CIRCUIT_VERIFICATION_KEY_DIGEST_SIZE, CircuitVerificationKeyDigest};
