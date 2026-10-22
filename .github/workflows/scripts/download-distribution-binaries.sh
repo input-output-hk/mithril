@@ -31,5 +31,6 @@ do
     mkdir -p $ARCHIVE_DIRECTORY
     gh release download --repo IntersectMBO/mithril $TAG_NAME -O mithril-archive --pattern "mithril-$TAG_NAME*-linux-x64.tar.gz"
     tar xzf mithril-archive -C $ARCHIVE_DIRECTORY mithril-aggregator mithril-signer mithril-client mithril-relay
+    tar xzf mithril-archive -C $ARCHIVE_DIRECTORY mithril-setup || true
     rm mithril-archive
 done
