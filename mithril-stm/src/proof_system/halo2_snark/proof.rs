@@ -13,7 +13,7 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MembershipDigest, Parameters, SingleSignature, StmResult,
+    MembershipDigest, SingleSignature, StmResult,
     circuits::{
         halo2::{circuit::CertificateCircuit, types::CircuitBase},
         halo2_ivc::{
@@ -41,12 +41,6 @@ pub struct SnarkProof<D: MembershipDigest> {
     /// Raw proof bytes produced by the SNARK prover.
     #[serde(with = "serde_bytes")]
     circuit_proof: Vec<u8>,
-    // The protocol parameters
-    // Note: this field is temporary and will be removed once the circuit setup is stable
-    params: Parameters,
-    /// The maximum Merkle tree depth
-    // Note: this field is temporary and will be removed once the circuit setup is stable
-    merkle_tree_depth: u32,
     /// Phantom data
     #[serde(skip)]
     phantom: PhantomData<D>,
@@ -58,11 +52,9 @@ impl<D: MembershipDigest> SnarkProof<D> {
     /// The certificate verification key is not stored on the proof; it is carried in the
     /// certificate's ancillary verifier data and supplied at verification time, so this
     /// constructor performs no key generation.
-    pub fn new(circuit_proof: Vec<u8>, params: Parameters, merkle_tree_depth: u32) -> Self {
+    pub fn new(circuit_proof: Vec<u8>) -> Self {
         Self {
             circuit_proof,
-            params,
-            merkle_tree_depth,
             phantom: PhantomData,
         }
     }
@@ -240,12 +232,6 @@ impl<D: MembershipDigest, R: RngCore + CryptoRng> SnarkAggregateSignatureProver<
 
         Ok(SnarkProof {
             circuit_proof,
-            params: clerk.parameters,
-            merkle_tree_depth: clerk
-                .closed_key_registration
-                .number_of_registered_parties()
-                .next_power_of_two()
-                .trailing_zeros(),
             phantom: PhantomData,
         })
     }
@@ -259,7 +245,7 @@ mod tests {
     use rand_core::{OsRng, RngCore, SeedableRng};
 
     use crate::{
-        Initializer, KeyRegistration, MithrilMembershipDigest, Signer, SingleSignature,
+        Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature,
         proof_system::{
             SnarkClerk,
             halo2_snark::{
@@ -270,7 +256,7 @@ mod tests {
         },
     };
 
-    use super::{Parameters, SnarkProver};
+    use super::SnarkProver;
 
     type D = MithrilMembershipDigest;
 
@@ -470,7 +456,6 @@ mod tests {
             let forged_params = Parameters { m: 3000, ..params };
             assert_ne!(params, forged_params);
             let nparties = 10;
-            let merkle_tree_depth = (nparties as u32).next_power_of_two().trailing_zeros();
             let message = [1u8; 32];
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
@@ -483,8 +468,7 @@ mod tests {
                 .aggregate_signatures(&clerk, &signatures, &message)
                 .unwrap();
 
-            let snark_proof =
-                SnarkProof::new(forged_snark_proof.circuit_proof, params, merkle_tree_depth);
+            let snark_proof = SnarkProof::new(forged_snark_proof.circuit_proof);
             // Verify the forged-parameter proof against the honest-parameter verifying key.
             let honest_prover = create_prover(params, [0u8; 32]);
             let result = snark_proof.verify(
@@ -550,15 +534,7 @@ mod tests {
         // Bytes `0..64`, pairwise distinct: an all-constant fixture makes the
         // "carried across unchanged" assertion vacuous.
         let proof_bytes: Vec<u8> = (0..64).map(|i| i as u8).collect();
-        let proof = SnarkProof::<D>::new(
-            proof_bytes.clone(),
-            Parameters {
-                k: 1,
-                m: 10,
-                phi_f: 0.9,
-            },
-            MERKLE_TREE_DEPTH_FOR_SNARK,
-        );
+        let proof = SnarkProof::<D>::new(proof_bytes.clone());
 
         let circuit_proof_bytes = proof.into_circuit_proof_bytes();
 
@@ -694,8 +670,7 @@ mod tests {
 
             let mut random_bytes = vec![0u8; golden.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
-            let random_proof =
-                SnarkProof::new(random_bytes, golden.params, golden.merkle_tree_depth);
+            let random_proof = SnarkProof::new(random_bytes);
             assert!(
                 random_proof
                     .verify(
@@ -709,11 +684,7 @@ mod tests {
             );
 
             let not_enough_bytes = &golden.circuit_proof[0..golden.circuit_proof.len() - 1];
-            let small_proof = SnarkProof::new(
-                not_enough_bytes.to_vec(),
-                golden.params,
-                golden.merkle_tree_depth,
-            );
+            let small_proof = SnarkProof::new(not_enough_bytes.to_vec());
             assert!(
                 small_proof
                     .verify(
@@ -728,8 +699,7 @@ mod tests {
 
             let mut too_many_bytes = golden.circuit_proof.to_vec();
             too_many_bytes.push(0u8);
-            let large_proof =
-                SnarkProof::new(too_many_bytes, golden.params, golden.merkle_tree_depth);
+            let large_proof = SnarkProof::new(too_many_bytes);
             assert!(
                 large_proof
                     .verify(
@@ -855,8 +825,7 @@ mod tests {
 
             let mut random_bytes = vec![0u8; golden.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
-            let random_proof =
-                SnarkProof::new(random_bytes, golden.params, golden.merkle_tree_depth);
+            let random_proof = SnarkProof::new(random_bytes);
 
             random_proof
                 .prepare_and_check(

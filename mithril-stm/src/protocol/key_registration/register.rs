@@ -179,7 +179,7 @@ impl ClosedKeyRegistration {
     }
 
     /// Return the number of registered parties.
-    #[cfg(feature = "snark")]
+    #[cfg(all(feature = "snark", test))]
     pub(crate) fn number_of_registered_parties(&self) -> usize {
         self.closed_registration_entries.len()
     }

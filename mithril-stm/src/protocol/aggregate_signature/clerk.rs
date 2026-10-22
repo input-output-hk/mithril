@@ -318,8 +318,8 @@ mod tests {
         },
         codec::{TryFromBytes, TryToBytes},
         proof_system::{
-            IvcRollingState, MERKLE_TREE_DEPTH_FOR_SNARK, MockIvcOffCircuitChecker,
-            MockSnarkAggregateSignatureProver, MockSnarkProverFactory, SnarkClerk,
+            IvcRollingState, MockIvcOffCircuitChecker, MockSnarkAggregateSignatureProver,
+            MockSnarkProverFactory, SnarkClerk,
             halo2_ivc_snark::{
                 IvcChainStepBundle, IvcProof, IvcVerifierData, MockIvcChainProver,
                 build_standard_rolling_state,
@@ -423,11 +423,11 @@ mod tests {
                 SnarkProverBehavior::AggregatesSignatures => {
                     wire_snark_prover(
                         &mut factory,
-                        snark_prover_returning(Ok(dummy_snark_proof(PARAMS))),
+                        snark_prover_returning(Ok(dummy_snark_proof())),
                     );
                 }
                 SnarkProverBehavior::AggregatesSignaturesWithFunction(predicate) => {
-                    let snark_prover = snark_prover_returning(Ok(dummy_snark_proof(PARAMS)));
+                    let snark_prover = snark_prover_returning(Ok(dummy_snark_proof()));
                     factory
                         .expect_snark_aggregate_signature_prover()
                         .once()
@@ -589,8 +589,8 @@ mod tests {
         .expect("production verifying key bytes should deserialize")
     }
 
-    fn dummy_snark_proof(params: Parameters) -> SnarkProof<D> {
-        SnarkProof::new(vec![], params, MERKLE_TREE_DEPTH_FOR_SNARK)
+    fn dummy_snark_proof() -> SnarkProof<D> {
+        SnarkProof::new(vec![])
     }
 
     fn build_ancillary_input(prover_data: Option<AncillaryProverData>) -> AncillaryProofInput {
@@ -835,7 +835,7 @@ mod tests {
         let message: &[u8] = &[7, 7, 7];
 
         let snark_clerk = SnarkClerk::new_clerk_from_signer(&signer);
-        let expected_proof_bytes = dummy_snark_proof(PARAMS).to_bytes().unwrap();
+        let expected_proof_bytes = dummy_snark_proof().to_bytes().unwrap();
         let expected_avk = snark_clerk.compute_aggregate_verification_key_for_snark();
 
         let clerk = MockProverFactory::new()

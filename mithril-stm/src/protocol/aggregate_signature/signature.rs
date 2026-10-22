@@ -648,7 +648,7 @@ mod tests {
                 tests::common::asset_readers::load_embedded_verification_context_asset,
                 types::MessageHash,
             },
-            proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, halo2_ivc_snark::IvcVerifierData},
+            proof_system::halo2_ivc_snark::IvcVerifierData,
             protocol::aggregate_signature::tests::setup_equal_parties,
         };
 
@@ -667,15 +667,15 @@ mod tests {
 
         // A dummy Snark proof suffices: the ancillary-data checks fire before any cryptographic
         // verification, so the proof bytes are never inspected.
-        fn dummy_snark_aggregate_signature(params: Parameters) -> AggregateSignature<D> {
-            let proof = SnarkProof::<D>::new(vec![], params, MERKLE_TREE_DEPTH_FOR_SNARK);
+        fn dummy_snark_aggregate_signature() -> AggregateSignature<D> {
+            let proof = SnarkProof::<D>::new(vec![]);
             AggregateSignature::Snark(Box::new(proof))
         }
 
         #[test]
         fn snark_verify_fails_without_ancillary_verifier_data() {
             let (avk, params) = snark_capable_avk_and_params();
-            let snark = dummy_snark_aggregate_signature(params);
+            let snark = dummy_snark_aggregate_signature();
 
             let err = snark
                 .verify(&[0u8; 32], &avk, &params, None, None)
@@ -690,7 +690,7 @@ mod tests {
         #[test]
         fn snark_verify_fails_with_ivc_ancillary_verifier_data() {
             let (avk, params) = snark_capable_avk_and_params();
-            let snark = dummy_snark_aggregate_signature(params);
+            let snark = dummy_snark_aggregate_signature();
             let context = load_embedded_verification_context_asset()
                 .expect("verification context asset should load");
             let wrong_typed_ancillary = AncillaryVerifierData::IvcSnark(IvcVerifierData::new(
@@ -711,12 +711,7 @@ mod tests {
 
         #[test]
         fn legacy_outer_envelope_wraps_new_cbor_snark_proof() {
-            let params = Parameters {
-                m: 10,
-                k: 3,
-                phi_f: 0.9,
-            };
-            let proof = SnarkProof::<D>::new(vec![1, 2, 3], params, MERKLE_TREE_DEPTH_FOR_SNARK);
+            let proof = SnarkProof::<D>::new(vec![1, 2, 3]);
             let inner = proof.to_bytes().expect("proof serialization should not fail");
 
             // Legacy outer type-prefix framing wrapping a new-format (versioned CBOR) inner proof
