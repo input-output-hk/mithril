@@ -72,10 +72,7 @@ mod tests {
     #[test]
     fn test_retrieve_blocks_transactions_from_immutable_files() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let immutables_path = PathBuf::from(manifest_dir)
-            .parent()
-            .expect("Failed to get parent directory")
-            .join("test_data/immutable");
+        let immutables_path = PathBuf::from(manifest_dir).join("tests/assets/immutable");
 
         let blocks_and_transactions =
             retrieve_blocks_transactions_from_immutable_files(&immutables_path)

@@ -76,11 +76,11 @@
           isCargoConfig = parentDir == ".cargo" && base == "config";
           isOpenApiYaml = base == "openapi.yaml";
           isFakeAggregatorDefaultData = lib.hasInfix "/mithril-aggregator-fake/default_data/" path;
-          isTestDataAsset = lib.hasInfix "/test_data/" path;
+          isTestsAsset = lib.hasInfix "/tests/assets/" path;
           isGoldenVector = lib.hasInfix "/golden_vectors/" path;
         in
           type == "directory" || matchesSuffix || isCargoFile || isCargoConfig || isOpenApiYaml
-                || isFakeAggregatorDefaultData || isTestDataAsset || isGoldenVector;
+                || isFakeAggregatorDefaultData || isTestsAsset || isGoldenVector;
 
         clean = root:
           lib.cleanSourceWith {
