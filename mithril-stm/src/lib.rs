@@ -64,10 +64,7 @@ pub use signature_scheme::{
     UniqueSchnorrSignature,
 };
 
-#[cfg(all(feature = "snark", not(feature = "benchmark-internals")))]
-use hash::poseidon::MidnightPoseidonDigest;
-
-#[cfg(all(feature = "snark", feature = "benchmark-internals"))]
+#[cfg(feature = "snark")]
 use hash::poseidon::MidnightPoseidonDigest;
 
 #[cfg(feature = "snark")]
