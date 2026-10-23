@@ -12,7 +12,7 @@ use std::sync::Arc;
 use mithril_doc::{Documenter, StructDoc};
 
 use mithril_setup::CommandContext;
-use mithril_setup::signer::SignerCommand;
+use mithril_setup::commands::signer::SignerCommand;
 
 enum LogOutputType {
     StdErr,
