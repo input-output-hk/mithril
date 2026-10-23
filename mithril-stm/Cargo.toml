@@ -52,6 +52,8 @@ snark = [
     "dep:midnight-proofs",
     "dep:midnight-zk-stdlib",
     "dep:num-bigint",
+    "dep:num-integer",
+    "dep:num-rational",
     "dep:num-traits",
     "dep:rand",
     "dep:sha2",
