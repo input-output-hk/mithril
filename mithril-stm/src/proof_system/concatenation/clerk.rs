@@ -41,7 +41,10 @@ impl ConcatenationClerk {
     pub fn compute_aggregate_verification_key_for_concatenation<D: MembershipDigest>(
         &self,
     ) -> AggregateVerificationKeyForConcatenation<D> {
-        AggregateVerificationKeyForConcatenation::from(&self.closed_key_registration)
+        AggregateVerificationKeyForConcatenation::from(
+            self.closed_key_registration
+                .get_closed_key_registration_for_concatenation(),
+        )
     }
 
     #[cfg(test)]
