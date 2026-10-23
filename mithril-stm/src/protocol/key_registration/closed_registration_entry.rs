@@ -629,4 +629,50 @@ mod tests {
             );
         }
     }
+
+    mod golden_ordering {
+        use super::*;
+
+        /// Creation index of each entry, in the sorted order.
+        const GOLDEN_ORDER: [usize; 8] = [6, 3, 1, 2, 5, 4, 0, 7];
+
+        fn entries() -> Vec<ClosedRegistrationEntry> {
+            let mut concatenation_rng = ChaCha20Rng::from_seed([2u8; 32]);
+            #[cfg(feature = "snark")]
+            let mut snark_rng = ChaCha20Rng::from_seed([1u8; 32]);
+
+            [300, 100, 200, 100, 300, 200, 100, 500]
+                .into_iter()
+                .map(|stake| {
+                    ClosedRegistrationEntry::new(
+                        VerificationKeyProofOfPossessionForConcatenation::from(
+                            &BlsSigningKey::generate(&mut concatenation_rng),
+                        )
+                        .vk,
+                        stake,
+                        #[cfg(feature = "snark")]
+                        Some(VerificationKeyForSnark::new_from_signing_key(
+                            SchnorrSigningKey::generate(&mut snark_rng),
+                        )),
+                        #[cfg(feature = "snark")]
+                        Some(LotteryTargetValue::get_one()),
+                    )
+                })
+                .collect()
+        }
+
+        #[test]
+        fn ordering_is_stable() {
+            let entries = entries();
+            let mut sorted_entries = entries.clone();
+            sorted_entries.sort();
+
+            let order: Vec<usize> = sorted_entries
+                .iter()
+                .map(|sorted_entry| entries.iter().position(|entry| entry == sorted_entry).unwrap())
+                .collect();
+
+            assert_eq!(GOLDEN_ORDER.as_slice(), order.as_slice());
+        }
+    }
 }

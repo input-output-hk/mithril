@@ -205,4 +205,51 @@ mod tests {
 
         assert_eq!(None, entry.get_verification_key_for_snark());
     }
+
+    mod golden_ordering {
+        use super::*;
+
+        /// Creation index of each entry, in the sorted order.
+        const GOLDEN_ORDER: [usize; 8] = [6, 3, 1, 2, 5, 4, 0, 7];
+
+        /// Entries with repeated stakes, so that their order also depends on the verification key
+        /// for concatenation. Each key comes from its own random generator, so the verification
+        /// keys for concatenation do not depend on the `snark` feature.
+        fn entries() -> Vec<RegistrationEntry> {
+            let mut concatenation_rng = ChaCha20Rng::from_seed([2u8; 32]);
+            #[cfg(feature = "snark")]
+            let mut snark_rng = ChaCha20Rng::from_seed([1u8; 32]);
+
+            [300, 100, 200, 100, 300, 200, 100, 500]
+                .into_iter()
+                .map(|stake| {
+                    RegistrationEntry::new(
+                        VerificationKeyProofOfPossessionForConcatenation::from(
+                            &BlsSigningKey::generate(&mut concatenation_rng),
+                        ),
+                        stake,
+                        #[cfg(feature = "snark")]
+                        Some(VerificationKeyForSnark::new_from_signing_key(
+                            SchnorrSigningKey::generate(&mut snark_rng),
+                        )),
+                    )
+                    .unwrap()
+                })
+                .collect()
+        }
+
+        #[test]
+        fn ordering_is_stable() {
+            let entries = entries();
+            let mut sorted_entries = entries.clone();
+            sorted_entries.sort();
+
+            let order: Vec<usize> = sorted_entries
+                .iter()
+                .map(|sorted_entry| entries.iter().position(|entry| entry == sorted_entry).unwrap())
+                .collect();
+
+            assert_eq!(GOLDEN_ORDER.as_slice(), order.as_slice());
+        }
+    }
 }
