@@ -86,13 +86,7 @@ impl KeyRegistration {
             return Err(RegisterError::EmptyRegistration.into());
         }
         params.validate()?;
-        self.registration_entries.iter().try_fold(0u64, |acc, entry| {
-            acc.checked_add(entry.get_stake())
-                .ok_or(RegisterError::TotalStakeOverflow {
-                    accumulated_stake: acc,
-                    stake: entry.get_stake(),
-                })
-        })?;
+        self.check_total_stake_registered()?;
 
         let deduplicated_entries_for_concatenation =
             Self::deduplicate_concatenation_keys_from_entries(&self.registration_entries);
@@ -151,6 +145,18 @@ impl KeyRegistration {
             .cloned()
             .collect()
     }
+
+    /// Checks that the total stake registered does not overflow the `u64` limit
+    fn check_total_stake_registered(&self) -> StmResult<()> {
+        self.registration_entries.iter().try_fold(0u64, |acc, entry| {
+            acc.checked_add(entry.get_stake())
+                .ok_or(RegisterError::TotalStakeOverflow {
+                    accumulated_stake: acc,
+                    stake: entry.get_stake(),
+                })
+        })?;
+        Ok(())
+    }
 }
 
 /// Structure holding the ClosedRegistration of each proof system
@@ -199,17 +205,13 @@ impl ClosedKeyRegistration {
 }
 
 /// Closed registration of a proof system: its deduplicated entries and their total stake.
-///
-/// `L` is the Merkle tree leaf type of the proof system, so the Merkle tree built from it always
-/// holds the leaves of that proof system. It can only be built from entries with a non-zero total
-/// stake, so it holds at least one entry and its Merkle tree is never empty.
-pub struct ClosedRegistrationForProofSystem<L> {
+pub struct ClosedRegistrationForProofSystem<L: MerkleTreeLeaf> {
     deduplicated_entries: BTreeSet<ClosedRegistrationEntry>,
     total_stake: Stake,
     leaf_type: PhantomData<L>,
 }
 
-impl<L> ClosedRegistrationForProofSystem<L> {
+impl<L: MerkleTreeLeaf> ClosedRegistrationForProofSystem<L> {
     /// Computes the total stake of the given deduplicated entries and closes them with it.
     ///
     /// # Error
@@ -286,7 +288,7 @@ impl<L> ClosedRegistrationForProofSystem<L> {
     }
 }
 
-impl<L> Clone for ClosedRegistrationForProofSystem<L> {
+impl<L: MerkleTreeLeaf> Clone for ClosedRegistrationForProofSystem<L> {
     fn clone(&self) -> Self {
         Self {
             deduplicated_entries: self.deduplicated_entries.clone(),
@@ -296,7 +298,7 @@ impl<L> Clone for ClosedRegistrationForProofSystem<L> {
     }
 }
 
-impl<L> Debug for ClosedRegistrationForProofSystem<L> {
+impl<L: MerkleTreeLeaf> Debug for ClosedRegistrationForProofSystem<L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ClosedRegistrationForProofSystem")
             .field("deduplicated_entries", &self.deduplicated_entries)
@@ -305,22 +307,22 @@ impl<L> Debug for ClosedRegistrationForProofSystem<L> {
     }
 }
 
-impl<L> PartialEq for ClosedRegistrationForProofSystem<L> {
+impl<L: MerkleTreeLeaf> PartialEq for ClosedRegistrationForProofSystem<L> {
     fn eq(&self, other: &Self) -> bool {
         self.deduplicated_entries == other.deduplicated_entries
             && self.total_stake == other.total_stake
     }
 }
 
-impl<L> Eq for ClosedRegistrationForProofSystem<L> {}
+impl<L: MerkleTreeLeaf> Eq for ClosedRegistrationForProofSystem<L> {}
 
-impl<L> PartialOrd for ClosedRegistrationForProofSystem<L> {
+impl<L: MerkleTreeLeaf> PartialOrd for ClosedRegistrationForProofSystem<L> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<L> Ord for ClosedRegistrationForProofSystem<L> {
+impl<L: MerkleTreeLeaf> Ord for ClosedRegistrationForProofSystem<L> {
     fn cmp(&self, other: &Self) -> Ordering {
         (&self.deduplicated_entries, self.total_stake)
             .cmp(&(&other.deduplicated_entries, other.total_stake))
@@ -624,74 +626,6 @@ mod tests {
         kr.register_by_entry(&second_entry);
     }
 
-    #[cfg(feature = "snark")]
-    mod deduplicate_snark_keys {
-        use super::*;
-
-        #[test]
-        fn keeps_only_the_highest_stake_entry_for_a_shared_key() {
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let shared_vk = new_schnorr_vk(&mut rng);
-            let lowest = entry_with_snark_key(new_vk_pop(&mut rng), 100, shared_vk);
-            let middle = entry_with_snark_key(new_vk_pop(&mut rng), 200, shared_vk);
-            let highest = entry_with_snark_key(new_vk_pop(&mut rng), 300, shared_vk);
-
-            let result = KeyRegistration::deduplicate_snark_keys_from_entries(&BTreeSet::from([
-                middle, highest, lowest,
-            ]));
-
-            assert_eq!(BTreeSet::from([highest]), result);
-        }
-
-        #[test]
-        fn breaks_stake_ties_with_the_concatenation_key() {
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let shared_vk = new_schnorr_vk(&mut rng);
-            let first = entry_with_snark_key(new_vk_pop(&mut rng), 100, shared_vk);
-            let second = entry_with_snark_key(new_vk_pop(&mut rng), 100, shared_vk);
-            let (loser, winner) = if first < second {
-                (first, second)
-            } else {
-                (second, first)
-            };
-
-            let result = KeyRegistration::deduplicate_snark_keys_from_entries(&BTreeSet::from([
-                loser, winner,
-            ]));
-
-            assert_eq!(BTreeSet::from([winner]), result);
-        }
-
-        #[test]
-        fn drops_entries_without_snark_key() {
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let without_snark_key = entry(new_vk_pop(&mut rng), 100);
-            let with_snark_key =
-                entry_with_snark_key(new_vk_pop(&mut rng), 200, new_schnorr_vk(&mut rng));
-
-            let result = KeyRegistration::deduplicate_snark_keys_from_entries(&BTreeSet::from([
-                without_snark_key,
-                with_snark_key,
-            ]));
-
-            assert_eq!(BTreeSet::from([with_snark_key]), result);
-        }
-
-        #[test]
-        fn leaves_entries_without_collision_untouched() {
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let first_unique_vk = new_schnorr_vk(&mut rng);
-            let first_unique = entry_with_snark_key(new_vk_pop(&mut rng), 200, first_unique_vk);
-            let second_unique_vk = new_schnorr_vk(&mut rng);
-            let second_unique = entry_with_snark_key(new_vk_pop(&mut rng), 300, second_unique_vk);
-            let entries = BTreeSet::from([first_unique, second_unique]);
-
-            let result = KeyRegistration::deduplicate_snark_keys_from_entries(&entries);
-
-            assert_eq!(entries, result);
-        }
-    }
-
     mod deduplicate_concatenation_keys {
         use super::*;
 
@@ -758,6 +692,74 @@ mod tests {
                 ]));
 
             assert_eq!(BTreeSet::from([higher]), result);
+        }
+    }
+
+    #[cfg(feature = "snark")]
+    mod deduplicate_snark_keys {
+        use super::*;
+
+        #[test]
+        fn keeps_only_the_highest_stake_entry_for_a_shared_key() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let shared_vk = new_schnorr_vk(&mut rng);
+            let lowest = entry_with_snark_key(new_vk_pop(&mut rng), 100, shared_vk);
+            let middle = entry_with_snark_key(new_vk_pop(&mut rng), 200, shared_vk);
+            let highest = entry_with_snark_key(new_vk_pop(&mut rng), 300, shared_vk);
+
+            let result = KeyRegistration::deduplicate_snark_keys_from_entries(&BTreeSet::from([
+                middle, highest, lowest,
+            ]));
+
+            assert_eq!(BTreeSet::from([highest]), result);
+        }
+
+        #[test]
+        fn breaks_stake_ties_with_the_concatenation_key() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let shared_vk = new_schnorr_vk(&mut rng);
+            let first = entry_with_snark_key(new_vk_pop(&mut rng), 100, shared_vk);
+            let second = entry_with_snark_key(new_vk_pop(&mut rng), 100, shared_vk);
+            let (loser, winner) = if first < second {
+                (first, second)
+            } else {
+                (second, first)
+            };
+
+            let result = KeyRegistration::deduplicate_snark_keys_from_entries(&BTreeSet::from([
+                loser, winner,
+            ]));
+
+            assert_eq!(BTreeSet::from([winner]), result);
+        }
+
+        #[test]
+        fn drops_entries_without_snark_key() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let without_snark_key = entry(new_vk_pop(&mut rng), 100);
+            let with_snark_key =
+                entry_with_snark_key(new_vk_pop(&mut rng), 200, new_schnorr_vk(&mut rng));
+
+            let result = KeyRegistration::deduplicate_snark_keys_from_entries(&BTreeSet::from([
+                without_snark_key,
+                with_snark_key,
+            ]));
+
+            assert_eq!(BTreeSet::from([with_snark_key]), result);
+        }
+
+        #[test]
+        fn leaves_entries_without_collision_untouched() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let first_unique_vk = new_schnorr_vk(&mut rng);
+            let first_unique = entry_with_snark_key(new_vk_pop(&mut rng), 200, first_unique_vk);
+            let second_unique_vk = new_schnorr_vk(&mut rng);
+            let second_unique = entry_with_snark_key(new_vk_pop(&mut rng), 300, second_unique_vk);
+            let entries = BTreeSet::from([first_unique, second_unique]);
+
+            let result = KeyRegistration::deduplicate_snark_keys_from_entries(&entries);
+
+            assert_eq!(entries, result);
         }
     }
 

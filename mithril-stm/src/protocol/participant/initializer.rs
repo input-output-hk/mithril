@@ -108,9 +108,11 @@ impl Initializer {
         ))
     }
 
-    /// Finds the signer index in the deduplicated Concatenation entries and creates the
-    /// Concatenation proof signer. Fails when the initializer is not registered, for example when
-    /// it lost its BLS key to an entry with more stake.
+    /// Tries to create the Concatenation proof signer
+    ///
+    /// First tries to find the signer index in the deduplicated Concatenation entries then
+    /// creates the Concatenation proof signer and returns both values. Fails when the
+    /// verification key is not registered or the ClosedRegistrationEntry cannot be created.
     fn try_create_concatenation_proof_signer<D: MembershipDigest>(
         &self,
         registration_entry: RegistrationEntry,
@@ -146,8 +148,10 @@ impl Initializer {
         ))
     }
 
-    /// Creates the SNARK proof signer, or `None` when the initializer has no SNARK key, lost it to
-    /// an entry with more stake, or when there is no SNARK entry at all.
+    /// Creates the SNARK proof signer or returns `None`
+    ///
+    /// Returns `None` when the initializer has no SNARK key, lost it during deduplication,
+    /// or when there is no SNARK entry at all.
     #[cfg(feature = "snark")]
     fn create_snark_proof_signer<D: MembershipDigest>(
         &self,
