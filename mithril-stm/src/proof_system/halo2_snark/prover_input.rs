@@ -91,11 +91,12 @@ impl SnarkProverInput {
             .iter()
             .filter_map(|sig| {
                 let snark_sig = sig.snark_signature.as_ref()?;
-                let reg_entry = match clerk.get_snark_registration_entry(sig.signer_index) {
-                    Ok(Some(entry)) => entry,
-                    Ok(None) => return None,
-                    Err(_) => return None,
-                };
+                let reg_entry =
+                    match clerk.get_snark_registration_entry(snark_sig.get_snark_signer_index()) {
+                        Ok(Some(entry)) => entry,
+                        Ok(None) => return None,
+                        Err(_) => return None,
+                    };
                 snark_sig
                     .verify_with_prepared_message(&reg_entry.0, message_to_sign)
                     .ok()?;
@@ -118,7 +119,9 @@ impl SnarkProverInput {
     /// The construction proceeds in two phases:
     /// 1. Signer deduplication: iterates over the signatures to collect, for each unique signer,
     ///    the Merkle leaf (verification key + lottery target) and authentication path. A `BTreeMap`
-    ///    keyed by `SignerIndex` ensures each signer's path is computed only once. Signers whose
+    ///    keyed by the SNARK signer index carried in the signature ensures each signer's path is
+    ///    computed only once, the index being also the position of its leaf in the SNARK Merkle
+    ///    tree. Signers whose
     ///    registration entry is missing (`Ok(None)`) or whose lookup fails (`Err`) are skipped,
     ///    since the input signatures have already been validated upstream.
     /// 2. Entry assembly: maps every `(lottery_index, signature)` pair to a circuit witness tuple by
@@ -134,19 +137,22 @@ impl SnarkProverInput {
         clerk: &SnarkClerk,
     ) -> StmResult<CircuitWitness> {
         let merkle_tree: MerkleTree<D::SnarkHash, MerkleTreeSnarkLeaf> =
-            clerk.closed_key_registration.to_merkle_tree();
+            clerk.closed_key_registration_for_snark.to_merkle_tree();
         let mut unique_signers: BTreeMap<SignerIndex, (MerkleTreeSnarkLeaf, Halo2MerklePath)> =
             BTreeMap::new();
 
         for sig in unique_index_signature_map.values() {
-            if let Entry::Vacant(vacant) = unique_signers.entry(sig.signer_index) {
-                let leaf = match clerk.get_snark_registration_entry(sig.signer_index) {
+            let Some(snark_signer_index) = sig.get_snark_signer_index() else {
+                continue;
+            };
+            if let Entry::Vacant(vacant) = unique_signers.entry(snark_signer_index) {
+                let leaf = match clerk.get_snark_registration_entry(snark_signer_index) {
                     Ok(Some(entry)) => entry,
                     Ok(None) => continue,
                     Err(_) => continue,
                 };
                 let merkle_path = merkle_tree.compute_merkle_tree_path_fixed_length(
-                    sig.signer_index as usize,
+                    snark_signer_index as usize,
                     MERKLE_TREE_DEPTH_FOR_SNARK,
                 );
                 let merkle_path_circuit: Halo2MerklePath = Halo2MerklePath::try_from(&merkle_path)?;
@@ -157,19 +163,19 @@ impl SnarkProverInput {
         unique_index_signature_map
             .into_iter()
             .map(|(lottery_index, sig)| {
-                let (leaf, merkle_path) = unique_signers
-                    .get(&sig.signer_index)
-                    .ok_or(AggregationError::MissingSnarkSignerData(sig.signer_index))?;
-                let schnorr_sig = sig
+                let snark_signature = sig
                     .snark_signature
                     .as_ref()
-                    .ok_or(AggregationError::MissingSnarkSignature(lottery_index))?
-                    .get_schnorr_signature();
+                    .ok_or(AggregationError::MissingSnarkSignature(lottery_index))?;
+                let snark_signer_index = snark_signature.get_snark_signer_index();
+                let (leaf, merkle_path) = unique_signers
+                    .get(&snark_signer_index)
+                    .ok_or(AggregationError::MissingSnarkSignerData(snark_signer_index))?;
                 let circuit_leaf = CircuitMerkleTreeLeaf(leaf.0, leaf.1.into());
                 Ok(CircuitWitnessEntry {
                     leaf: circuit_leaf,
                     merkle_path: merkle_path.clone(),
-                    unique_schnorr_signature: schnorr_sig,
+                    unique_schnorr_signature: snark_signature.get_schnorr_signature(),
                     lottery_index,
                 })
             })
@@ -212,7 +218,7 @@ mod tests {
 
         for _ in 0..nparties {
             let init = Initializer::new(params, 1, rng);
-            key_reg.register_by_entry(&init.clone().try_into().unwrap()).unwrap();
+            key_reg.register_by_entry(&init.clone().try_into().unwrap());
             initializers.push(init);
         }
 
@@ -222,7 +228,7 @@ mod tests {
             .map(|init| init.try_create_signer::<D>(&closed_reg).unwrap())
             .collect();
 
-        let clerk = SnarkClerk::new_clerk_from_signer(&signers[0]);
+        let clerk = SnarkClerk::new_clerk_from_signer(&signers[0]).unwrap();
         (signers, clerk)
     }
 
@@ -262,7 +268,7 @@ mod tests {
     fn fails_when_not_enough_signatures() {
         let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
         let params = Parameters {
-            m: 5,
+            m: 100,
             k: 100,
             phi_f: 0.2,
         };
