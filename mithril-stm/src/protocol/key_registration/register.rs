@@ -1267,6 +1267,9 @@ mod tests {
             "hasher":null
         }"#;
 
+        /// Party `i` has stake `i`, so party 0 has a zero stake and the golden values also cover
+        /// an entry with a zero stake, which never wins a lottery but still gets a leaf in both
+        /// Merkle trees.
         fn closed_key_registration_no_collision() -> ClosedKeyRegistration {
             let params = Parameters {
                 m: 10,
