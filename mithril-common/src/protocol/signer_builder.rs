@@ -239,8 +239,22 @@ mod test {
         let mut signers = fixture.signers_with_stake();
         signers.append(&mut fixture_with_another_stake_distribution.signers_with_stake());
 
-        SignerBuilder::new(&signers, &fixture.protocol_parameters(), Epoch::default())
-            .expect("signers colliding on their keys should not prevent building a signer builder");
+        let signer_builder =
+            SignerBuilder::new(&signers, &fixture.protocol_parameters(), Epoch::default()).expect(
+                "signers colliding on their keys should not prevent building a signer builder",
+            );
+        let signer_builder_without_collision = SignerBuilder::new(
+            &fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
+            Epoch::default(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            signer_builder_without_collision.compute_aggregate_verification_key(),
+            signer_builder.compute_aggregate_verification_key(),
+            "the colliding signer duplicates an existing one, so it should not change the AVK"
+        );
     }
 
     #[test]
@@ -358,11 +372,26 @@ mod test {
             )
             .unwrap();
 
-        SignerBuilder::new(
-            &[lower_stake_signer, higher_stake_signer],
-            &ProtocolParameters::new(5, 5, 1.0),
+        let protocol_parameters = ProtocolParameters::new(5, 5, 1.0);
+        let avk = SignerBuilder::new(
+            &[lower_stake_signer, higher_stake_signer.clone()],
+            &protocol_parameters,
             epoch,
         )
-        .expect("two signers sharing a SNARK key should not prevent building a signer builder");
+        .expect("two signers sharing a SNARK key should not prevent building a signer builder")
+        .compute_aggregate_verification_key();
+        let avk_of_the_higher_stake_signer =
+            SignerBuilder::new(&[higher_stake_signer], &protocol_parameters, epoch)
+                .unwrap()
+                .compute_aggregate_verification_key();
+
+        assert_eq!(
+            avk_of_the_higher_stake_signer
+                .to_snark_aggregate_verification_key()
+                .expect("the higher stake signer should have a SNARK AVK"),
+            avk.to_snark_aggregate_verification_key()
+                .expect("the signers sharing a SNARK key should have a SNARK AVK"),
+            "the SNARK key should only be kept by the signer with the higher stake"
+        );
     }
 }
