@@ -125,7 +125,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         }
     }
 
-    #[cfg(all(feature = "snark", test))]
+    #[cfg(test)]
     /// Used in property test of `tree`: `test_bytes_tree_commitment_batch_compat`
     pub(crate) fn get_number_of_leaves(&self) -> usize {
         self.nr_leaves

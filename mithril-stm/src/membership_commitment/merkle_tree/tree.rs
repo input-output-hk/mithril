@@ -266,7 +266,6 @@ mod tests {
                 assert_eq!(tree_commitment.root, decoded.root);
             }
 
-            #[cfg(feature = "snark")]
             #[test]
             fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
                 let encoded = t.to_merkle_tree_batch_commitment().to_bytes().expect("MerkleTreeBatchCommitment serialization should not fail");
@@ -363,7 +362,6 @@ mod tests {
             }
         }
 
-        #[cfg(feature = "snark")]
         mod golden {
             use super::*;
 
@@ -411,7 +409,6 @@ mod tests {
             }
         }
 
-        #[cfg(feature = "snark")]
         mod golden_json {
             use super::*;
             const GOLDEN_JSON: &str = r#"
